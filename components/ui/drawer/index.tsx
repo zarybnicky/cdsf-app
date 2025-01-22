@@ -215,8 +215,8 @@ const DrawerContent = React.forwardRef<
 >(({ className, ...props }, ref) => {
   const { size: parentSize, anchor: parentAnchor } = useStyleContext(SCOPE);
 
-  const drawerHeight = screenHeight * (sizes[parentSize] || sizes.md);
-  const drawerWidth = screenWidth * (sizes[parentSize] || sizes.md);
+  const drawerHeight = screenHeight * (sizes[parentSize] || sizes.md || 1);
+  const drawerWidth = screenWidth * (sizes[parentSize] || sizes.md || 1);
 
   const isHorizontal = parentAnchor === 'left' || parentAnchor === 'right';
 

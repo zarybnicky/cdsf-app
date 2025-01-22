@@ -9,6 +9,12 @@ import { ScrollView } from "react-native";
 import { Text } from "@/components/ui/text";
 
 import { Link } from "expo-router";
+import { VStack } from "@/components/ui/vstack";
+import { FormControl, FormControlError, FormControlErrorIcon, FormControlErrorText, FormControlLabel, FormControlLabelText } from "@/components/ui/form-control";
+import { Input, InputField } from "@/components/ui/input";
+import { AlertCircleIcon } from "@/components/ui/icon";
+import { Button, ButtonText } from "@/components/ui/button";
+import { client } from "@/components/client";
 
 const FeatureCard = ({ iconSvg: IconSvg, name, desc }: any) => {
   return (
@@ -49,7 +55,7 @@ export default function Home() {
                 ./App.tsx
               </Text>
             </Box>
-            <Link href="/tabs/">
+            <Link href="/tabs">
               <Box className="bg-background-template py-2 px-6 rounded-full items-center flex-column sm:flex-row md:self-start">
                 <Text className="text-typography-white font-normal">
                   Explore Tab Navigation
@@ -60,6 +66,8 @@ export default function Home() {
           <Box className="flex-1 justify-center items-center h-[20px] w-[300px] lg:h-[160px] lg:w-[400px]">
             <Logo />
           </Box>
+
+          <App />
 
           <Box className="flex-column md:flex-row">
             <FeatureCard
@@ -81,5 +89,70 @@ export default function Home() {
         </Box>
       </ScrollView>
     </Box>
+  );
+}
+
+function App () {
+  const [login, setLogin] = React.useState('');
+  const [password, setPassword] = React.useState('');
+  const [errorMessage, setErrorMessage] = React.useState('');
+  const [token, setToken] = React.useState('');
+
+  const handleSubmit = async () => {
+    setErrorMessage('');
+
+    const response = await client.POST("/credentials", {
+      body: {
+        login,
+        password,
+        purpose: "Mobilní aplikace ČSTS 2.0"
+      },
+    });
+
+    if (response.data) {
+      setToken(response.data)
+    } else {
+      setErrorMessage(new String(response.error).toString());
+    }
+  };
+
+  return (
+    <VStack
+      className="w-full max-w-[300px] rounded-md bg-background-0 p-4"
+      accessibilityRole="form"
+    >
+
+      <FormControl size="md" isRequired={true}>
+        <FormControlLabel>
+          <FormControlLabelText>E-mail</FormControlLabelText>
+        </FormControlLabel>
+        <Input className="my-1">
+          <InputField
+            type="text"
+            placeholder="E-mail"
+            value={login}
+            onChangeText={setLogin}
+          />
+        </Input>
+      </FormControl>
+
+      <FormControl size="md" isRequired={true} >
+        <FormControlLabel>
+          <FormControlLabelText>Password</FormControlLabelText>
+        </FormControlLabel>
+        <Input className="my-1">
+          <InputField
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChangeText={setPassword}
+          />
+        </Input>
+      </FormControl>
+
+      <Button className="w-fit self-end mt-4" size="sm" onPress={handleSubmit}>
+        <ButtonText>Submit</ButtonText>
+      </Button>
+    </VStack>
   );
 }

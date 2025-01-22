@@ -13,7 +13,7 @@ import { cssInterop } from 'nativewind';
 import {
   useBreakpointValue,
   getBreakPointValue,
-} from '../../hooks/use-break-point-value';
+} from '../utils/use-break-point-value';
 
 const { width: DEVICE_WIDTH } = Dimensions.get('window');
 
@@ -37,7 +37,7 @@ function arrangeChildrenIntoRows({
   } = {};
 
   for (let i = 0; i < childrenArray.length; i++) {
-    const colSpan = colSpanArr[i];
+    const colSpan = colSpanArr[i] || 1;
 
     // if current row is full, go to next row
     if (currentRowTotalColSpan + colSpan > numColumns) {
@@ -49,7 +49,7 @@ function arrangeChildrenIntoRows({
     }
 
     rowItemsCount[currentRow] = rowItemsCount[currentRow]
-      ? [...rowItemsCount[currentRow], i]
+      ? [...rowItemsCount[currentRow] || [], i]
       : [i];
   }
 
@@ -71,7 +71,7 @@ function generateResponsiveNumColumns({ gridClass }: { gridClass: string }) {
     const match = classname.match(regex);
     if (match) {
       const prefix = match[1] || 'default';
-      const value = parseInt(match[2], 10);
+      const value = parseInt(match[2] || '1', 10);
       result[prefix] = value;
     }
   });
