@@ -7,14 +7,14 @@ import Logo from "@/assets/Icons/Logo";
 import { Box } from "@/components/ui/box";
 import { ScrollView } from "react-native";
 import { Text } from "@/components/ui/text";
-
 import { Link } from "expo-router";
 import { VStack } from "@/components/ui/vstack";
-import { FormControl, FormControlError, FormControlErrorIcon, FormControlErrorText, FormControlLabel, FormControlLabelText } from "@/components/ui/form-control";
+import { FormControl, FormControlLabel, FormControlLabelText } from "@/components/ui/form-control";
 import { Input, InputField } from "@/components/ui/input";
-import { AlertCircleIcon } from "@/components/ui/icon";
 import { Button, ButtonText } from "@/components/ui/button";
-import { client } from "@/components/client";
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { useAtom, useAtomValue } from "jotai";
+import { athletesAtom, logInAtom, notificationsAtom } from "@/store";
 
 const FeatureCard = ({ iconSvg: IconSvg, name, desc }: any) => {
   return (
@@ -92,35 +92,84 @@ export default function Home() {
   );
 }
 
+function DateComponent() {
+  const [date, setDate] = React.useState(new Date(1598051730000));
+  const [mode, setMode] = React.useState<'date' | 'time'>('date');
+  const [show, setShow] = React.useState(false);
+
+  const onChange = (_event: any, selectedDate?: Date) => {
+    setShow(false);
+    if (selectedDate)
+      setDate(selectedDate);
+  };
+
+  const showMode = (currentMode: 'date' | 'time') => {
+    setShow(true);
+    setMode(currentMode);
+  };
+
+  const showDatepicker = () => {
+    showMode('date');
+  };
+
+  const showTimepicker = () => {
+    showMode('time');
+  };
+
+  return (
+    <VStack>
+      <Button onPress={showDatepicker}>Show date picker</Button>
+      <Button onPress={showTimepicker}>Show time picker!</Button>
+      <Text>selected: {date.toLocaleString()}</Text>
+      {show && (
+        <DateTimePicker
+          testID="dateTimePicker"
+          value={date}
+          mode={mode}
+          is24Hour={true}
+          onChange={onChange}
+        />
+      )}
+    </VStack>
+  );
+}
+
 function App () {
-  const [login, setLogin] = React.useState('');
+  const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [errorMessage, setErrorMessage] = React.useState('');
-  const [token, setToken] = React.useState('');
+
+  const [isLoggedIn, logInOut] = useAtom(logInAtom);
+  const athletes = useAtomValue(athletesAtom);
+  const notifications = useAtomValue(notificationsAtom);
 
   const handleSubmit = async () => {
     setErrorMessage('');
 
-    const response = await client.POST("/credentials", {
-      body: {
-        login,
-        password,
-        purpose: "Mobilní aplikace ČSTS 2.0"
-      },
-    });
-
-    if (response.data) {
-      setToken(response.data)
+    if (isLoggedIn) {
+      logInOut(null);
     } else {
-      setErrorMessage(new String(response.error).toString());
+      const response = await logInOut({ email, password });
+      if (response >= 400) {
+        setErrorMessage(response.toString());
+      }
     }
   };
 
-  return (
-    <VStack
-      className="w-full max-w-[300px] rounded-md bg-background-0 p-4"
-      accessibilityRole="form"
-    >
+  return isLoggedIn ? (
+    <VStack className="w-full max-w-[300px] rounded-md bg-background-0 p-4">
+      Logged in
+
+      Athletes: {athletes.length}
+      Notifications: {notifications.length}
+
+      <Button className="w-fit self-end mt-4" size="sm" onPress={handleSubmit}>
+        <ButtonText>Log out</ButtonText>
+      </Button>
+    </VStack>
+  ): (
+    <VStack className="w-full max-w-[300px] rounded-md bg-background-0 p-4">
+      {errorMessage || null}
 
       <FormControl size="md" isRequired={true}>
         <FormControlLabel>
@@ -130,8 +179,8 @@ function App () {
           <InputField
             type="text"
             placeholder="E-mail"
-            value={login}
-            onChangeText={setLogin}
+            value={email}
+            onChangeText={setEmail}
           />
         </Input>
       </FormControl>
