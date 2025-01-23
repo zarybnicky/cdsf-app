@@ -17,6 +17,7 @@ export default function TabLayout() {
         // Disable the static render of the header on web
         // to prevent a hydration error in React Navigation v6.
         headerShown: useClientOnlyValue(false, true),
+        tabBarLabelPosition: 'below-icon',
       }}
     >
       <Tabs.Screen
@@ -35,9 +36,9 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="tab2"
+        name="notifications"
         options={{
-          title: "Tab 2",
+          title: "Upozornění",
           tabBarIcon: ({ color }) => <TabBarIcon name="star-o" color={color} />,
         }}
       />

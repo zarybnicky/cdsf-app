@@ -14,7 +14,7 @@ import { Input, InputField } from "@/components/ui/input";
 import { Button, ButtonText } from "@/components/ui/button";
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useAtom, useAtomValue } from "jotai";
-import { athletesAtom, logInAtom, notificationsAtom } from "@/store";
+import { athletesAtom, logInAtom } from "@/store";
 
 const FeatureCard = ({ iconSvg: IconSvg, name, desc }: any) => {
   return (
@@ -108,13 +108,8 @@ function DateComponent() {
     setMode(currentMode);
   };
 
-  const showDatepicker = () => {
-    showMode('date');
-  };
-
-  const showTimepicker = () => {
-    showMode('time');
-  };
+  const showDatepicker = () => showMode('date');
+  const showTimepicker = () => showMode('time');
 
   return (
     <VStack>
@@ -141,7 +136,6 @@ function App () {
 
   const [isLoggedIn, logInOut] = useAtom(logInAtom);
   const athletes = useAtomValue(athletesAtom);
-  const notifications = useAtomValue(notificationsAtom);
 
   const handleSubmit = async () => {
     setErrorMessage('');
@@ -161,7 +155,6 @@ function App () {
       Logged in
 
       Athletes: {athletes.length}
-      Notifications: {notifications.length}
 
       <Button className="w-fit self-end mt-4" size="sm" onPress={handleSubmit}>
         <ButtonText>Log out</ButtonText>
