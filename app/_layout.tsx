@@ -6,15 +6,19 @@ import {
 } from "@react-navigation/native";
 import { useFonts } from "expo-font";
 import * as SplashScreen from "expo-splash-screen";
-import { useEffect } from "react";
+import { ReactNode, useEffect } from "react";
 import { GluestackUIProvider } from "@/components/ui/gluestack-ui-provider";
 import { useColorScheme } from "@/components/useColorScheme";
 import { Slot } from "expo-router";
 import { Provider as JotaiProvider } from 'jotai';
 import { store } from '../store';
-
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import { QueryClient } from '@tanstack/react-query'
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
+import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister'
 import "../global.css";
-
+import { useHydrateAtoms } from "jotai/utils";
+import { queryClientAtom } from 'jotai-tanstack-query'
 export { ErrorBoundary } from "expo-router";
 
 // export const unstable_settings = {
@@ -44,16 +48,41 @@ export default function RootLayout() {
   return <RootLayoutNav />;
 }
 
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 60 * 24, // 24 hours
+      gcTime: 1000 * 60 * 60 * 72,
+    },
+  },
+})
+
+const storagePersister = createAsyncStoragePersister({
+  storage: AsyncStorage,
+})
+
+const HydrateAtoms = ({ children }: { children: ReactNode }) => {
+  useHydrateAtoms([[queryClientAtom, queryClient]])
+  return children
+}
+
 function RootLayoutNav() {
   const colorScheme = useColorScheme();
 
   return (
-    <JotaiProvider store={store}>
-      <GluestackUIProvider mode={colorScheme === "dark" ? "dark" : "light"}>
-        <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-          <Slot />
-        </ThemeProvider>
-      </GluestackUIProvider>
-    </JotaiProvider>
+    <PersistQueryClientProvider
+      client={queryClient}
+      persistOptions={{ persister: storagePersister }}
+    >
+      <JotaiProvider store={store}>
+        <HydrateAtoms>
+          <GluestackUIProvider mode={colorScheme === "dark" ? "dark" : "light"}>
+            <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+              <Slot />
+            </ThemeProvider>
+          </GluestackUIProvider>
+        </HydrateAtoms>
+      </JotaiProvider>
+    </PersistQueryClientProvider>
   );
 }
