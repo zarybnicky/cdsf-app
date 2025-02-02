@@ -12,7 +12,7 @@ export function LoginForm({ onSubmit }: {
 
   const handleSubmit = React.useCallback(() => {
     onSubmit({ email, password });
-  }, []);
+  }, [email, password]);
 
   return (
     <VStack className="w-full max-w-[300px] rounded-md bg-background-0 p-4">

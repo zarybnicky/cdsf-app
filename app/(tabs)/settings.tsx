@@ -2,15 +2,20 @@ import { client } from "@/components/client";
 import { Button, ButtonText } from "@/components/ui/button";
 import { Center } from "@/components/ui/center";
 import { Text } from "@/components/ui/text";
-import { httpHeadersAtom, credentialsAtom, logInAtom } from "@/store";
+import { httpHeadersAtom, credentialsAtom, logOutAtom } from "@/store";
 import { useQuery } from "@tanstack/react-query";
-import { useAtom, useAtomValue } from "jotai";
+import { useRouter } from "expo-router";
+import { useAtomValue, useSetAtom } from "jotai";
 
 export default function ProifleTab() {
+  const router = useRouter();
   const credentials = useAtomValue(credentialsAtom);
   const headers = useAtomValue(httpHeadersAtom);
-  const [isLoggedIn, logInOut] = useAtom(logInAtom);
-  const handleSubmit = () => logInOut(null);
+  const logOut = useSetAtom(logOutAtom);
+  const handleSubmit = () => {
+    logOut();
+    router.dismissTo('/');
+  };
 
   const athletes = useQuery({
     queryKey: ["athletes"],

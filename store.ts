@@ -15,46 +15,46 @@ export const httpHeadersAtom = atom((get) => {
   };
 });
 
-export const logInAtom = atom<
-  boolean,
-  [{ email: string; password: string } | null],
-  Promise<number>
->(
-  (get) => !!get(credentialsAtom),
-  async (get, set, args): Promise<number> => {
+export const logInAtom = atom(
+  null,
+  async (get, set, args: { email: string; password: string; }): Promise<number> => {
     const credentials = get(credentialsAtom);
 
-    if (!args) {
-      if (!credentials) return 200;
-      const response = await client.DELETE("/credentials/current", {
-        headers: get(httpHeadersAtom),
-        params: {
-          query: {
-            purpose: "Mobilní aplikace ČSTS 2.0",
-          },
-        },
+    if (credentials) return 200;
+    const response = await client.POST("/credentials", {
+      body: {
+        login: args.email,
+        password: args.password,
+        purpose: "Mobilní aplikace ČSTS 2.0",
+      },
+    });
+
+    if (response.data) {
+      set(credentialsAtom, {
+        email: args.email,
+        token: `Bearer ${response.data}`,
       });
+    }
+    return response.response.status;
+  },
+);
 
-      if (response.response.status === 200) set(credentialsAtom, null);
+export const logOutAtom = atom(
+  null,
+  async (get, set): Promise<number> => {
+    const credentials = get(credentialsAtom);
+    set(credentialsAtom, null);
 
-      return response.response.status;
-    } else {
-      if (credentials) return 200;
-      const response = await client.POST("/credentials", {
-        body: {
-          login: args.email,
-          password: args.password,
+    if (!credentials) return 200;
+    const response = await client.DELETE("/credentials/current", {
+      headers: get(httpHeadersAtom),
+      params: {
+        query: {
           purpose: "Mobilní aplikace ČSTS 2.0",
         },
-      });
+      },
+    });
 
-      if (response.data) {
-        set(credentialsAtom, {
-          email: args.email,
-          token: `Bearer ${response.data}`,
-        });
-      }
-      return response.response.status;
-    }
+    return response.response.status;
   },
 );
