@@ -1,19 +1,19 @@
 import { atom, createStore } from "jotai";
 import { atomWithStorage } from "jotai/utils";
 import { client } from "@/components/client";
-import { components } from "@/CDSF";
-import { atomWithQuery } from "jotai-tanstack-query";
 
 export const store = createStore();
 
 type Credentials = { email: string; token: string };
-const credentialsAtom = atomWithStorage<Credentials | null>(
-  "credentials",
-  null,
-);
-const httpHeadersAtom = atom((get) => ({
-  Authorization: get(credentialsAtom)?.token || undefined,
-}));
+export const credentialsAtom = atomWithStorage<Credentials | null>("credentials", null);
+
+export const httpHeadersAtom = atom((get) => {
+  const credentials = get(credentialsAtom);
+  if (!credentials) return undefined;
+  return {
+    Authorization: credentials.token,
+  };
+});
 
 export const logInAtom = atom<
   boolean,
@@ -57,67 +57,4 @@ export const logInAtom = atom<
       return response.response.status;
     }
   },
-);
-
-export const athletesAtom = atomWithQuery<components["schemas"]["Athlete"][]>(
-  (get) => ({
-    queryKey: ["athletes"],
-    enabled: get(logInAtom),
-    async queryFn({ signal }) {
-      const response = await client.GET("/athletes/current", {
-        signal,
-        headers: get(httpHeadersAtom),
-      });
-      if (response.response.status >= 300) throw response;
-      return response.data?.collection || [];
-    },
-  }),
-);
-
-export const notificationsAtom = atomWithQuery<
-  components["schemas"]["Notification"][]
->((get) => ({
-  queryKey: ["notifications"],
-  enabled: get(logInAtom),
-  async queryFn({ signal }) {
-    const response = await client.GET("/notifications", {
-      signal,
-      headers: get(httpHeadersAtom),
-    });
-    if (response.response.status >= 300) throw response;
-    return response.data?.collection || [];
-  },
-}));
-
-export const myRegistrationsAtom = atomWithQuery<
-  components["schemas"]["EventRegistration"][]
->((get) => ({
-  queryKey: ["myRegistrations"],
-  enabled: get(logInAtom),
-  async queryFn({ signal }) {
-    const response = await client.GET("/athletes/current/competitions/registrations", {
-      signal,
-      headers: get(httpHeadersAtom),
-    });
-    if (response.response.status >= 300) throw response;
-    return response.data?.collection || [];
-  },
-}));
-
-// Missing in OpenAPI spec
-type EventResult = {};
-
-export const myResultsAtom = atomWithQuery<EventResult[]>(
-  (get) => ({
-    queryKey: ["myResults"],
-    enabled: get(logInAtom),
-    async queryFn({ signal }) {
-      const response = await client.GET("/athletes/current/competitions/results", {
-        signal,
-        headers: get(httpHeadersAtom),
-      });
-      if (response.response.status >= 300) throw response;
-      return response.data?.collection || [];
-    },
-  }),
 );

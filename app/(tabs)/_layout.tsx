@@ -23,23 +23,32 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Expo V3",
+          title: "Upozornění",
           tabBarIcon: ({ color }) => <TabBarIcon name="home" color={color} />,
         }}
       />
 
       <Tabs.Screen
-        name="tab1"
+        name="profile"
         options={{
-          title: "Tab 1",
-          tabBarIcon: ({ color }) => <TabBarIcon name="star-o" color={color} />,
+          title: "Profil",
+          tabBarIcon: ({ color }) => <TabBarIcon name="home" color={color} />,
         }}
       />
+
       <Tabs.Screen
-        name="notifications"
+        name="competitions"
         options={{
-          title: "Upozornění",
-          tabBarIcon: ({ color }) => <TabBarIcon name="star-o" color={color} />,
+          title: "Soutěže",
+          tabBarIcon: ({ color }) => <TabBarIcon name="home" color={color} />,
+        }}
+      />
+
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: "Nastavení",
+          tabBarIcon: ({ color }) => <TabBarIcon name="home" color={color} />,
         }}
       />
     </Tabs>
