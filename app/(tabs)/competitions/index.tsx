@@ -1,6 +1,6 @@
 import { isPagingProps, openapiClient } from "@/components/client";
 import { EventRegistration } from "@/components/EventRegistration";
-import { Button, ButtonText } from "@/components/ui/button";
+import { LoadMoreIndicator } from "@/components/LoadMoreIndicator";
 import { httpHeadersAtom } from "@/store";
 import { useAtomValue } from "jotai";
 import { FlatList } from "react-native";
@@ -35,16 +35,7 @@ export default function RegistrationsTab() {
           ? () => registrations.fetchNextPage()
           : undefined
       }
-      ListFooterComponent={
-        !registrations.hasNextPage ? null : (
-          <Button onPress={registrations.fetchNextPage}>
-            <ButtonText>
-              Načíst další
-              {registrations.isFetchingNextPage ? "..." : ""}
-            </ButtonText>
-          </Button>
-        )
-      }
+      ListFooterComponent={<LoadMoreIndicator infiniteQuery={registrations} />}
     />
   );
 }

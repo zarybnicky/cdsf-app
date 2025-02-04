@@ -1,6 +1,6 @@
 import { isPagingProps, openapiClient } from "@/components/client";
 import { EventRegistration } from "@/components/EventRegistration";
-import { Button, ButtonText } from "@/components/ui/button";
+import { LoadMoreIndicator } from "@/components/LoadMoreIndicator";
 import { httpHeadersAtom } from "@/store";
 import { useAtomValue } from "jotai";
 import { FlatList } from "react-native";
@@ -30,16 +30,7 @@ export default function ResultsTab() {
       onEndReached={
         results.hasNextPage ? () => results.fetchNextPage() : undefined
       }
-      ListFooterComponent={
-        !results.hasNextPage ? null : (
-          <Button onPress={results.fetchNextPage}>
-            <ButtonText>
-              Načíst další
-              {results.isFetchingNextPage ? "..." : ""}
-            </ButtonText>
-          </Button>
-        )
-      }
+      ListFooterComponent={<LoadMoreIndicator infiniteQuery={results} />}
     />
   );
 }
