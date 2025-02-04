@@ -1,57 +1,45 @@
-import { openapiClient } from "@/components/client";
+import { isPagingProps, openapiClient } from "@/components/client";
+import { EventRegistration } from "@/components/EventRegistration";
+import { Button, ButtonText } from "@/components/ui/button";
 import { httpHeadersAtom } from "@/store";
 import { useAtomValue } from "jotai";
-import { ScrollView } from "@/components/ui/scroll-view";
-import { Box } from "@/components/ui/box";
-import { Heading } from "@/components/ui/heading";
-import { Text } from "@/components/ui/text";
-import { HStack } from "@/components/ui/hstack";
-import { Button, ButtonText } from "@/components/ui/button";
+import { FlatList } from "react-native";
 
 export default function ResultsTab() {
   const headers = useAtomValue(httpHeadersAtom);
   const results = openapiClient.useInfiniteQuery(
-    'get',
-    '/athletes/current/competitions/results',
+    "get",
+    "/athletes/current/competitions/results",
     {
       headers,
       params: { query: { pageSize: 5 } },
     },
     {
       enabled: !!headers,
-      pageParamName: 'page',
-      initialPageParam: 1,
-      getNextPageParam(lastPage) {
-        const { totalCount = 0, pageSize = 5, page = 0 } = lastPage?.paging || {};
-        return (totalCount > pageSize * page) ? page + 1 : undefined;
-      }
-    }
+      ...isPagingProps,
+    },
   );
 
   return (
-    <ScrollView className="flex-1">
-      {results.data?.pages.flatMap(xs => xs?.collection || []).map(x => (
-        <Box className="bg-background-0 my-2 p-2" key={x.eventId}>
-          <Heading>{x.eventName}</Heading>
-          <Text>{x.city}</Text>
-          <Text>{x.date}</Text>
-          {x.competitions.map(c => (
-            <HStack className="p-1 justify-between" key={c.compId}>
-              <Text>{c.age} {c.discipline}</Text>
-              <Text>{c.ranking}{c.ranking !== c.rankingTo ? `-${c.rankingTo}` : ''}.</Text>
-            </HStack>
-          ))}
-        </Box>
-      ))}
-
-      {results.hasNextPage && (
-        <Button onPress={results.fetchNextPage}>
-          <ButtonText>
-            Načíst další
-            {results.isFetchingNextPage ? '...' : ''}
-          </ButtonText>
-        </Button>
-      )}
-    </ScrollView>
+    <FlatList
+      style={{ height: "100%" }}
+      contentContainerStyle={{ flexGrow: 1 }}
+      data={results.data?.pages.flatMap((xs) => xs?.collection || [])}
+      keyExtractor={(item) => item.eventId?.toString() || ""}
+      renderItem={({ item }) => <EventRegistration item={item} />}
+      onEndReached={
+        results.hasNextPage ? () => results.fetchNextPage() : undefined
+      }
+      ListFooterComponent={
+        !results.hasNextPage ? null : (
+          <Button onPress={results.fetchNextPage}>
+            <ButtonText>
+              Načíst další
+              {results.isFetchingNextPage ? "..." : ""}
+            </ButtonText>
+          </Button>
+        )
+      }
+    />
   );
 }

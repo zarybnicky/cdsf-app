@@ -1,6 +1,6 @@
 import createClient from "openapi-fetch";
 import createQueryClient from "openapi-react-query";
-import type { paths } from "@/CDSF";
+import type { components, paths } from "@/CDSF";
 import { QueryClient } from '@tanstack/react-query';
 
 export const client = createClient<paths>({ baseUrl: "https://www.csts.cz/api/1" });
@@ -17,3 +17,16 @@ export const queryClient = new QueryClient({
     },
   },
 })
+
+export const isPagingProps = {
+  pageParamName: "page",
+  initialPageParam: 1,
+  getNextPageParam(lastPage: { paging?: components['schemas']['Paging'] } | undefined) {
+    const {
+      totalCount = 0,
+      pageSize = 5,
+      page = 0,
+    } = lastPage?.paging || {};
+    return totalCount > pageSize * page ? page + 1 : undefined;
+  },
+};

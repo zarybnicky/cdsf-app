@@ -22,16 +22,13 @@ export default function Home() {
   if (isLoggedIn)
     return <Redirect href="/(tabs)" />;
 
+  // Background image (app-bg)
+  // Logo ČSTS - modré, bílé
+
   return (
     <Box className="flex-1 bg-black h-[100vh]">
-      { // Background image (app-bg)
-        // Font Inter
-        // Logo ČSTS - modré, bílé
-
-      }
       <Box className="flex flex-1 items-center my-16 mx-5 lg:my-24 lg:mx-32">
         {errorMessage || null}
-
         <LoginForm onSubmit={handleSubmit} />
       </Box>
     </Box>
