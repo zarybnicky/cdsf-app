@@ -7,6 +7,31 @@ export const store = createStore();
 type Credentials = { email: string; token: string };
 export const credentialsAtom = atomWithStorage<Credentials | null>("credentials", null);
 
+type NotificationPrefs = {
+  adjudicatorsMessage: boolean;
+  clubRepresentativeMessage: boolean;
+  clubTransferCompletion: boolean;
+  competitionChange: boolean;
+  competitionMessage: boolean;
+  competitionRegistrationEndChange: boolean;
+  divisionRepresentativeMessage: boolean;
+  executiveBoardMinutes: boolean;
+  medicalCheckupExpiration: boolean;
+  officialsMessage: boolean;
+}
+export const notificationPrefsAtom = atomWithStorage<NotificationPrefs>("notificationPrefs", {
+  adjudicatorsMessage: true,
+  clubRepresentativeMessage: true,
+  clubTransferCompletion: true,
+  competitionChange: true,
+  competitionMessage: true,
+  competitionRegistrationEndChange: true,
+  divisionRepresentativeMessage: true,
+  executiveBoardMinutes: true,
+  medicalCheckupExpiration: true,
+  officialsMessage: true,
+})
+
 export const httpHeadersAtom = atom((get) => {
   const credentials = get(credentialsAtom);
   if (!credentials) return undefined;

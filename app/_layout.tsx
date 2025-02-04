@@ -8,7 +8,6 @@ import {
   ThemeProvider,
 } from "@react-navigation/native";
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
-import { QueryClient } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { useFonts } from "expo-font";
 import { Slot } from "expo-router";
@@ -19,6 +18,7 @@ import { useHydrateAtoms } from "jotai/utils";
 import { ReactNode, useEffect } from "react";
 import "../global.css";
 import { store } from '../store';
+import { queryClient } from "@/components/client";
 
 export { ErrorBoundary } from "expo-router";
 
@@ -42,15 +42,6 @@ export default function RootLayout() {
 
   return <RootLayoutNav />;
 }
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 1000 * 60 * 10, // 10 minutes
-      gcTime: Infinity
-    },
-  },
-})
 
 const storagePersister = createAsyncStoragePersister({
   storage: AsyncStorage,

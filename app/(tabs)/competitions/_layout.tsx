@@ -15,10 +15,13 @@ export const MaterialTopTabs = withLayoutContext<
   MaterialTopTabNavigationEventMap
 >(Navigator);
 
+// Bottom border on topBar
+// Icons: medal + cup
+
 export default function TabLayout() {
   return (
     <MaterialTopTabs>
-      <MaterialTopTabs.Screen name="index" options={{ title: "Přihlášky" }} />
+      <MaterialTopTabs.Screen name="index" options={{ title: "Přihlášené" }} />
       <MaterialTopTabs.Screen name="results" options={{ title: "Výsledky" }} />
     </MaterialTopTabs>
   );

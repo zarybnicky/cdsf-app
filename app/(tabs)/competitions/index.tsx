@@ -1,38 +1,58 @@
-import { client } from "@/components/client";
-import { Text } from "@/components/Themed";
+import { openapiClient } from "@/components/client";
+import { Text } from "@/components/ui/text";
 import { Box } from "@/components/ui/box";
 import { Heading } from "@/components/ui/heading";
 import { httpHeadersAtom } from "@/store";
-import { useQuery } from "@tanstack/react-query";
 import { useAtomValue } from "jotai";
 import { ScrollView } from "react-native";
+import { Button, ButtonText } from "@/components/ui/button";
 
 export default function RegistrationsTab() {
   const headers = useAtomValue(httpHeadersAtom);
-  const registrations = useQuery({
-    queryKey: ["myRegistrations"],
-    enabled: !!headers,
-    async queryFn({ signal }) {
-      const response = await client.GET("/athletes/current/competitions/registrations", { signal, headers });
-      if (response.response.status >= 300) throw response;
-      return response.data?.collection || [];
+  const registrations = openapiClient.useInfiniteQuery(
+    'get',
+    '/athletes/current/competitions/registrations',
+    {
+      headers,
+      params: { query: { pageSize: 5 } },
     },
-  });
+    {
+      enabled: !!headers,
+      pageParamName: 'page',
+      initialPageParam: 1,
+      getNextPageParam(lastPage) {
+        const { totalCount = 0, pageSize = 5, page = 0 } = lastPage?.paging || {};
+        return (totalCount > pageSize * page) ? page + 1 : undefined;
+      }
+    }
+  );
+
+  // Cancel registration button
+  // nice date
 
   return (
     <ScrollView className="flex-1">
-      {registrations.data?.map(x => (
-        <Box className="bg-background-0 my-2 p-2" key={x.eventId}>
-          <Heading>{x.eventName}</Heading>
-          <Text>{x.city}</Text>
+      {registrations.data?.pages.flatMap(xs => xs?.collection || []).map(x => (
+        <Box className="bg-background-0 my-1 p-2" key={x.eventId}>
           <Text>{x.date}</Text>
+          <Text>{x.city}</Text>
+          <Heading>{x.eventName}</Heading>
           {x.competitions.map(c => (
-            <Text key={c.compId}>
-              {c.series}
-            </Text>
+            <Box key={c.compId}>
+              <Text>{c.age} {c.discipline} {c.registrationEnd}</Text>
+              <Text>{c.ranking}{c.rankingTo ? `-${c.rankingTo}` : ''}</Text>
+            </Box>
           ))}
         </Box>
       ))}
+      {registrations.hasNextPage && (
+        <Button onPress={registrations.fetchNextPage}>
+          <ButtonText>
+            Načíst další
+            {registrations.isFetchingNextPage ? '...' : ''}
+          </ButtonText>
+        </Button>
+      )}
     </ScrollView>
   );
 }

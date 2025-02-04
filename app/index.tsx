@@ -4,7 +4,6 @@ import { credentialsAtom, logInAtom } from "@/store";
 import { Redirect } from "expo-router";
 import { useAtomValue, useSetAtom } from "jotai";
 import React from "react";
-import { ScrollView } from "react-native";
 
 export default function Home() {
   const isLoggedIn = useAtomValue(credentialsAtom);
@@ -25,16 +24,16 @@ export default function Home() {
 
   return (
     <Box className="flex-1 bg-black h-[100vh]">
-      <ScrollView
-        style={{ height: "100%" }}
-        contentContainerStyle={{ flexGrow: 1 }}
-      >
-        <Box className="flex flex-1 items-center my-16 mx-5 lg:my-24 lg:mx-32">
-          {errorMessage || null}
+      { // Background image (app-bg)
+        // Font Inter
+        // Logo ČSTS - modré, bílé
 
-          <LoginForm onSubmit={handleSubmit} />
-        </Box>
-      </ScrollView>
+      }
+      <Box className="flex flex-1 items-center my-16 mx-5 lg:my-24 lg:mx-32">
+        {errorMessage || null}
+
+        <LoginForm onSubmit={handleSubmit} />
+      </Box>
     </Box>
   );
 }

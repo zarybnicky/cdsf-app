@@ -1,16 +1,8 @@
 import React from "react";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { Redirect, Tabs } from "expo-router";
-import { useClientOnlyValue } from "@/components/useClientOnlyValue";
 import { useAtomValue } from "jotai";
 import { credentialsAtom } from "@/store";
-
-function TabBarIcon(props: {
-  name: React.ComponentProps<typeof FontAwesome>["name"];
-  color: string;
-}) {
-  return <FontAwesome size={18} style={{ marginBottom: -3 }} {...props} />;
-}
 
 export default function TabLayout() {
   const credentials = useAtomValue(credentialsAtom);
@@ -21,9 +13,7 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        // Disable the static render of the header on web
-        // to prevent a hydration error in React Navigation v6.
-        headerShown: useClientOnlyValue(false, true),
+        headerShown: true,
         tabBarLabelPosition: 'below-icon',
       }}
     >
@@ -31,15 +21,7 @@ export default function TabLayout() {
         name="index"
         options={{
           title: "Upozornění",
-          tabBarIcon: ({ color }) => <TabBarIcon name="home" color={color} />,
-        }}
-      />
-
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: "Profil",
-          tabBarIcon: ({ color }) => <TabBarIcon name="home" color={color} />,
+          tabBarIcon: ({ color }) => <FontAwesome size={18} style={{ marginBottom: -3 }} color={color} name="envelope" />,
         }}
       />
 
@@ -47,15 +29,15 @@ export default function TabLayout() {
         name="competitions"
         options={{
           title: "Soutěže",
-          tabBarIcon: ({ color }) => <TabBarIcon name="home" color={color} />,
+          tabBarIcon: ({ color }) => <FontAwesome size={18} style={{ marginBottom: -3 }} color={color} name="calendar" />,
         }}
       />
 
       <Tabs.Screen
-        name="settings"
+        name="profile"
         options={{
-          title: "Nastavení",
-          tabBarIcon: ({ color }) => <TabBarIcon name="home" color={color} />,
+          title: "Profil",
+          tabBarIcon: ({ color }) => <FontAwesome size={18} style={{ marginBottom: -3 }} color={color} name="user" />,
         }}
       />
     </Tabs>
