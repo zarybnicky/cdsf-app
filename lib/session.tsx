@@ -1,7 +1,7 @@
 import { createContext, PropsWithChildren, useContext, useMemo } from 'react';
 
 import { cdsfAppPurpose, fetchClient } from '@/lib/cdsf-client';
-import { useStorageState } from '@/lib/use-storage-state';
+import { getStorageItemAsync, useStorageState } from '@/lib/use-storage-state';
 
 export type Session = {
   email: string;
@@ -22,30 +22,37 @@ type SessionContextValue = {
 };
 
 const SessionContext = createContext<SessionContextValue | null>(null);
+export const sessionStorageKey = 'session';
+
+export function parseStoredSession(storedSession: string | null): Session | null {
+  if (!storedSession) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(storedSession) as Partial<Session>;
+
+    if (typeof parsed.email === 'string' && typeof parsed.token === 'string') {
+      return {
+        email: parsed.email,
+        token: parsed.token,
+      };
+    }
+  } catch {
+    // Ignore invalid persisted payloads and treat them as signed out.
+  }
+
+  return null;
+}
+
+export async function getStoredSession() {
+  return parseStoredSession(await getStorageItemAsync(sessionStorageKey));
+}
 
 export function SessionProvider({ children }: PropsWithChildren) {
-  const [[isLoading, storedSession], setStoredSession] = useStorageState('session');
+  const [[isLoading, storedSession], setStoredSession] = useStorageState(sessionStorageKey);
 
-  const session = useMemo<Session | null>(() => {
-    if (!storedSession) {
-      return null;
-    }
-
-    try {
-      const parsed = JSON.parse(storedSession) as Partial<Session>;
-
-      if (typeof parsed.email === 'string' && typeof parsed.token === 'string') {
-        return {
-          email: parsed.email,
-          token: parsed.token,
-        };
-      }
-    } catch {
-      // Ignore invalid persisted payloads and treat them as signed out.
-    }
-
-    return null;
-  }, [storedSession]);
+  const session = useMemo<Session | null>(() => parseStoredSession(storedSession), [storedSession]);
 
   const authHeaders = useMemo(
     () => (session ? { Authorization: session.token } : undefined),

@@ -6,6 +6,7 @@ import {
   filterNotifications,
   type NotificationPreferences,
 } from '@/lib/notification-preferences';
+import { restoreQueryCache, saveQueryCache } from '@/lib/react-query';
 import { filterUnseenItems, getStoredSeenIds } from '@/lib/seen-state';
 
 type AuthHeaders = {
@@ -198,6 +199,8 @@ export async function syncNotifications({
   );
 
   if (persistToCache) {
+    await restoreQueryCache();
+
     const queryKey = getNotificationsQueryKey(authHeaders, pageSize);
     const existingData = reactQueryClient.getQueryData<NotificationsInfiniteData>(queryKey);
     const nextData = mergeInfiniteNotificationData(
@@ -209,6 +212,7 @@ export async function syncNotifications({
     );
 
     reactQueryClient.setQueryData<NotificationsInfiniteData>(queryKey, nextData);
+    await saveQueryCache();
   }
 
   return {

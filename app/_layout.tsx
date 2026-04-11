@@ -8,6 +8,7 @@ import 'react-native-reanimated';
 
 import { useColorScheme } from '@/components/useColorScheme';
 import { NotificationPreferencesProvider } from '@/lib/notification-preferences-provider';
+import { useAnnouncementsNotificationRuntime } from '@/lib/notification-runtime';
 import { queryCacheMaxAge, queryClient, queryPersister } from '@/lib/react-query';
 import { SessionProvider, useSession } from '@/lib/session';
 
@@ -29,6 +30,9 @@ type RootNavigatorProps = {
 function RootNavigator({ fontsLoaded, hasRestoredQueryCache }: RootNavigatorProps) {
   const { isLoading, session } = useSession();
   const colorScheme = useColorScheme();
+  const notificationRuntimeSession = hasRestoredQueryCache && !isLoading ? session : null;
+
+  useAnnouncementsNotificationRuntime(notificationRuntimeSession);
 
   useEffect(() => {
     if (fontsLoaded && hasRestoredQueryCache && !isLoading) {

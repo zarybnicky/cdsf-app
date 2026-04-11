@@ -34,16 +34,19 @@ export async function setStorageItemAsync(key: string, value: string | null) {
   }
 }
 
+export async function getStorageItemAsync(key: string) {
+  if (Platform.OS === 'web') {
+    return localStorage.getItem(key);
+  }
+
+  return SecureStore.getItemAsync(key);
+}
+
 export function useStorageState(key: string): UseStorageStateHook {
   const [state, setState] = useAsyncState();
 
   useEffect(() => {
-    if (Platform.OS === 'web') {
-      setState(localStorage.getItem(key));
-      return;
-    }
-
-    SecureStore.getItemAsync(key)
+    getStorageItemAsync(key)
       .then((value) => {
         setState(value);
       })
