@@ -28,8 +28,6 @@ const rightDigits: Record<string, string> = {
   '9': '1110100',
 };
 
-const guardIndices = new Set([0, 2, 32, 34, 64, 66]);
-
 function computeEan8Checksum(value: string) {
   const digits = value.split('').map(Number);
   const weightedSum = digits.reduce((sum, digit, index) => {
@@ -95,7 +93,6 @@ export default function Ean8Barcode({ value }: Ean8BarcodeProps) {
             key={`${digits}-${index}`}
             style={[
               styles.bar,
-              guardIndices.has(index) ? styles.guardBar : null,
               bar === '1' ? styles.barBlack : styles.barWhite,
             ]}
           />
@@ -120,9 +117,6 @@ const styles = StyleSheet.create({
   bar: {
     height: 64,
     width: 2,
-  },
-  guardBar: {
-    height: 72,
   },
   barBlack: {
     backgroundColor: '#11181c',
