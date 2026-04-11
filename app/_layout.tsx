@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/components/useColorScheme';
+import { NotificationPreferencesProvider } from '@/lib/notification-preferences-provider';
 import { queryCacheMaxAge, queryClient, queryPersister } from '@/lib/react-query';
 import { SessionProvider, useSession } from '@/lib/session';
 
@@ -75,7 +76,9 @@ export default function RootLayout() {
       }}
     >
       <SessionProvider>
-        <RootNavigator fontsLoaded={fontsLoaded} hasRestoredQueryCache={hasRestoredQueryCache} />
+        <NotificationPreferencesProvider>
+          <RootNavigator fontsLoaded={fontsLoaded} hasRestoredQueryCache={hasRestoredQueryCache} />
+        </NotificationPreferencesProvider>
       </SessionProvider>
     </PersistQueryClientProvider>
   );
