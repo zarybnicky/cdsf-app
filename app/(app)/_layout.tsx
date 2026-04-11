@@ -1,6 +1,9 @@
+import { StyleSheet } from "react-native";
 import { SymbolView } from "expo-symbols";
 import { Tabs } from "expo-router";
 
+import BrandHeaderBackground from "@/components/BrandHeaderBackground";
+import BrandMark from "@/components/BrandMark";
 import Colors from "@/constants/Colors";
 import { useColorScheme } from "@/components/useColorScheme";
 
@@ -11,26 +14,18 @@ export default function AppLayout() {
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: Colors[colorScheme].tint,
-        tabBarInactiveTintColor: "#b8c0cc",
-        tabBarStyle: {
-          backgroundColor: "#fff",
-          borderTopColor: "#e3e7ee",
-        },
-        tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: "700",
-        },
+        tabBarInactiveTintColor: "#7f8795",
+        tabBarStyle: styles.tabBar,
+        tabBarLabelStyle: styles.tabBarLabel,
+        headerBackground: () => <BrandHeaderBackground />,
+        headerLeft: () => <BrandMark size={31} style={styles.headerMark} />,
+        headerLeftContainerStyle: styles.headerLeftContainer,
         headerShadowVisible: false,
-        headerStyle: {
-          backgroundColor: "#f3f5f9",
-        },
-        headerTitleStyle: {
-          color: "#6f7887",
-          fontSize: 17,
-          fontWeight: "700",
-          letterSpacing: 0.4,
-        },
+        headerStyle: styles.header,
+        headerTitleAlign: "left",
+        headerTitleStyle: styles.headerTitle,
         headerShown: true,
+        headerTintColor: "#182334",
       }}
     >
       <Tabs.Screen
@@ -88,3 +83,33 @@ export default function AppLayout() {
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  header: {
+    backgroundColor: "transparent",
+  },
+  headerLeftContainer: {
+    paddingLeft: 12,
+  },
+  headerMark: {
+    marginRight: 6,
+  },
+  headerTitle: {
+    color: "#182334",
+    fontSize: 21,
+    fontWeight: "800",
+    letterSpacing: -0.4,
+  },
+  tabBar: {
+    height: 64,
+    borderTopColor: "#dbe2eb",
+    backgroundColor: "#fff",
+    paddingTop: 6,
+    paddingBottom: 8,
+  },
+  tabBarLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    marginTop: 2,
+  },
+});

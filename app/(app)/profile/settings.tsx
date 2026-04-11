@@ -79,6 +79,7 @@ export default function SettingsScreen() {
     <ScrollView contentContainerStyle={styles.content} style={styles.container}>
       <ScreenHeader
         body="Nastavte, která upozornění chcete zobrazovat v části Aktuality."
+        eyebrow="Správa účtu"
         style={styles.header}
         title="Nastavení"
       />
@@ -143,88 +144,90 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#eef2f7",
+    backgroundColor: "#f4f6f8",
   },
   content: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 28,
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: 24,
   },
   header: {
-    marginBottom: 12,
+    marginBottom: 10,
   },
   card: {
-    marginTop: 12,
-    borderRadius: 20,
+    marginTop: 10,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#dde4ed",
     backgroundColor: "#fff",
-    paddingHorizontal: 18,
-    paddingVertical: 18,
-    shadowColor: "#b8c2d1",
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.12,
-    shadowRadius: 20,
-    elevation: 2,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    shadowColor: "#15243f",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.04,
+    shadowRadius: 16,
+    elevation: 1,
   },
   cardTitle: {
-    color: "#394150",
-    fontSize: 18,
-    fontWeight: "700",
+    color: "#223045",
+    fontSize: 17,
+    fontWeight: "800",
   },
   cardBody: {
-    color: "#778091",
-    fontSize: 14,
-    lineHeight: 21,
-    marginTop: 8,
+    color: "#627082",
+    fontSize: 13.5,
+    lineHeight: 19,
+    marginTop: 6,
   },
   loadingRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    marginTop: 20,
+    marginTop: 16,
   },
   loadingText: {
-    color: "#6f7887",
-    fontSize: 14,
+    color: "#6a7586",
+    fontSize: 13,
   },
   preferenceRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 16,
-    marginTop: 18,
-    paddingBottom: 18,
+    marginTop: 14,
+    paddingBottom: 14,
   },
   preferenceRowBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: "#ebeff5",
+    borderBottomColor: "#edf1f6",
   },
   preferenceCopy: {
     flex: 1,
   },
   preferenceTitle: {
-    color: "#394150",
+    color: "#223045",
     fontSize: 15,
-    fontWeight: "600",
+    fontWeight: "700",
     lineHeight: 20,
   },
   preferenceDescription: {
-    color: "#778091",
+    color: "#677487",
     fontSize: 13,
-    lineHeight: 19,
-    marginTop: 6,
+    lineHeight: 18,
+    marginTop: 4,
   },
   preferenceHint: {
-    color: "#7f8898",
-    fontSize: 13,
-    lineHeight: 19,
+    color: "#6f7b8d",
+    fontSize: 12.5,
+    lineHeight: 18,
     marginTop: 2,
   },
   button: {
-    marginTop: 24,
+    marginTop: 20,
     alignItems: "center",
-    borderRadius: 12,
+    borderRadius: 10,
     backgroundColor: "#b42318",
     paddingHorizontal: 18,
-    paddingVertical: 14,
+    paddingVertical: 13,
   },
   buttonPressed: {
     opacity: 0.9,
@@ -234,7 +237,9 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: "#fff",
-    fontSize: 16,
-    fontWeight: "700",
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 1.1,
+    textTransform: "uppercase",
   },
 });

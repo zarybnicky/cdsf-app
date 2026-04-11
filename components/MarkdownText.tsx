@@ -33,27 +33,27 @@ export default function MarkdownText({
 
 const markdownStyle = {
   paragraph: {
-    color: "#4b5563",
-    fontSize: 15,
-    lineHeight: 23,
+    color: "#455264",
+    fontSize: 14,
+    lineHeight: 22,
     marginTop: 0,
-    marginBottom: 10,
+    marginBottom: 8,
   },
   strong: {
-    color: "#1f2937",
+    color: "#182334",
     fontWeight: "bold" as const,
   },
   list: {
-    color: "#4b5563",
-    fontSize: 15,
-    lineHeight: 23,
-    bulletColor: "#356ed6",
+    color: "#455264",
+    fontSize: 14,
+    lineHeight: 22,
+    bulletColor: "#2457b3",
     bulletSize: 6,
-    gapWidth: 10,
-    marginBottom: 10,
+    gapWidth: 9,
+    marginBottom: 8,
   },
   link: {
-    color: "#356ed6",
+    color: "#2457b3",
     underline: false,
   },
 };

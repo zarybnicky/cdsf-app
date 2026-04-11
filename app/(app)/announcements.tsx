@@ -126,8 +126,9 @@ export default function AnnouncementsScreen() {
       keyExtractor={(item) => item.id ?? `${item.title}-${item.publishedAt}`}
       ListHeaderComponent={
         <ScreenHeader
-          body="Přehled důležitých sdělení ke soutěžím, administrativě a dění ve svazu."
+          body="Důležitá sdělení ke soutěžím, administrativě a dění ve svazu."
           bodyStyle={styles.subtitle}
+          eyebrow="Informační servis"
           style={styles.header}
           title="Aktuality"
         >
@@ -171,45 +172,47 @@ export default function AnnouncementsScreen() {
 const styles = StyleSheet.create({
   list: {
     flex: 1,
-    backgroundColor: "#eef2f7",
+    backgroundColor: "#f4f6f8",
   },
   listContent: {
-    paddingTop: 14,
-    paddingBottom: 28,
+    paddingTop: 10,
+    paddingBottom: 24,
   },
   header: {
-    marginBottom: 10,
-    paddingHorizontal: 18,
+    marginBottom: 8,
+    paddingHorizontal: 14,
   },
   subtitle: {
-    color: "#778091",
+    color: "#5b6778",
     fontSize: 14,
-    lineHeight: 21,
-    marginTop: 6,
+    lineHeight: 20,
   },
   filterNotice: {
-    marginTop: 12,
-    borderRadius: 16,
-    backgroundColor: "#fff",
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    marginTop: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#dbe4f0",
+    backgroundColor: "#f8fbff",
+    paddingHorizontal: 12,
+    paddingVertical: 11,
   },
   filterNoticeTitle: {
-    color: "#394150",
-    fontSize: 13,
+    color: "#223045",
+    fontSize: 12,
     fontWeight: "700",
+    letterSpacing: 0.4,
   },
   filterNoticeBody: {
-    color: "#778091",
-    fontSize: 13,
-    lineHeight: 18,
+    color: "#617082",
+    fontSize: 12.5,
+    lineHeight: 17,
     marginTop: 4,
   },
   stateCard: {
-    marginHorizontal: 14,
-    marginTop: 8,
+    marginHorizontal: 12,
+    marginTop: 6,
   },
   footer: {
-    paddingVertical: 20,
+    paddingVertical: 16,
   },
 });

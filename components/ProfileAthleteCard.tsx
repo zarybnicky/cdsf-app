@@ -1,4 +1,3 @@
-import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { StyleSheet, View } from "react-native";
 
 import type { components } from "@/CDSF";
@@ -16,26 +15,26 @@ type ProfileAthleteCardProps = {
 export default function ProfileAthleteCard({
   athlete,
 }: ProfileAthleteCardProps) {
+  const translatedAge = formatTranslatedAge(athlete.age);
+  const medicalCheckupExpiration =
+    formatSimpleDate(athlete.medicalCheckupExpiration) ?? "Není uvedena";
+
   return (
     <View style={styles.card}>
       <View style={styles.header}>
-        <View style={styles.identity}>
-          <Text style={styles.name}>{athlete.name}</Text>
-          <Text style={styles.subline}>IDT číslo {athlete.idt}</Text>
-        </View>
-        <View style={styles.agePill}>
-          <Text style={styles.agePillText}>
-            {formatTranslatedAge(athlete.age)}
-          </Text>
-        </View>
+        <Text style={styles.name}>{athlete.name}</Text>
+        <Text style={styles.subline}>IDT {athlete.idt}</Text>
       </View>
 
-      <View style={styles.metaRow}>
-        <MaterialCommunityIcons color="#6c7687" name="medical-bag" size={18} />
-        <Text style={styles.metaText}>
-          Platnost lékařské prohlídky:{" "}
-          {formatSimpleDate(athlete.medicalCheckupExpiration) ?? "není uvedena"}
-        </Text>
+      <View style={styles.details}>
+        <View style={[styles.detailRow, styles.detailRowBorder]}>
+          <Text style={styles.detailLabel}>Kategorie</Text>
+          <Text style={styles.detailValue}>{translatedAge}</Text>
+        </View>
+        <View style={styles.detailRow}>
+          <Text style={styles.detailLabel}>Platnost lékařské prohlídky</Text>
+          <Text style={styles.detailValue}>{medicalCheckupExpiration}</Text>
+        </View>
       </View>
 
       <View style={styles.barcodeCard}>
@@ -48,74 +47,82 @@ export default function ProfileAthleteCard({
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 24,
+    overflow: "hidden",
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#dde4ed",
     backgroundColor: "#fff",
-    marginBottom: 16,
-    padding: 18,
-    shadowColor: "#b8c2d1",
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.14,
-    shadowRadius: 22,
-    elevation: 3,
+    marginBottom: 12,
+    shadowColor: "#15243f",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.04,
+    shadowRadius: 16,
+    elevation: 1,
   },
   header: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 14,
+  },
+  name: {
+    color: "#182334",
+    fontSize: 22,
+    fontWeight: "800",
+    letterSpacing: -0.3,
+    lineHeight: 28,
+  },
+  subline: {
+    color: "#2457b3",
+    fontSize: 14,
+    fontWeight: "700",
+    lineHeight: 20,
+    marginTop: 5,
+  },
+  details: {
+    borderTopWidth: 1,
+    borderTopColor: "#eef2f6",
+  },
+  detailRow: {
     flexDirection: "row",
     alignItems: "flex-start",
     justifyContent: "space-between",
-    gap: 12,
+    gap: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
-  identity: {
+  detailRowBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: "#eef2f6",
+  },
+  detailLabel: {
+    color: "#2457b3",
     flex: 1,
-  },
-  name: {
-    color: "#273142",
-    fontSize: 24,
+    fontSize: 11,
     fontWeight: "700",
-    lineHeight: 30,
+    letterSpacing: 0.9,
+    lineHeight: 16,
+    textTransform: "uppercase",
   },
-  subline: {
-    color: "#7d8797",
-    fontSize: 13,
-    fontWeight: "600",
-    letterSpacing: 0.4,
-    marginTop: 4,
-  },
-  agePill: {
-    borderRadius: 999,
-    backgroundColor: "#edf3ff",
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-  },
-  agePillText: {
-    color: "#2f67ce",
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  metaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginTop: 16,
-  },
-  metaText: {
-    color: "#525c6b",
+  detailValue: {
+    color: "#223045",
     flex: 1,
     fontSize: 14,
     lineHeight: 20,
+    textAlign: "right",
   },
   barcodeCard: {
-    borderRadius: 18,
-    backgroundColor: "#f4f7fb",
-    marginTop: 18,
-    paddingHorizontal: 14,
+    borderTopWidth: 1,
+    borderTopColor: "#eef2f6",
+    backgroundColor: "#f7f9fc",
+    paddingHorizontal: 16,
     paddingVertical: 16,
   },
   barcodeTitle: {
-    color: "#657083",
+    color: "#6b7485",
     fontSize: 12,
     fontWeight: "700",
-    letterSpacing: 1,
-    marginBottom: 14,
+    letterSpacing: 0.9,
+    marginBottom: 12,
     textAlign: "center",
     textTransform: "uppercase",
   },

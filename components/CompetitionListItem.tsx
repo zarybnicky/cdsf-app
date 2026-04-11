@@ -37,12 +37,14 @@ export default function CompetitionListItem({
 
         {details.map((detail, index) => (
           <View key={`${title}-${detail}-${index}`} style={styles.metaRow}>
+            <View style={styles.detailIconShell}>
+              <MaterialCommunityIcons
+                color="#2457b3"
+                name={detailIconName}
+                size={14}
+              />
+            </View>
             <Text style={styles.metaText}>{detail}</Text>
-            <MaterialCommunityIcons
-              color="#6d8fc4"
-              name={detailIconName}
-              size={16}
-            />
           </View>
         ))}
       </View>
@@ -54,22 +56,30 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: "row",
     gap: 12,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#dde4ed",
     backgroundColor: "#fff",
-    borderBottomWidth: 1,
-    borderBottomColor: "#e6eaf2",
-    paddingHorizontal: 14,
-    paddingVertical: 17,
+    marginHorizontal: 12,
+    marginTop: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    shadowColor: "#15243f",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.04,
+    shadowRadius: 16,
+    elevation: 1,
   },
   dateBadge: {
-    width: 42,
+    width: 48,
     alignItems: "stretch",
-    paddingTop: 1,
+    paddingTop: 2,
   },
   monthBadge: {
     borderTopLeftRadius: 10,
     borderTopRightRadius: 10,
-    backgroundColor: "#1f232b",
-    paddingVertical: 3,
+    backgroundColor: "#171b22",
+    paddingVertical: 4,
   },
   monthText: {
     color: "#fff",
@@ -84,41 +94,51 @@ const styles = StyleSheet.create({
     borderTopWidth: 0,
     borderColor: "#d4dae6",
     backgroundColor: "#fff",
-    paddingVertical: 7,
+    paddingVertical: 8,
   },
   dayText: {
     color: "#11181c",
-    fontSize: 19,
-    fontWeight: "700",
-    lineHeight: 19,
+    fontSize: 20,
+    fontWeight: "800",
+    lineHeight: 20,
     textAlign: "center",
   },
   content: {
     flex: 1,
-    gap: 7,
+    gap: 6,
   },
   city: {
-    color: "#8e98aa",
+    color: "#2457b3",
     fontSize: 11,
     fontWeight: "700",
-    letterSpacing: 1,
+    letterSpacing: 0.9,
     textTransform: "uppercase",
   },
   title: {
-    color: "#343b49",
-    fontSize: 15,
-    fontWeight: "700",
-    lineHeight: 22,
+    color: "#182334",
+    fontSize: 16,
+    fontWeight: "800",
+    letterSpacing: -0.2,
+    lineHeight: 21,
   },
   metaRow: {
     flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 9,
+  },
+  detailIconShell: {
+    width: 22,
+    height: 22,
     alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
+    justifyContent: "center",
+    borderRadius: 11,
+    backgroundColor: "#eef4ff",
+    marginTop: 1,
   },
   metaText: {
-    color: "#4b5563",
-    fontSize: 14,
+    color: "#4f5c6f",
+    flex: 1,
+    fontSize: 13.5,
     lineHeight: 19,
   },
 });

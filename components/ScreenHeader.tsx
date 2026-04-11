@@ -10,6 +10,7 @@ import {
 import { Text } from "@/components/Themed";
 
 type ScreenHeaderProps = {
+  eyebrow?: string;
   title: string;
   body?: string;
   caption?: string;
@@ -21,6 +22,7 @@ type ScreenHeaderProps = {
 };
 
 export default function ScreenHeader({
+  eyebrow,
   title,
   body,
   caption,
@@ -32,6 +34,7 @@ export default function ScreenHeader({
 }: ScreenHeaderProps) {
   return (
     <View style={[styles.container, style]}>
+      {eyebrow ? <Text style={styles.eyebrow}>{eyebrow}</Text> : null}
       <Text style={[styles.title, titleStyle]}>{title}</Text>
       {body ? <Text style={[styles.body, bodyStyle]}>{body}</Text> : null}
       {caption ? (
@@ -44,23 +47,32 @@ export default function ScreenHeader({
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: 4,
+    paddingHorizontal: 2,
+  },
+  eyebrow: {
+    color: "#2457b3",
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 1.1,
+    marginBottom: 6,
+    textTransform: "uppercase",
   },
   title: {
-    color: "#394150",
-    fontSize: 28,
-    fontWeight: "700",
+    color: "#182334",
+    fontSize: 26,
+    fontWeight: "800",
+    letterSpacing: -0.5,
   },
   body: {
-    color: "#6f7887",
-    fontSize: 15,
-    lineHeight: 22,
-    marginTop: 8,
+    color: "#58667b",
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 6,
   },
   caption: {
-    color: "#7a8596",
-    fontSize: 14,
-    lineHeight: 21,
-    marginTop: 8,
+    color: "#6f7a8b",
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 6,
   },
 });

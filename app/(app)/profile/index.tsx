@@ -25,7 +25,7 @@ export default function ProfileScreen() {
     ? "Načítám profil"
     : athletesQuery.isError
       ? "Nepodařilo se načíst profilové údaje"
-      : "K tomuto účtu nejsou přiřazeny žádné údaje";
+      : "K tomuto účtu nejsou dostupné členské údaje";
   const stateBody = athletesQuery.isLoading
     ? "Profilové údaje se načítají."
     : athletesQuery.isError
@@ -43,12 +43,13 @@ export default function ProfileScreen() {
       keyExtractor={(item) => item.idt.toString()}
       ListHeaderComponent={
         <ScreenHeader
-          body={`Přihlášený účet: ${session?.email ?? "neznámý účet"}`}
+          body={`Účet: ${session?.email ?? "neznámý účet"}`}
           bodyStyle={styles.body}
-          caption="Nastavení upozornění a odhlášení jsou dostupné v pravém horním rohu."
+          caption="Nastavení upozornění a odhlášení najdete v pravém horním rohu."
           captionStyle={styles.caption}
+          eyebrow="Osobní údaje a účet"
           style={styles.header}
-          title="Profil"
+          title="Členské údaje"
         />
       }
       ListEmptyComponent={
@@ -70,23 +71,24 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   list: {
     flex: 1,
-    backgroundColor: "#eef2f7",
+    backgroundColor: "#f4f6f8",
   },
   listContent: {
-    paddingHorizontal: 14,
-    paddingTop: 14,
-    paddingBottom: 28,
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: 24,
   },
   header: {
-    marginBottom: 14,
+    marginBottom: 10,
   },
   body: {
-    color: "#525c6b",
+    color: "#223045",
+    fontWeight: "600",
   },
   caption: {
-    color: "#7a8596",
+    color: "#687588",
   },
   stateCard: {
-    borderRadius: 20,
+    borderRadius: 16,
   },
 });
