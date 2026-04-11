@@ -24,7 +24,7 @@ type LegacyNotificationPreferences = {
   officialsMessage?: boolean;
 };
 
-export const notificationPreferencesStorageKey = "notification-preferences";
+const notificationPreferencesStorageKey = "notification-preferences";
 const legacyNotificationPreferencesStorageKey = "notificationPrefs";
 
 export const notificationPreferenceOrder = [

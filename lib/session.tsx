@@ -25,15 +25,7 @@ type SessionContextValue = {
 };
 
 const SessionContext = createContext<SessionContextValue | null>(null);
-export const sessionStorageKey = "session";
-
-function createAuthHeaders(session: Session | null): AuthHeaders | undefined {
-  return session ? { Authorization: session.token } : undefined;
-}
-
-function serializeSession(session: Session) {
-  return JSON.stringify(session);
-}
+const sessionStorageKey = "session";
 
 function getSignInErrorMessage(status: number) {
   if (status === 401) {
@@ -47,7 +39,7 @@ function getSignInErrorMessage(status: number) {
   return "Přihlášení se nepodařilo dokončit.";
 }
 
-export function parseStoredSession(
+function parseStoredSession(
   storedSession: string | null,
 ): Session | null {
   if (!storedSession) {
@@ -82,7 +74,10 @@ export function SessionProvider({ children }: PropsWithChildren) {
     () => parseStoredSession(storedSession),
     [storedSession],
   );
-  const authHeaders = useMemo(() => createAuthHeaders(session), [session]);
+  const authHeaders = useMemo<AuthHeaders | undefined>(
+    () => (session ? { Authorization: session.token } : undefined),
+    [session],
+  );
 
   async function signIn({ email, password }: SignInInput) {
     if (session) {
@@ -103,7 +98,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
     }
 
     await setStoredSession(
-      serializeSession({
+      JSON.stringify({
         email,
         token: `Bearer ${token}`,
       }),

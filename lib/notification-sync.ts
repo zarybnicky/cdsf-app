@@ -1,17 +1,13 @@
 import type { InfiniteData, QueryClient } from "@tanstack/react-query";
 
 import type { components, paths } from "@/CDSF";
-import {
-  fetchClient,
-  isPagingProps,
-  openapiClient,
-  queryClient,
-} from "@/lib/cdsf-client";
+import { fetchClient, isPagingProps, openapiClient } from "@/lib/cdsf-client";
 import {
   filterNotifications,
   type NotificationPreferences,
 } from "@/lib/notification-preferences";
 import { restoreQueryCache, saveQueryCache } from "@/lib/react-query";
+import { queryClient } from "@/lib/react-query";
 import { filterUnseenItems, getStoredSeenIds } from "@/lib/seen-state";
 
 type AuthHeaders = {
@@ -39,13 +35,14 @@ export type SyncNotificationsInput = {
   persistToCache?: boolean;
   preferences: NotificationPreferences;
   reactQueryClient?: QueryClient;
+  seenIds?: readonly string[];
   stopWhen?: (progress: SyncNotificationsProgress) => boolean;
 };
 export type SyncNotificationsResult = SyncNotificationsProgress;
 
 export const notificationsSeenNamespace = "notifications";
 export const notificationsPageSize = 10;
-export const defaultNotificationsSyncMaxPages = 3;
+const defaultNotificationsSyncMaxPages = 3;
 
 export function getNotificationSeenId(notification: Pick<Notification, "id">) {
   return notification.id.toString();
@@ -65,7 +62,7 @@ export function createNotificationsQueryInit(
   };
 }
 
-export function getNotificationsQueryKey(
+function getNotificationsQueryKey(
   authHeaders?: AuthHeaders,
   pageSize = notificationsPageSize,
 ) {
@@ -181,6 +178,7 @@ export async function syncNotifications({
   persistToCache = true,
   preferences,
   reactQueryClient = queryClient,
+  seenIds,
   stopWhen,
 }: SyncNotificationsInput): Promise<SyncNotificationsResult> {
   if (!authHeaders) {
@@ -195,7 +193,8 @@ export async function syncNotifications({
   }
 
   const maxPagesToFetch = Math.max(1, Math.floor(maxPages));
-  const seenIds = await getStoredSeenIds(notificationsSeenNamespace, email);
+  const resolvedSeenIds =
+    seenIds ?? (await getStoredSeenIds(notificationsSeenNamespace, email));
   const pageParams: number[] = [];
   const pages: NotificationsPage[] = [];
   let nextPage: number | undefined = 1;
@@ -216,7 +215,7 @@ export async function syncNotifications({
       pages,
       nextPage,
       preferences,
-      seenIds,
+      seenIds: resolvedSeenIds,
     });
 
     if (stopWhen?.(progress)) {
@@ -229,7 +228,7 @@ export async function syncNotifications({
     pages,
     nextPage,
     preferences,
-    seenIds,
+    seenIds: resolvedSeenIds,
   });
 
   if (persistToCache) {

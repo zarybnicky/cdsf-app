@@ -40,9 +40,8 @@ function RootNavigator({
   const { isLoading, session } = useSession();
   const colorScheme = useColorScheme();
   const isAppReady = fontsLoaded && hasRestoredQueryCache && !isLoading;
-  const notificationRuntimeSession = isAppReady ? session : null;
 
-  useAnnouncementsNotificationRuntime(notificationRuntimeSession);
+  useAnnouncementsNotificationRuntime(isAppReady ? session : null);
 
   useEffect(() => {
     if (isAppReady) {
@@ -74,13 +73,11 @@ export default function RootLayout() {
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
   const [hasRestoredQueryCache, setHasRestoredQueryCache] = useState(false);
-  const handleQueryCacheRestoreSettled = () => {
-    setHasRestoredQueryCache(true);
-  };
+  const handleQueryCacheRestoreSettled = () => setHasRestoredQueryCache(true);
 
-  useEffect(() => {
-    if (error) throw error;
-  }, [error]);
+  if (error) {
+    throw error;
+  }
 
   return (
     <PersistQueryClientProvider

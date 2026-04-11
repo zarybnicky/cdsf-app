@@ -4,10 +4,6 @@ import { Platform } from "react-native";
 
 type StorageValue = string | null;
 type StorageState = [isLoading: boolean, value: StorageValue];
-type UseStorageStateHook = [
-  StorageState,
-  (value: StorageValue) => Promise<void>,
-];
 
 function useAsyncState(
   initialState: StorageState = [true, null],
@@ -29,11 +25,9 @@ export async function setStorageItemAsync(key: string, value: StorageValue) {
     return;
   }
 
-  if (value === null) {
-    await SecureStore.deleteItemAsync(key);
-  } else {
-    await SecureStore.setItemAsync(key, value);
-  }
+  await (value === null
+    ? SecureStore.deleteItemAsync(key)
+    : SecureStore.setItemAsync(key, value));
 }
 
 export async function getStorageItemAsync(key: string) {
@@ -44,7 +38,9 @@ export async function getStorageItemAsync(key: string) {
   return SecureStore.getItemAsync(key);
 }
 
-export function useStorageState(key: string): UseStorageStateHook {
+export function useStorageState(
+  key: string,
+): [StorageState, (value: StorageValue) => Promise<void>] {
   const [state, setState] = useAsyncState();
 
   useEffect(() => {

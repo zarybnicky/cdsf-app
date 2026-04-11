@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-export const seenStateStoragePrefix = "seen-state";
+const seenStateStoragePrefix = "seen-state";
 
 type StoredSeenState = {
   ids: string[];

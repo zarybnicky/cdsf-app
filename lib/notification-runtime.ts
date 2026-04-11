@@ -22,17 +22,11 @@ import { getStoredSeenIds, markSeenIds } from "@/lib/seen-state";
 const announcementsBackgroundTaskName = "cdsf-announcements-background-sync";
 const announcementsNotificationChannelId = "cdsf-announcements";
 const announcementsBackgroundIntervalMinutes = 15;
+const isWeb = Platform.OS === "web";
 
 type AnnouncementHref = typeof announcementsHref;
 type AnnouncementNotificationData = {
   href: AnnouncementHref;
-  latestNotificationId: string;
-  unseenCount: number;
-};
-type AnnouncementsSyncResult = {
-  deliveredNotificationId: string | null;
-  seededSeenState: boolean;
-  unseenCount: number;
 };
 type NotificationPermissions = Awaited<
   ReturnType<typeof Notifications.getPermissionsAsync>
@@ -56,18 +50,6 @@ function allowsNotifications(permissions: NotificationPermissions) {
   );
 }
 
-function createAnnouncementsSyncResult({
-  deliveredNotificationId = null,
-  seededSeenState = false,
-  unseenCount = 0,
-}: Partial<AnnouncementsSyncResult> = {}): AnnouncementsSyncResult {
-  return {
-    deliveredNotificationId,
-    seededSeenState,
-    unseenCount,
-  };
-}
-
 async function markNotificationsSeenForSession(
   session: Session,
   notifications: readonly Pick<Notification, "id">[],
@@ -79,12 +61,8 @@ async function markNotificationsSeenForSession(
   );
 }
 
-async function areAnnouncementsNotificationsAllowedAsync({
-  requestIfNeeded,
-}: {
-  requestIfNeeded: boolean;
-}) {
-  if (Platform.OS === "web") {
+async function areAnnouncementsNotificationsAllowedAsync(requestIfNeeded: boolean) {
+  if (isWeb) {
     return false;
   }
 
@@ -145,8 +123,6 @@ function buildAnnouncementsNotificationContent(
       : `${latestAnnouncement.title} a další oznámení`,
     data: {
       href: announcementsHref,
-      latestNotificationId: latestNotification.id.toString(),
-      unseenCount,
     } satisfies AnnouncementNotificationData,
     title: isSingleNotification
       ? "Nové oznámení"
@@ -158,12 +134,12 @@ async function scheduleAnnouncementsNotificationAsync(
   unseenNotifications: readonly Notification[],
 ) {
   if (unseenNotifications.length === 0) {
-    return null;
+    return;
   }
 
   await ensureAnnouncementsNotificationChannelAsync();
 
-  return Notifications.scheduleNotificationAsync({
+  await Notifications.scheduleNotificationAsync({
     content: {
       ...buildAnnouncementsNotificationContent(unseenNotifications),
       sound: "default",
@@ -177,77 +153,49 @@ async function scheduleAnnouncementsNotificationAsync(
   });
 }
 
-type RunAnnouncementsSyncOptions = {
-  allowLocalNotifications: boolean;
-};
-
-export async function runAnnouncementsSync({
-  allowLocalNotifications,
-}: RunAnnouncementsSyncOptions): Promise<AnnouncementsSyncResult> {
+async function runAnnouncementsSync(allowLocalNotifications: boolean) {
   const session = await getStoredSession();
 
   if (!session) {
-    return createAnnouncementsSyncResult();
+    return;
   }
 
-  const seenIds = await getStoredSeenIds(
-    notificationsSeenNamespace,
-    session.email,
-  );
-  const notificationPreferences = await getStoredNotificationPreferences(
-    session.email,
-  );
+  const [seenIds, preferences] = await Promise.all([
+    getStoredSeenIds(notificationsSeenNamespace, session.email),
+    getStoredNotificationPreferences(session.email),
+  ]);
   const syncResult = await syncNotifications({
-    authHeaders: {
-      Authorization: session.token,
-    },
+    authHeaders: { Authorization: session.token },
     email: session.email,
-    preferences: notificationPreferences,
+    preferences,
+    seenIds,
     stopWhen: ({ nextPage, unseenNotifications }) =>
       unseenNotifications.length > 0 || nextPage === undefined,
   });
-  const unseenCount = syncResult.unseenNotifications.length;
 
   if (seenIds.length === 0) {
     await markNotificationsSeenForSession(
       session,
       syncResult.visibleNotifications,
     );
-    return createAnnouncementsSyncResult({
-      seededSeenState: true,
-      unseenCount,
-    });
+    return;
   }
 
-  if (unseenCount === 0) {
-    return createAnnouncementsSyncResult();
+  if (syncResult.unseenNotifications.length === 0 || !allowLocalNotifications) {
+    return;
   }
 
-  if (!allowLocalNotifications) {
-    return createAnnouncementsSyncResult({ unseenCount });
-  }
-
-  const deliveredNotificationId = await scheduleAnnouncementsNotificationAsync(
-    syncResult.unseenNotifications,
-  );
+  await scheduleAnnouncementsNotificationAsync(syncResult.unseenNotifications);
   await markNotificationsSeenForSession(
     session,
     syncResult.unseenNotifications,
   );
-
-  return createAnnouncementsSyncResult({
-    deliveredNotificationId,
-    unseenCount,
-  });
 }
 
 async function runAnnouncementsBackgroundTaskAsync() {
-  const allowLocalNotifications =
-    await areAnnouncementsNotificationsAllowedAsync({
-      requestIfNeeded: false,
-    });
-
-  await runAnnouncementsSync({ allowLocalNotifications });
+  await runAnnouncementsSync(
+    await areAnnouncementsNotificationsAllowedAsync(false),
+  );
 }
 
 if (!TaskManager.isTaskDefined(announcementsBackgroundTaskName)) {
@@ -263,7 +211,7 @@ if (!TaskManager.isTaskDefined(announcementsBackgroundTaskName)) {
 }
 
 async function isAnnouncementsBackgroundTaskAvailableAsync() {
-  if (Platform.OS === "web") {
+  if (isWeb) {
     return false;
   }
 
@@ -282,25 +230,23 @@ async function isAnnouncementsBackgroundTaskAvailableAsync() {
   }
 }
 
-export async function registerAnnouncementsBackgroundTaskAsync() {
+async function registerAnnouncementsBackgroundTaskAsync() {
   if (!(await isAnnouncementsBackgroundTaskAvailableAsync())) {
-    return false;
+    return;
   }
 
   if (
     await TaskManager.isTaskRegisteredAsync(announcementsBackgroundTaskName)
   ) {
-    return true;
+    return;
   }
 
   await BackgroundTask.registerTaskAsync(announcementsBackgroundTaskName, {
     minimumInterval: announcementsBackgroundIntervalMinutes,
   });
-
-  return true;
 }
 
-export async function unregisterAnnouncementsBackgroundTaskAsync() {
+async function unregisterAnnouncementsBackgroundTaskAsync() {
   if (!(await isAnnouncementsBackgroundTaskAvailableAsync())) {
     return;
   }
@@ -314,33 +260,19 @@ export async function unregisterAnnouncementsBackgroundTaskAsync() {
   await BackgroundTask.unregisterTaskAsync(announcementsBackgroundTaskName);
 }
 
-type BootstrapAnnouncementsNotificationRuntimeOptions = {
-  requestPermissions: boolean;
-};
-
-export async function bootstrapAnnouncementsNotificationRuntimeAsync({
-  requestPermissions,
-}: BootstrapAnnouncementsNotificationRuntimeOptions) {
-  if (Platform.OS === "web") {
-    return {
-      backgroundTaskRegistered: false,
-      notificationsAllowed: false,
-    };
+async function bootstrapAnnouncementsNotificationRuntimeAsync(
+  requestPermissions: boolean,
+) {
+  if (isWeb) {
+    return;
   }
 
   await ensureAnnouncementsNotificationChannelAsync();
-  const [backgroundTaskRegistered, notificationsAllowed] = await Promise.all([
+  await Promise.all([
     registerAnnouncementsBackgroundTaskAsync(),
-    areAnnouncementsNotificationsAllowedAsync({
-      requestIfNeeded: requestPermissions,
-    }),
+    areAnnouncementsNotificationsAllowedAsync(requestPermissions),
   ]);
-  await runAnnouncementsSync({ allowLocalNotifications: false });
-
-  return {
-    backgroundTaskRegistered,
-    notificationsAllowed,
-  };
+  await runAnnouncementsSync(false);
 }
 
 function getHrefFromNotificationResponse(
@@ -362,13 +294,23 @@ function shouldRequestNotificationPermissions(
   );
 }
 
+function logAnnouncementsRuntimeError(message: string, error: unknown) {
+  console.error(message, error);
+}
+
+function runWithLoggedError(promise: Promise<unknown>, message: string) {
+  void promise.catch((error) => {
+    logAnnouncementsRuntimeError(message, error);
+  });
+}
+
 export function useAnnouncementsNotificationRuntime(session: Session | null) {
   const router = useRouter();
   const lastHandledNotificationIdRef = useRef<string | null>(null);
   const previousSessionRef = useRef<Session | null | undefined>(undefined);
 
   useEffect(() => {
-    if (Platform.OS === "web" || !session) {
+    if (isWeb || !session) {
       return;
     }
 
@@ -404,7 +346,7 @@ export function useAnnouncementsNotificationRuntime(session: Session | null) {
   }, [router, session]);
 
   useEffect(() => {
-    if (Platform.OS === "web") {
+    if (isWeb) {
       return;
     }
 
@@ -413,25 +355,21 @@ export function useAnnouncementsNotificationRuntime(session: Session | null) {
 
     if (!session) {
       lastHandledNotificationIdRef.current = null;
-      void unregisterAnnouncementsBackgroundTaskAsync().catch((error) => {
-        console.error(
-          "Unable to unregister announcements background task.",
-          error,
-        );
-      });
+      runWithLoggedError(
+        unregisterAnnouncementsBackgroundTaskAsync(),
+        "Unable to unregister announcements background task.",
+      );
       return;
     }
 
-    void bootstrapAnnouncementsNotificationRuntimeAsync({
-      requestPermissions: shouldRequestNotificationPermissions(
-        previousSession,
-        session,
+    runWithLoggedError(
+      bootstrapAnnouncementsNotificationRuntimeAsync(
+        shouldRequestNotificationPermissions(
+          previousSession,
+          session,
+        ),
       ),
-    }).catch((error) => {
-      console.error(
-        "Unable to bootstrap announcements notification runtime.",
-        error,
-      );
-    });
+      "Unable to bootstrap announcements notification runtime.",
+    );
   }, [session]);
 }
