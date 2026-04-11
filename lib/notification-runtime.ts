@@ -61,7 +61,9 @@ async function markNotificationsSeenForSession(
   );
 }
 
-async function areAnnouncementsNotificationsAllowedAsync(requestIfNeeded: boolean) {
+async function areAnnouncementsNotificationsAllowedAsync(
+  requestIfNeeded: boolean,
+) {
   if (isWeb) {
     return false;
   }
@@ -364,10 +366,7 @@ export function useAnnouncementsNotificationRuntime(session: Session | null) {
 
     runWithLoggedError(
       bootstrapAnnouncementsNotificationRuntimeAsync(
-        shouldRequestNotificationPermissions(
-          previousSession,
-          session,
-        ),
+        shouldRequestNotificationPermissions(previousSession, session),
       ),
       "Unable to bootstrap announcements notification runtime.",
     );

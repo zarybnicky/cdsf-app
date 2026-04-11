@@ -14,10 +14,7 @@ type BrandBannerProps = {
   subtitle?: string;
 };
 
-export default function BrandBanner({
-  style,
-  subtitle,
-}: BrandBannerProps) {
+export default function BrandBanner({ style, subtitle }: BrandBannerProps) {
   return (
     <ImageBackground
       imageStyle={styles.backgroundImage}

@@ -59,8 +59,7 @@ export const notificationPreferenceMetadata: Record<
 > = {
   CompetitionMessage: {
     label: "Zprávy k soutěžím",
-    description:
-      "Organizační informace a sdělení ke konkrétním soutěžím.",
+    description: "Organizační informace a sdělení ke konkrétním soutěžím.",
   },
   CompetitionChange: {
     label: "Změny soutěží",

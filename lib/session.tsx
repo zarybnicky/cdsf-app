@@ -39,9 +39,7 @@ function getSignInErrorMessage(status: number) {
   return "Přihlášení se nepodařilo dokončit.";
 }
 
-function parseStoredSession(
-  storedSession: string | null,
-): Session | null {
+function parseStoredSession(storedSession: string | null): Session | null {
   if (!storedSession) {
     return null;
   }

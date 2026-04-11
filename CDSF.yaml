@@ -1,7 +1,7 @@
 openapi: 3.0.0
 servers:
   # - description: SwaggerHub API Auto Mocking
-    # url: https://virtserver.swaggerhub.com/C9689/cis/1
+  # url: https://virtserver.swaggerhub.com/C9689/cis/1
   - description: CDSF Production
     url: https://www.csts.cz/api/1
 info:
@@ -72,8 +72,8 @@ paths:
                     description: The array can be empty.
                   paging:
                     allOf:
-                    - $ref: "#/components/schemas/Paging"
-                    - description: Paging here is useless.
+                      - $ref: "#/components/schemas/Paging"
+                      - description: Paging here is useless.
                 required:
                   - collection
   /athletes/current/competitions/registrations:
@@ -458,8 +458,8 @@ paths:
                     description: The array can be empty.
                   paging:
                     allOf:
-                    - $ref: "#/components/schemas/Paging"
-                    - description: Paging here is useless.
+                      - $ref: "#/components/schemas/Paging"
+                      - description: Paging here is useless.
                 required:
                   - collection
   /competitors/{id}:
@@ -583,8 +583,8 @@ paths:
                     description: The array can be empty.
                   paging:
                     allOf:
-                    - $ref: "#/components/schemas/Paging"
-                    - description: Pagination here is useless.
+                      - $ref: "#/components/schemas/Paging"
+                      - description: Pagination here is useless.
                 required:
                   - collection
           ## $ref: "#/components/responses/RateLimitInfo"
@@ -920,8 +920,8 @@ components:
           description: Formatted by server
         validFor:
           allOf:
-          - $ref: "#/components/schemas/Date"
-          - description: Date of generation of athlete instance.
+            - $ref: "#/components/schemas/Date"
+            - description: Date of generation of athlete instance.
         idt:
           type: integer
         age:
@@ -940,12 +940,12 @@ components:
             - deprecated: true
         lat:
           allOf:
-          - $ref: "#/components/schemas/AthleteRankingPoints"
-          - deprecated: true
+            - $ref: "#/components/schemas/AthleteRankingPoints"
+            - deprecated: true
         ten:
           allOf:
-          - $ref: "#/components/schemas/AthleteRankingPoints"
-          - deprecated: true
+            - $ref: "#/components/schemas/AthleteRankingPoints"
+            - deprecated: true
         avatar:
           type: string
           format: URI
@@ -1082,7 +1082,7 @@ components:
           required:
             - type
         - $ref: "#/components/schemas/Official"
-      description: id/Official is generally required. Only in case when the judge is added on venue, it can be ommited. 
+      description: id/Official is generally required. Only in case when the judge is added on venue, it can be ommited.
     CompetitionResult:
       type: object
       properties:
@@ -1128,8 +1128,8 @@ components:
           $ref: "#/components/schemas/CompetitionCompetitors"
         name:
           allOf:
-          - type: string
-          - description: identification of competitor that is not couple nor individual, e.g. formation, team or group.
+            - type: string
+            - description: identification of competitor that is not couple nor individual, e.g. formation, team or group.
         captain:
           type: string
         club:
@@ -1245,11 +1245,11 @@ components:
           $ref: "#/components/schemas/Id.Competitor"
         type:
           $ref: "#/components/schemas/CompetitionCompetitors"
-        name: 
+        name:
           type: string
         country:
           $ref: "#/components/schemas/Country"
-        club: 
+        club:
           type: string
           description: club or city or both
         shortLoanRequired:
@@ -1406,12 +1406,7 @@ components:
       example: "Slowfox"
     DanceDiscipline:
       type: string
-      enum:
-        [
-          Standard,
-          Latin,
-          Other,
-        ]
+      enum: [Standard, Latin, Other]
       example: "Standard"
     DancedRound:
       type: object
@@ -1441,16 +1436,17 @@ components:
       description: Date in ISO format (UTC).
     Discipline:
       type: string
-      enum: [
-        Standard,
-        Latin,
-        TenDances,
-        "Standard+Latin",
-        SingleOfTenDances,
-        FreeStyle,
-        Breaking,
-        Other
-      ]
+      enum:
+        [
+          Standard,
+          Latin,
+          TenDances,
+          "Standard+Latin",
+          SingleOfTenDances,
+          FreeStyle,
+          Breaking,
+          Other,
+        ]
       example: Latin
     Event:
       allOf:
@@ -1478,8 +1474,8 @@ components:
               $ref: "#/components/schemas/RegistrationState"
             resultsCanBeSentBefore:
               allOf:
-              - $ref: "#/components/schemas/DateTime"
-              - description: DateTime in format as in example in UTC.
+                - $ref: "#/components/schemas/DateTime"
+                - description: DateTime in format as in example in UTC.
           required:
             - dateFrom
             - eventTitle
@@ -1494,8 +1490,8 @@ components:
           $ref: "#/components/schemas/Id.Event"
         dateFrom:
           allOf:
-          - $ref: "#/components/schemas/Date"
-          - description: If dateTo is missing, dateFrom specifies the day of the event.
+            - $ref: "#/components/schemas/Date"
+            - description: If dateTo is missing, dateFrom specifies the day of the event.
         dateTo:
           $ref: "#/components/schemas/Date"
         eventTitle:
@@ -1514,8 +1510,8 @@ components:
       properties:
         eventId:
           allOf:
-          - $ref: "#/components/schemas/Id.Event"
-          - description: Refer to https://www.csts.cz/dancesport/kalendar_akci/event/<eventId>
+            - $ref: "#/components/schemas/Id.Event"
+            - description: Refer to https://www.csts.cz/dancesport/kalendar_akci/event/<eventId>
         eventName:
           type: string
         city:
@@ -1715,13 +1711,23 @@ components:
     Presence:
       type: string
       allOf:
-      - enum: ["0", "1", "2", "3", "Excused", "Registered", "NoShow", "WaitingList"]
-        default: 1
-        description: |
-          - 0 = Excused
-          - 1 = Registered
-          - 2 = NoShow
-          - 3 = WaitingList
+        - enum:
+            [
+              "0",
+              "1",
+              "2",
+              "3",
+              "Excused",
+              "Registered",
+              "NoShow",
+              "WaitingList",
+            ]
+          default: 1
+          description: |
+            - 0 = Excused
+            - 1 = Registered
+            - 2 = NoShow
+            - 3 = WaitingList
     RankingClass:
       type: string
       enum: ["Entry", E, D, C, B, A, S, "Open", Novice, Bronze, Silver, Gold]

@@ -1,8 +1,4 @@
-import {
-  ImageBackground,
-  StyleSheet,
-  View,
-} from "react-native";
+import { ImageBackground, StyleSheet, View } from "react-native";
 
 export default function BrandHeaderBackground() {
   return (

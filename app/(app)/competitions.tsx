@@ -36,8 +36,7 @@ const competitionTabs: Record<CompetitionTab, CompetitionTabDefinition> = {
     inactiveIconColor: "#c6ccd7",
     detailIconName: "account-plus-outline",
     emptyTitle: "Žádné přihlášky na soutěže",
-    emptyBody:
-      "Jakmile budou přihlášky na soutěže evidovány, zobrazí se zde.",
+    emptyBody: "Jakmile budou přihlášky na soutěže evidovány, zobrazí se zde.",
   },
   results: {
     label: "Výsledky",
