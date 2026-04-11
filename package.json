@@ -28,6 +28,8 @@
     "expo-status-bar": "~55.0.5",
     "expo-symbols": "~55.0.7",
     "expo-web-browser": "~55.0.14",
+    "openapi-fetch": "^0.17.0",
+    "openapi-react-query": "^0.5.4",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "react-native": "0.83.4",

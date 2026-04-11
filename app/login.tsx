@@ -30,6 +30,12 @@ export default function LoginScreen() {
 
     try {
       await signIn({ email: normalizedEmail, password });
+    } catch (caughtError) {
+      if (caughtError instanceof Error) {
+        setError(caughtError.message);
+      } else {
+        setError('Unable to sign in right now.');
+      }
     } finally {
       setIsSubmitting(false);
     }

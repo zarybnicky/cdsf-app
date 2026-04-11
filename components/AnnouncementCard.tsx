@@ -4,6 +4,7 @@ import MarkdownText from '@/components/MarkdownText';
 import { Text } from '@/components/Themed';
 
 export type AnnouncementCardProps = {
+  id?: string;
   title: string;
   publishedAt: string;
   markdown: string;

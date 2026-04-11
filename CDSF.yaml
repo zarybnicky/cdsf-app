@@ -1,0 +1,1762 @@
+openapi: 3.0.0
+servers:
+  # - description: SwaggerHub API Auto Mocking
+    # url: https://virtserver.swaggerhub.com/C9689/cis/1
+  - description: CDSF Production
+    url: https://www.csts.cz/api/1
+info:
+  description: Machine API for accessing CDSF competition, both planned and completed.
+  version: "1"
+  title: CDSF competition access API
+  contact:
+    email: "webmaster@csts.cz"
+tags:
+  - name: general
+    description: |
+      Publicly accessible operations and behavior. Authorized clients have
+      lower rate limit and can use more URL parameters.
+  - name: authorized
+    description: |
+      Operations and behavior available to general clients. Authorized clients are allowed to execute all operations that general can.
+  - name: scrutineer
+    description: |
+      Operations and behavior available to scrutinners. Scrutineer clients are allowed to execute all operations that authorized can.
+paths:
+  /athletes/{idt}:
+    get:
+      tags:
+        - general
+      parameters:
+        - in: path
+          name: idt
+          description: Id of the particular person.
+          required: true
+          schema:
+            $ref: "#/components/schemas/Id.Person"
+      responses:
+        "500":
+          $ref: "#/components/responses/ServerFailure"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entity:
+                    $ref: "#/components/schemas/Athlete"
+  /athletes/current:
+    get:
+      tags:
+        - authorized
+      security:
+        - BearerAuth: []
+      responses:
+        "500":
+          $ref: "#/components/responses/ServerFailure"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  collection:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Athlete"
+                    description: The array can be empty.
+                  paging:
+                    allOf:
+                    - $ref: "#/components/schemas/Paging"
+                    - description: Paging here is useless.
+                required:
+                  - collection
+  /athletes/current/competitions/registrations:
+    get:
+      tags:
+        - authorized
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            $ref: "#/components/schemas/Page"
+        - in: query
+          name: pageSize
+          schema:
+            $ref: "#/components/schemas/PageSize"
+          description: If pageSize is empty server decides about number of items to return.
+      responses:
+        "500":
+          $ref: "#/components/responses/ServerFailure"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  collection:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/EventRegistration"
+                    description: The array can be empty.
+                  paging:
+                    $ref: "#/components/schemas/Paging"
+                required:
+                  - collection
+  /athletes/current/competitions/results:
+    get:
+      tags:
+        - authorized
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            $ref: "#/components/schemas/Page"
+        - in: query
+          name: pageSize
+          schema:
+            $ref: "#/components/schemas/PageSize"
+          description: If pageSize is empty server decides about number of items to return.
+      responses:
+        "500":
+          $ref: "#/components/responses/ServerFailure"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  collection:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/EventRegistration"
+                    description: The array can be empty.
+                  paging:
+                    $ref: "#/components/schemas/Paging"
+                required:
+                  - collection
+  /athletes/{idt}/competitions/{competitionId}:
+    delete:
+      tags:
+        - authorized
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: idt
+          description: Id of the particular person.
+          required: true
+          schema:
+            $ref: "#/components/schemas/Id.Person"
+        - in: path
+          name: competitionId
+          description: Id of the particular competition to be removed from.
+          required: true
+          schema:
+            $ref: "#/components/schemas/Id.Competition"
+      responses:
+        "500":
+          $ref: "#/components/responses/ServerFailure"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "400":
+          description: id is missing, or is malformed (not an integer)
+        "404":
+          description: entity of the id is not found
+        "200":
+          description: OK
+  /competitions/{competitionId}:
+    get:
+      tags:
+        - general
+      operationId: loadCompetition
+      summary: Returns data of single competition.
+      description: |
+        Loads detailed data for the competition.
+
+        Anonymous clients:
+
+        * Only competitions within range of -10 to +20 days (including) are available.
+        * Rate limiting is applied. Rate limit is shared between all API endpoints.
+
+        Authorized clients:
+
+        * Rate limiting is loose or none.
+      parameters:
+        - in: path
+          name: competitionId
+          description: Id of the particular competition to be loaded.
+          required: true
+          schema:
+            $ref: "#/components/schemas/Id.Competition"
+      responses:
+        "500":
+          $ref: "#/components/responses/ServerFailure"
+        "429":
+          $ref: "#/components/responses/RateLimitAchieved"
+        "400":
+          description: Bad input parameter, e.g. competitionId is not an integer number, or competition does not belong to allowed date range.
+          ## $ref: "#/components/responses/RateLimitInfo"
+        "404":
+          description: Required competition does not exist.
+          ## $ref: "#/components/responses/RateLimitInfo"
+        "200":
+          description: Competition found.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entity:
+                    $ref: "#/components/schemas/Competition"
+          ## $ref: "#/components/responses/RateLimitInfo"
+  /competitions/{competitionId}/startlist:
+    get:
+      tags:
+        - general
+      operationId: listCompetitionCompetitors
+      summary: Returns competitors of single competition.
+      description: |
+        List of all competitors (both registered and excudes) for the selected competition.
+
+        Anonymous clients:
+
+        * Only competitions within range of -10 to +20 days (including) are available.
+        * Rate limiting is applied. Rate limit is shared between all API endpoints.
+
+        Authorized clients:
+
+        * rate limiting is loose or none.
+      parameters:
+        - in: path
+          name: competitionId
+          description: Id of the competition startlist of which is requested.
+          required: true
+          schema:
+            $ref: "#/components/schemas/Id.Competition"
+        - in: query
+          name: page
+          schema:
+            $ref: "#/components/schemas/Page"
+        - in: query
+          name: pageSize
+          schema:
+            $ref: "#/components/schemas/PageSize"
+          description: If pageSize is empty server decides about number of items to return.
+      responses:
+        "500":
+          $ref: "#/components/responses/ServerFailure"
+        "429":
+          $ref: "#/components/responses/RateLimitAchieved"
+        "400":
+          description: Bad input parameter, e.g. competitionId is not an integer number, or competition does not belong to allowed date range.
+          ## $ref: "#/components/responses/RateLimitInfo"
+        "404":
+          description: Required competition does not exist.
+          ## $ref: "#/components/responses/RateLimitInfo"
+        "200":
+          description: Competition found, all its competitors are returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  collection:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CompetitionStartListCompetitor"
+                    description: The array can be empty.
+                  paging:
+                    $ref: "#/components/schemas/Paging"
+                required:
+                  - collection
+          ## $ref: "#/components/responses/RateLimitInfo"
+  /competitions/{competitionId}/result:
+    get:
+      tags:
+        - general
+      operationId: loadCompetitionResult
+      summary: Returns result for the competition.
+      description: |
+        Overall result for the competition is returned, including ranking, and marks.
+
+        Anonymous clients:
+
+        * Only competitions within range of -10 to +20 days (including) are available.
+        * Rate limiting is applied. Rate limit is shared between all API endpoints.
+
+        Authorized clients:
+
+        * rate limiting is loose or none.
+      parameters:
+        - in: path
+          name: competitionId
+          description: Id of the competition result of which are requested.
+          required: true
+          schema:
+            $ref: "#/components/schemas/Id.Competition"
+      responses:
+        "500":
+          $ref: "#/components/responses/ServerFailure"
+        "429":
+          $ref: "#/components/responses/RateLimitAchieved"
+        "400":
+          description: Bad input parameter, e.g. competitionId is not an integer number, or competition does not belong to allowed date range.
+          ## $ref: "#/components/responses/RateLimitInfo"
+        "404":
+          description: required competition does not exist
+          ## $ref: "#/components/responses/RateLimitInfo"
+        "200":
+          description: Result for the competition found.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entity:
+                    $ref: "#/components/schemas/CompetitionResult"
+          ## $ref: "#/components/responses/RateLimitInfo"
+    put:
+      tags:
+        - scrutineer
+      security:
+        - BearerAuth: []
+      operationId: storeCompetitionResult
+      summary: Stores/updates result for competition.
+      description: |
+        Storing or updating competition result. If result does not exist, it is created, otherwise it is replaced (not merged).
+
+        Storing result is allowed only for limited time after the competition ends, typically a day or two after event ends.
+      parameters:
+        - in: path
+          name: competitionId
+          description: Id of the competition result of which are to be stored.
+          required: true
+          schema:
+            $ref: "#/components/schemas/Id.Competition"
+      requestBody:
+        description: Competition result.
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                entity:
+                  $ref: "#/components/schemas/CompetitionResult"
+      responses:
+        "500":
+          $ref: "#/components/responses/ServerFailure"
+        "400":
+          description: |
+            According to error, the response can be empty or not:
+
+            * Empty (none) response can be returned, when parameter is bad (e.g. competitionId is not an integer number, or so).
+            * Content response is returned, with error description, when a try to upload result is done later than allowed, or when result does not meet validation criteria.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  errors:
+                    $ref: "#/components/schemas/ResultUploadError"
+          ## $ref: "#/components/responses/RateLimitInfo"
+        "404":
+          description: Required competition does not exist.
+          ## $ref: "#/components/responses/RateLimitInfo"
+        "200":
+          description: Result for the competition have been replaced.
+          ## $ref: "#/components/responses/RateLimitInfo"
+        "201":
+          description: Result for the competition have been created.
+          ## $ref: "#/components/responses/RateLimitInfo"
+    delete:
+      tags:
+        - scrutineer
+      security:
+        - BearerAuth: []
+      operationId: deleteCompetitionResult
+      summary: Deletes result for competition.
+      parameters:
+        - in: path
+          name: competitionId
+          description: Id of the competition result of which are to be deleted.
+          required: true
+          schema:
+            $ref: "#/components/schemas/Id.Competition"
+      responses:
+        "500":
+          $ref: "#/components/responses/ServerFailure"
+        "404":
+          description: Required competition does not exist.
+          ## $ref: "#/components/responses/RateLimitInfo"
+        "200":
+          description: Result for the competition have been deleted.
+          ## $ref: "#/components/responses/RateLimitInfo"
+  /competitions/{competitionId}/dances:
+    get:
+      tags:
+        - general
+      operationId: loadCompetitionDances
+      summary: Returns dances for the competition.
+      deprecated: true
+      description: |
+        Overall dances for the competition is returned.
+
+        Anonymous clients:
+
+        * Only competitions within range of -10 to +20 days (including) are available.
+        * Rate limiting is applied. Rate limit is shared between all API endpoints.
+
+        Authorized clients:
+
+        * rate limiting is loose or none.
+      parameters:
+        - in: path
+          name: competitionId
+          description: Id of the competition dances of which are requested.
+          required: true
+          schema:
+            $ref: "#/components/schemas/Id.Competition"
+      responses:
+        "500":
+          $ref: "#/components/responses/ServerFailure"
+        "429":
+          $ref: "#/components/responses/RateLimitAchieved"
+        "400":
+          description: Bad input parameter, e.g. competitionId is not an integer number, or competition does not belong to allowed date range.
+          ## $ref: "#/components/responses/RateLimitInfo"
+        "404":
+          description: required competition does not exist
+          ## $ref: "#/components/responses/RateLimitInfo"
+        "200":
+          description: Result for the competition found.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  collection:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Dance"
+                    description: The array can be empty.
+                  paging:
+                    allOf:
+                    - $ref: "#/components/schemas/Paging"
+                    - description: Paging here is useless.
+                required:
+                  - collection
+  /competitors/{id}:
+    get:
+      tags:
+        - general
+      parameters:
+        - in: path
+          name: id
+          description: Id of the particular person.
+          required: true
+          schema:
+            $ref: "#/components/schemas/Id.Competitor"
+      responses:
+        "500":
+          $ref: "#/components/responses/ServerFailure"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entity:
+                    $ref: "#/components/schemas/Competitor"
+  /credentials:
+    post:
+      tags:
+        - general
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Credentials"
+      responses:
+        "500":
+          $ref: "#/components/responses/ServerFailure"
+        "400":
+          description: Request body is malformed or any of login or password is empty.
+        "401":
+          description: Credentials are invalid.
+        "201":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BearerToken"
+  /credentials/current:
+    delete:
+      tags:
+        - authorized
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: query
+          name: purpose
+          required: true
+          schema:
+            type: string
+      responses:
+        "500":
+          $ref: "#/components/responses/ServerFailure"
+        "400":
+          description: Request parameter is malformed or missing.
+        "200":
+          description: OK
+  /competition_events:
+    get:
+      tags:
+        - general
+      operationId: listEvents
+      summary: Lists events within selected date range.
+      description: |
+        A list of basic info of competition events. Date range can be filtered using parameters 'from' and 'to'. If parameters are omitted, default date range is used.
+
+        Anonymous clients:
+
+        * Default date range is -10 to +20 days (including), with no posibility to select any range for extending the range.
+        * Rate limiting is applied. Rate limit is shared between all API endpoints.
+
+        Authorized clients:
+
+        * Default date range is -10 to +20 days (including), with posibility to select any range with maximal duration of half a year.
+        * rate limiting is loose or none.
+      parameters:
+        - in: query
+          name: from
+          description: Date from, event end date is considered. If not present, 10 days ago are taken.
+          required: false
+          schema:
+            $ref: "#/components/schemas/Date"
+        - in: query
+          name: to
+          description: Date to, event start date is considered. If not present, 20 days ahead are taken.
+          required: false
+          schema:
+            $ref: "#/components/schemas/Date"
+      responses:
+        "500":
+          $ref: "#/components/responses/ServerFailure"
+        "429":
+          $ref: "#/components/responses/RateLimitAchieved"
+        "400":
+          description: |
+            Bad input parameter, e.g. date is improperly formatted, or allowed range limits are exceeded.
+          ## $ref: "#/components/responses/RateLimitInfo"
+        "200":
+          description: Array of competition events within selected range is returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  collection:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/EventInfo"
+                    description: The array can be empty.
+                  paging:
+                    allOf:
+                    - $ref: "#/components/schemas/Paging"
+                    - description: Pagination here is useless.
+                required:
+                  - collection
+          ## $ref: "#/components/responses/RateLimitInfo"
+  /competition_events/{eventId}:
+    get:
+      tags:
+        - general
+      operationId: loadEvent
+      summary: Delivers the competition event of the requested id.
+      description: |
+        Loads complete information for requested event, including officials and competitions. Start lists are not included, only count of registered and excused competitors is given.
+
+        Anonymous clients:
+
+        * Only events within range of -10 to +20 days (including) are available.
+        * Rate limiting is applied. Rate limit is shared between all API endpoints.
+
+        Authorized clients:
+
+        * Rate limiting is loose or none.
+      parameters:
+        - in: path
+          name: eventId
+          description: Id of particular event to be loaded.
+          required: true
+          schema:
+            $ref: "#/components/schemas/Id.Event"
+      responses:
+        "500":
+          $ref: "#/components/responses/ServerFailure"
+        "429":
+          $ref: "#/components/responses/RateLimitAchieved"
+        "400":
+          description: Bad input parameter, e.g. eventId is not an integer number, or event does not belong to allowed date range.
+          ## $ref: "#/components/responses/RateLimitInfo"
+        "404":
+          description: Required event does not exist.
+          ## $ref: "#/components/responses/RateLimitInfo"
+        "200":
+          description: Event found, its data is returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entity:
+                    $ref: "#/components/schemas/Event"
+          ## $ref: "#/components/responses/RateLimitInfo"
+  /competition_events/{eventId}/startlist:
+    get:
+      tags:
+        - general
+      operationId: listEventCompetitors
+      summary: Returns all competitors of the event.
+      description: |
+        List of all competitors (both registered and excused) of selected event, including linkage to competitions. If a competitor competes in more competitions, it is listed more times, separately for each competition.
+
+        Anonymous clients:
+
+        * Only events within range of -10 to +20 days (including) are available.
+        * Rate limiting is applied. Rate limit is shared between all API endpoints.
+
+        Authorized clients:
+
+        * Rate limiting is loose or none.
+      parameters:
+        - in: path
+          name: eventId
+          description: Id of the event startlist of which is requested.
+          required: true
+          schema:
+            $ref: "#/components/schemas/Id.Event"
+        - in: query
+          name: page
+          schema:
+            $ref: "#/components/schemas/Page"
+        - in: query
+          name: pageSize
+          schema:
+            $ref: "#/components/schemas/PageSize"
+          description: If pageSize is empty server decides about number of items to return.
+      responses:
+        "500":
+          $ref: "#/components/responses/ServerFailure"
+        "429":
+          $ref: "#/components/responses/RateLimitAchieved"
+        "400":
+          description: Bad input parameter, e.g. eventId is not an integer number, or event does not belong to allowed date range.
+          ## $ref: "#/components/responses/RateLimitInfo"
+        "404":
+          description: Required event does not exist.
+          ## $ref: "#/components/responses/RateLimitInfo"
+        "200":
+          description: Event found, list of all its competitors is returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  collection:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/EventStartListCompetitor"
+                    description: The array can be empty.
+                  paging:
+                    $ref: "#/components/schemas/Paging"
+                required:
+                  - collection
+          ## $ref: "#/components/responses/RateLimitInfo"
+  /notifications:
+    get:
+      tags:
+        - authorized
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            $ref: "#/components/schemas/Page"
+        - in: query
+          name: pageSize
+          schema:
+            $ref: "#/components/schemas/PageSize"
+          description: If pageSize is empty server decides about number of items to return.
+      responses:
+        "500":
+          $ref: "#/components/responses/ServerFailure"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "200":
+          description: |
+            OK
+            Returned collection always contains all notifications of the earliest day present in the collection.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  collection:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Notification"
+                    description: The array can be empty.
+                  paging:
+                    $ref: "#/components/schemas/Paging"
+                required:
+                  - collection
+  /notifications/{id}:
+    get:
+      tags:
+        - authorized
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            $ref: "#/components/schemas/Id.Notification"
+      responses:
+        "500":
+          $ref: "#/components/responses/ServerFailure"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "400":
+          description: id is missing, or is malformed (not an integer)
+        "404":
+          description: entity of the id is not found
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entity:
+                    $ref: "#/components/schemas/Notification"
+  /officials:
+    get:
+      tags:
+        - general
+      operationId: listOfficials
+      summary: Returns list of officials with licenses valid to current date.
+      description: |
+        Detailed information about officials available to current date, including their classes and licences.
+      parameters:
+        - in: query
+          name: page
+          schema:
+            $ref: "#/components/schemas/Page"
+        - in: query
+          name: pageSize
+          schema:
+            $ref: "#/components/schemas/PageSize"
+          description: If pageSize is empty server decides about number of items to return.
+      responses:
+        "500":
+          $ref: "#/components/responses/ServerFailure"
+        "429":
+          $ref: "#/components/responses/RateLimitAchieved"
+        "200":
+          description: List of officials.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  collection:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Official"
+                    description: The array can be empty.
+                  paging:
+                    $ref: "#/components/schemas/Paging"
+                required:
+                  - collection
+          ## $ref: "#/components/responses/RateLimitInfo"
+  /officials/{officialId}:
+    get:
+      tags:
+        - general
+      summary: Returns official details.
+      operationId: loadOfficial
+      description: |
+        Detailed information about official available to current date, including its classes and licences.
+      parameters:
+        - in: path
+          name: officialId
+          description: Id of the official requested.
+          required: true
+          schema:
+            $ref: "#/components/schemas/Id.Official"
+      responses:
+        "500":
+          $ref: "#/components/responses/ServerFailure"
+        "429":
+          $ref: "#/components/responses/RateLimitAchieved"
+        "400":
+          description: Bad input parameter, e.g. officialId is not an integer number.
+          ## $ref: "#/components/responses/RateLimitInfo"
+        "404":
+          description: Required official does not exist.
+          ## $ref: "#/components/responses/RateLimitInfo"
+        "200":
+          description: Official found.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entity:
+                    $ref: "#/components/schemas/Official"
+          ## $ref: "#/components/responses/RateLimitInfo"
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+  responses:
+    RateLimitAchieved:
+      description: Rate limit achieved.
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+          description: Seconds to delay the following request for the resource in order to get valid response.
+        X-RateLimit-Limit:
+          schema:
+            type: integer
+          description: Request limit per hour.
+    RateLimitInfo:
+      description: Current rate limitation state.
+      headers:
+        X-RateLimit-Limit:
+          schema:
+            type: integer
+          description: Request limit per hour.
+        X-RateLimit-Remaining:
+          schema:
+            type: integer
+          description: The number of requests left for the time window.
+        X-RateLimit-Reset:
+          schema:
+            type: integer
+          description: Remaining seconds before current rate limit is reset.
+    ServerFailure:
+      description: Unspecified server failure
+    UnauthorizedError:
+      description: Access token is missing or invalid
+  schemas:
+    Age:
+      type: string
+      enum:
+        [
+          "Under 8",
+          "Juvenile I",
+          "Juvenile II",
+          "Juvenile",
+          "Junior I",
+          "Junior II",
+          "Junior",
+          Youth,
+          Adult,
+          "Under 21",
+          "Senior",
+          "Senior I",
+          "Senior II",
+          "Senior III",
+          "Senior IV",
+          "Senior V",
+        ]
+      example: "Adult"
+      description: |
+        Under 8 = Do 8 let
+        Juvenile I = Děti I
+        Juvenile II = Děti II
+        Junior I = Junioři I
+        Junior II = Junioři II
+        Youth = Mládež
+        Adult = Dospělí
+        Under 21 = Do 21 let
+        Senior I = Senioři I
+        Senior II = Senioři II
+        Senior III = Senioři III
+        Senior IV = Senioři IV
+        Senior V = Senioři V
+    Athlete:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Formatted by server
+        validFor:
+          allOf:
+          - $ref: "#/components/schemas/Date"
+          - description: Date of generation of athlete instance.
+        idt:
+          type: integer
+        age:
+          $ref: "#/components/schemas/Age"
+        medicalCheckupExpiration:
+          type: string
+          format: "#/components/schemas/Date"
+          description: Last day of medical checkup validity, minimum of all available values
+        rankingPoints:
+          type: array
+          items:
+            $ref: "#/components/schemas/AthleteRankingPoints"
+        stt:
+          allOf:
+            - $ref: "#/components/schemas/AthleteRankingPoints"
+            - deprecated: true
+        lat:
+          allOf:
+          - $ref: "#/components/schemas/AthleteRankingPoints"
+          - deprecated: true
+        ten:
+          allOf:
+          - $ref: "#/components/schemas/AthleteRankingPoints"
+          - deprecated: true
+        avatar:
+          type: string
+          format: URI
+        barcode:
+          type: string
+          format: URI
+      required:
+        - name
+        - idt
+        - age
+    AthleteRankingPoints:
+      allOf:
+        - $ref: "#/components/schemas/CompetitorRankingPoints"
+        - type: object
+          properties:
+            partner:
+              type: string
+              description: Formatted name
+            idt:
+              type: integer
+            avatar:
+              type: string
+              format: URI
+            medicalCheckupExpiration:
+              type: string
+              format: "#/components/schemas/Date"
+              description: Last day of medical checkup validity
+            personalClass:
+              $ref: "#/components/schemas/RankingClass"
+            personalPoints:
+              type: integer
+            personalDomesticFinaleCount:
+              type: integer
+            personalForeignFinaleCount:
+              type: integer
+            ranklistRanking:
+              type: integer
+            ranklistPoints:
+              type: integer
+      required:
+        - id
+        - series
+        - discipline
+        - rankingPointsAge
+        - competitors
+    BearerToken:
+      type: string
+    Club:
+      type: string
+      example: "Neznámý z Nejdedál"
+      description: Club of the competitor. It may differ from individual partner's club.
+    Competition:
+      type: object
+      properties:
+        competitionId:
+          $ref: "#/components/schemas/Id.Competition"
+        date:
+          $ref: "#/components/schemas/Date"
+        competitors:
+          $ref: "#/components/schemas/CompetitionCompetitors"
+        class:
+          $ref: "#/components/schemas/RankingClass"
+        toClass:
+          $ref: "#/components/schemas/RankingClass"
+        discipline:
+          $ref: "#/components/schemas/Discipline"
+        age:
+          $ref: "#/components/schemas/Age"
+        grade:
+          $ref: "#/components/schemas/CompetitionGrade"
+        series:
+          $ref: "#/components/schemas/CompetitionSeries"
+        chairPersonId:
+          $ref: "#/components/schemas/Id.Official"
+        dances:
+          type: array
+          items:
+            $ref: "#/components/schemas/Dance"
+        danceDisciplines:
+          type: array
+          items:
+            $ref: "#/components/schemas/DanceDiscipline"
+        registrationEnd:
+          type: string
+          format: "#/components/schemas/DateTime"
+        registrationFee:
+          type: number
+          example: 250.0
+          description: Starting fee per competitor, e.g. for a whole couple or formation.
+        registered:
+          type: integer
+          example: 13
+          description: Count of registered, not excused, competitors.
+        excused:
+          type: integer
+          example: 2
+          description: Count of excused competitors.
+      required:
+        - competitionId
+        - chairPersonId
+        - competitors
+        - discipline
+        - age
+        - grade
+    CompetitionGrade:
+      type: string
+      enum: [Cup, Ranking, League, Championship, TopLevel, SuperLeague, GCup]
+      example: "Ranking"
+    CompetitionSeries:
+      type: string
+      enum: [DanceForAll, DanceSport]
+      example: "DanceSport"
+    CompetitionCompetitors:
+      type: string
+      enum: [Couple, SoloDancer, Duo, Group, ProAm, Team, Formation]
+      example: "Couple"
+    CompetitionOfficial:
+      type: object
+      allOf:
+        - $ref: "#/components/schemas/OfficialId"
+        - type: object
+          properties:
+            type:
+              $ref: "#/components/schemas/OfficialType"
+            index:
+              type: integer
+              minimum: 1
+              example: 2
+              description: Required only for judges results, index specifies judge position in marks array if judges are the same in all rounds.
+            label:
+              type: string
+              example: "AA"
+              description: Only for judges, label is informational field.
+          required:
+            - type
+        - $ref: "#/components/schemas/Official"
+      description: id/Official is generally required. Only in case when the judge is added on venue, it can be ommited. 
+    CompetitionResult:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [partial, preliminary, approved]
+        competitionId:
+          $ref: "#/components/schemas/Id.Competition"
+        completedAt:
+          type: string
+          format: datetime
+          example: "2020-15-04T12:30:00"
+          description: DateTime in format as in example, in UTC.
+        officials:
+          type: array
+          items:
+            $ref: "#/components/schemas/CompetitionOfficial"
+        competitors:
+          type: array
+          items:
+            $ref: "#/components/schemas/CompetitorResult"
+          description: The array contains only competitors that were competing. No excused competitor is included.
+        rounds:
+          type: array
+          items:
+            $ref: "#/components/schemas/DancedRound"
+        invigilatorReport:
+          type: string
+          description: Markdown supported.
+      required:
+        - competitionId
+        - completedAt
+        - officials
+        - competitors
+        - rounds
+        - type
+    CompetitionStartListCompetitor:
+      type: object
+      properties:
+        competitorId:
+          $ref: "#/components/schemas/Id.Competitor"
+        type:
+          $ref: "#/components/schemas/CompetitionCompetitors"
+        name:
+          allOf:
+          - type: string
+          - description: identification of competitor that is not couple nor individual, e.g. formation, team or group.
+        captain:
+          type: string
+        club:
+          $ref: "#/components/schemas/Club"
+        country:
+          $ref: "#/components/schemas/Country"
+        persons:
+          $ref: "#/components/schemas/CompetitorPersons"
+        coupleOrDuos:
+          $ref: "#/components/schemas/CompetitorCoupleOrDuos"
+      required:
+        - competitorId
+        - persons or couplesOrDuos or name
+    CompetitionRegistration:
+      type: object
+      properties:
+        idt:
+          $ref: "#/components/schemas/Id.Person"
+        compId:
+          allOf:
+            - $ref: "#/components/schemas/Id.Competition"
+            - deprecated: true
+        competitionId:
+          $ref: "#/components/schemas/Id.Competition"
+        category:
+          allOf:
+            - $ref: "#/components/schemas/CompetitionCompetitors"
+            - deprecated: true
+        competitors:
+          $ref: "#/components/schemas/CompetitionCompetitors"
+        class:
+          $ref: "#/components/schemas/RankingClass"
+        discipline:
+          $ref: "#/components/schemas/Discipline"
+        age:
+          $ref: "#/components/schemas/Age"
+        grade:
+          $ref: "#/components/schemas/CompetitionGrade"
+        series:
+          $ref: "#/components/schemas/CompetitionSeries"
+        ranking:
+          type: integer
+        rankingTo:
+          type: integer
+        registrationEnd:
+          type: string
+          format: "#/components/schemas/DateTime"
+      required:
+        - competitionId
+        - class
+        - discipline
+        - age
+    CompetitorCoupleOrDuos:
+      type: array
+      items:
+        type: object
+        properties:
+          id:
+            $ref: "#/components/schemas/Id.Competitor"
+          idt1:
+            $ref: "#/components/schemas/Id.Person"
+          name1:
+            type: string
+          surname1:
+            type: string
+          sex1:
+            type: string
+          idt2:
+            $ref: "#/components/schemas/Id.Person"
+          name2:
+            type: string
+          surname2:
+            type: string
+          sex2:
+            type: string
+          age:
+            $ref: "#/components/schemas/Age"
+          backup:
+            type: boolean
+        required:
+          - id
+          - idt1
+          - surname1
+          - idt2
+          - surname2
+    CompetitorPersons:
+      type: array
+      items:
+        type: object
+        properties:
+          id:
+            $ref: "#/components/schemas/Id.Competitor"
+          idt:
+            $ref: "#/components/schemas/Id.Person"
+          name:
+            type: string
+          surname:
+            type: string
+          sex:
+            type: string
+          age:
+            $ref: "#/components/schemas/Age"
+          backup:
+            type: boolean
+        required:
+          - id
+          - idt
+          - surname
+    Competitor:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/Id.Competitor"
+        type:
+          $ref: "#/components/schemas/CompetitionCompetitors"
+        name: 
+          type: string
+        country:
+          $ref: "#/components/schemas/Country"
+        club: 
+          type: string
+          description: club or city or both
+        shortLoanRequired:
+          type: boolean
+        persons:
+          $ref: "#/components/schemas/CompetitorPersons"
+        coupleOrDuos:
+          $ref: "#/components/schemas/CompetitorCoupleOrDuos"
+        rankingPoints:
+          type: array
+          items:
+            $ref: "#/components/schemas/CompetitorRankingPoints"
+      required:
+        - id
+        - type
+        - name or persons or coupleOrDuos
+    CompetitorResult:
+      type: object
+      properties:
+        competitorId:
+          $ref: "#/components/schemas/Id.Competitor"
+        club:
+          type: string
+        completion:
+          $ref: "#/components/schemas/Completion"
+        startNumber:
+          type: integer
+          minimum: 1
+          example: 225
+        ranking:
+          type: integer
+          minimum: 1
+          example: 7
+        rankingTo:
+          type: integer
+          minimum: 1
+          example: 8
+        rounds:
+          type: array
+          items:
+            type: object
+            properties:
+              round:
+                $ref: "#/components/schemas/Round"
+              ranking:
+                type: integer
+                minimum: 1
+                example: 7
+              rankingTo:
+                type: integer
+                minimum: 1
+                example: 8
+              marks:
+                $ref: "#/components/schemas/Marks"
+              sum:
+                type: number
+                example: 35.787
+              danceResults:
+                type: array
+                items:
+                  type: number
+                  example: 8.775
+            required:
+              - round
+              - ranking
+              - marks
+              - sum
+      required:
+        - competitorId
+        - club
+        - startNumber
+        - rounds
+    CompetitorRankingPoints:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/Id.RankingPoints"
+        competitorId:
+          $ref: "#/components/schemas/Id.Competitor"
+        age:
+          allOf:
+            - $ref: "#/components/schemas/Age"
+            - description: Age of the competitor, it may differ from the age of the person, and/or partner.
+        series:
+          $ref: "#/components/schemas/CompetitionSeries"
+        discipline:
+          $ref: "#/components/schemas/Discipline"
+        rankingPointsAge:
+          $ref: "#/components/schemas/Age"
+        competitors:
+          $ref: "#/components/schemas/CompetitionCompetitors"
+        class:
+          $ref: "#/components/schemas/RankingClass"
+        points:
+          type: integer
+        domesticFinaleCount:
+          type: integer
+        foreignFinaleCount:
+          type: integer
+        approved:
+          type: boolean
+      required:
+        - id
+        - competitorId
+        - series
+        - discipline
+        - rankingPointsAge
+        - competitors
+    Completion:
+      type: object
+      properties:
+        completion:
+          type: string
+          enum: [Normal, Retirement, Disqualification]
+        lastRound:
+          $ref: "#/components/schemas/Round"
+        lastDance:
+          $ref: "#/components/schemas/Dance"
+      description: The object is optional, when present at least completion must be present. If lastRound or lastDance is missing, both should be derived from marks and ranking.
+    Country:
+      type: string
+      example: "DEU"
+      description: Three-letter state code, according to ISO_3166-1 alpha 3
+    Credentials:
+      type: object
+      properties:
+        login:
+          type: string
+        password:
+          type: string
+        purpose:
+          type: string
+      required:
+        - login
+        - password
+        - purpose
+    Dance:
+      type: string
+      enum:
+        [
+          Waltz,
+          Tango,
+          "Viennese Waltz",
+          Slowfox,
+          Quickstep,
+          Samba,
+          Chachacha,
+          Rumba,
+          "Paso Doble",
+          Jive,
+          Polka,
+          Salsa,
+        ]
+      example: "Slowfox"
+    DanceDiscipline:
+      type: string
+      enum:
+        [
+          Standard,
+          Latin,
+          Other,
+        ]
+      example: "Standard"
+    DancedRound:
+      type: object
+      properties:
+        round:
+          $ref: "#/components/schemas/Round"
+        dances:
+          type: array
+          items:
+            $ref: "#/components/schemas/Dance"
+        judges:
+          type: array
+          items:
+            $ref: "#/components/schemas/RoundJudge"
+      required:
+        - round
+        - dances
+    Date:
+      type: string
+      format: date
+      example: "2020-01-31"
+      description: Date in ISO format.
+    DateTime:
+      type: string
+      format: datetime
+      example: "2020-01-31T14:15:16Z"
+      description: Date in ISO format (UTC).
+    Discipline:
+      type: string
+      enum: [
+        Standard,
+        Latin,
+        TenDances,
+        "Standard+Latin",
+        SingleOfTenDances,
+        FreeStyle,
+        Breaking,
+        Other
+      ]
+      example: Latin
+    Event:
+      allOf:
+        - $ref: "#/components/schemas/EventInfo"
+        - type: object
+          properties:
+            location:
+              type: string
+              example: "Kasalice"
+            organizer:
+              type: string
+              example: "CDSF"
+            executor:
+              type: string
+              example: "ACME corp."
+            officials:
+              type: array
+              items:
+                $ref: "#/components/schemas/Official"
+            competitions:
+              type: array
+              items:
+                $ref: "#/components/schemas/Competition"
+            registrationState:
+              $ref: "#/components/schemas/RegistrationState"
+            resultsCanBeSentBefore:
+              allOf:
+              - $ref: "#/components/schemas/DateTime"
+              - description: DateTime in format as in example in UTC.
+          required:
+            - dateFrom
+            - eventTitle
+            - location
+            - executor
+            - officials
+            - competitions
+    EventInfo:
+      type: object
+      properties:
+        eventId:
+          $ref: "#/components/schemas/Id.Event"
+        dateFrom:
+          allOf:
+          - $ref: "#/components/schemas/Date"
+          - description: If dateTo is missing, dateFrom specifies the day of the event.
+        dateTo:
+          $ref: "#/components/schemas/Date"
+        eventTitle:
+          type: string
+          example: "Horní-dolní Cup"
+        location:
+          type: string
+          example: "Horní-dolní"
+      required:
+        - eventId
+        - dateFrom
+        - eventTitle
+        - location
+    EventRegistration:
+      type: object
+      properties:
+        eventId:
+          allOf:
+          - $ref: "#/components/schemas/Id.Event"
+          - description: Refer to https://www.csts.cz/dancesport/kalendar_akci/event/<eventId>
+        eventName:
+          type: string
+        city:
+          type: string
+        address:
+          type: string
+        gps:
+          type: string
+        date:
+          type: string
+          format: "#/components/schemas/Date"
+        competitions:
+          type: array
+          items:
+            $ref: "#/components/schemas/CompetitionRegistration"
+      required:
+        - eventName
+        - city
+        - date
+        - competitions
+    EventStartListCompetitor:
+      allOf:
+        - $ref: "#/components/schemas/CompetitionStartListCompetitor"
+        - type: object
+          properties:
+            competitionId:
+              $ref: "#/components/schemas/Id.Competition"
+            presence:
+              $ref: "#/components/schemas/Presence"
+            startsWithRound:
+              type: integer
+              minimum: 1
+          required:
+            - competitionId
+            - presence
+    Id.Competition:
+      type: integer
+      minimum: 1
+      example: 45567
+      description: Id of a competition. See @Competition.
+    Id.Competitor:
+      type: integer
+      minimum: 1
+      example: 11258
+      description: |
+        Id of a competitor, differs from person id (idt) and ranking points id. this id is usually duplicate of partner1Id.
+    Id.Event:
+      type: integer
+      minimum: 1
+      example: 42
+      description: Id of a competition event. See @EventInfo, @Event.
+    Id.Notification:
+      type: integer
+      minimum: 1
+    Id.Official:
+      type: integer
+      minimum: 1
+      example: 18034567
+      description: Id of an official. See @Official.
+    Id.Person:
+      type: integer
+      minimum: 1
+      example: 18034567
+      description: Id of a single person. In CDSF information system, the id is called "IDT".
+    Id.RankingPoints:
+      type: integer
+      minimum: 1
+      example: 45567
+      description: Id of competitor points/discipline info. See @AthleteRankingPoints, @CompetitorRankingPoints.
+    Marks:
+      type: string
+      example: x|-|x|-|x|x|x|-|-|x|x|-|x|-|x|-|x|x|-|x|x|x|-|x|x
+      description: |
+        * `-|-|x|-|x|x|x|x|x|x|x|-|x|-|x|-|-|-|-|x|x|x|-|x|x` -- crosses from five judges for five dances
+        * `3|3|4|4|5|2|3|1|1|2|1|1|1|2|5|5|5|3|3|5|6` -- marks from seven judges for three dances
+        * `6.75|8.5|...` -- marks for AJS
+        * crosses/marks/points ordered by judge index are first grouped by dances, then dances follow each other without separation
+        * `1-W|1-T|1-V|1-Sf|1-Q|2-W|2-T|...|5-V|5-Sf|5-Q`
+        * each mark can be followed with optional sequence of mark attributes separated with commad enclosed in parentheses, e.g. `x(w)|-(d)|...`
+            * unknown attributes are rejected by the API
+            * currently supported attributes are: 'w' = warning, 'd' = suggestion to disqualify
+    Notification:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/Id.Notification"
+        type:
+          type: string
+          enum:
+            - MedicalCheckupExpiration
+            - CompetitionChange
+            - CompetitionRegistrationEndChange
+            - CompetitionMessage
+            - ClubTransferCompletion
+            - ExecutiveBoardMinutes
+            - AdjudicatorsMessage
+            - OfficialsMessage
+            - DivisionRepresentativeMessage
+            - ClubRepresentativeMessage
+        created:
+          type: string
+          format: "#/components/schemas/DateTime"
+        caption:
+          type: string
+          description: simple string, or single line (with inline tags only) markdown
+        message:
+          type: string
+          description: simplified markdown
+        link:
+          type: string
+          format: URI
+        contact:
+          type: string
+          format: email
+        author:
+          type: string
+        overrideMuting:
+          type: boolean
+      required:
+        - id
+        - type
+        - created
+        - caption
+    OfficialId:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/Id.Official"
+    Official:
+      allOf:
+        - $ref: "#/components/schemas/OfficialId"
+        - type: object
+          properties:
+            firstName:
+              type: string
+              example: Květoslav
+            familyName:
+              type: string
+              example: Zřídkaveselý
+            club:
+              type: string
+            country:
+              $ref: "#/components/schemas/Country"
+            licences:
+              type: array
+              items:
+                $ref: "#/components/schemas/OfficialLicence"
+          required:
+            - id
+            - firstName
+            - familyName
+    OfficialLicence:
+      type: object
+      properties:
+        type:
+          $ref: "#/components/schemas/OfficialType"
+        grade:
+          $ref: "#/components/schemas/OfficialLicenceGrade"
+        discipline:
+          $ref: "#/components/schemas/Discipline"
+      required:
+        - type
+        - grade
+    OfficialLicenceGrade:
+      type: string
+      enum: [-E, -D, -C, -B, -A, -S]
+      example: "-C"
+      description: |
+        The highest competition class that the offical is allowed to participate on.
+    OfficialType:
+      type: string
+      enum: [MoC, ChP, Inv, Adj, LScr, Scr, SInv]
+      example: "Adj"
+      description: |
+        * MoC = Master of Ceremony
+        * ChP = Chairperson
+        * Inv = Invigilator
+        * Adj = Judge
+        * Scr = Scrutineer
+        * LScr = Lead Scrutineer
+        * SInv = Syllabus invigilator
+    Page:
+      type: integer
+      default: 1
+    PageSize:
+      type: integer
+      default: maxint
+    Paging:
+      type: object
+      properties:
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        totalCount:
+          type: integer
+    Presence:
+      type: string
+      allOf:
+      - enum: ["0", "1", "2", "3", "Excused", "Registered", "NoShow", "WaitingList"]
+        default: 1
+        description: |
+          - 0 = Excused
+          - 1 = Registered
+          - 2 = NoShow
+          - 3 = WaitingList
+    RankingClass:
+      type: string
+      enum: ["Entry", E, D, C, B, A, S, "Open", Novice, Bronze, Silver, Gold]
+      description: |
+        Entry = TPV
+        S = M
+    RegistrationState:
+      type: string
+      enum: ["Planned", "Open", "Closed"]
+      description: Open allows registering competitors, Planned and Closed do not.
+    ResultUploadError:
+      type: object
+      properties:
+        field:
+          type: array
+          items:
+            type: string
+    Round:
+      type: string
+      enum: ["1", "2", R, SF, F, "any round name"]
+      description: Enum contents is arbitrary to allow naming rounds as needed. CompetitorResult.Rounds[x].Round must contain only values from this enum.
+    RoundJudge:
+      type: object
+      allOf:
+        - $ref: "#/components/schemas/OfficialId"
+        - type: object
+          properties:
+            index:
+              type: integer
+              minimum: 1
+              example: 2
+              description: Index specifies judge position in marks array.
+            label:
+              type: string
+              example: "AA"
+              description: Label is informational.
+          required:
+            - index

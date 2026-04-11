@@ -1,81 +1,63 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from 'react-native';
 
 import CompetitionListItem, { type CompetitionListItemProps } from '@/components/CompetitionListItem';
 import { Text } from '@/components/Themed';
-
-const registeredCompetitions: CompetitionListItemProps[] = [
-  {
-    city: 'Praha 4',
-    dateDay: '15',
-    dateMonth: 'ZAR',
-    title: 'Velka cena MZ Dance Team - Supertanecni liga 2024 - Memorial Aloise Dvoraka',
-    primaryLine: 'Adult Standard 15:15',
-    secondaryLine: 'Adult Latin 13:30',
-  },
-  {
-    city: 'Kromeriz',
-    dateDay: '28',
-    dateMonth: 'ZAR',
-    title: 'Tanecni festival TK Gradace 2024 - Tanecni liga junioru, mladeze a dospelych',
-    primaryLine: 'Adult Standard 18:00',
-    secondaryLine: 'Adult Latin 16:30',
-  },
-  {
-    city: 'Liberec',
-    dateDay: '12',
-    dateMonth: 'RIJ',
-    title: 'Podjestedsky pohar - 54. rocnik, memorial manzelu Kosekovych',
-    primaryLine: 'Adult Standard 13:45',
-    secondaryLine: 'Adult Latin 16:15',
-  },
-  {
-    city: 'Mlada Boleslav',
-    dateDay: '28',
-    dateMonth: 'RIJ',
-    title: 'Pojizersky pohar - Cena TK RYTMUS Bakov nad Jizerou - COOL DANCE 2024',
-    primaryLine: 'Adult Standard 19:10',
-    secondaryLine: 'Adult Latin 11:30',
-  },
-];
-
-const resultCompetitions: CompetitionListItemProps[] = [
-  {
-    city: 'Brno',
-    dateDay: '02',
-    dateMonth: 'UNO',
-    title: 'Moravia Open 2024 - Winter Series',
-    primaryLine: 'Adult Standard 2. misto',
-    secondaryLine: 'Adult Latin semifinale',
-  },
-  {
-    city: 'Olomouc',
-    dateDay: '17',
-    dateMonth: 'UNO',
-    title: 'Hanak Cup 2024',
-    primaryLine: 'Adult Standard 4. misto',
-    secondaryLine: 'Adult Latin 6. misto',
-  },
-  {
-    city: 'Plzen',
-    dateDay: '09',
-    dateMonth: 'BRE',
-    title: 'West Bohemia Trophy 2024',
-    primaryLine: 'Adult Standard ctvrtfinale',
-    secondaryLine: 'Adult Latin 3. misto',
-  },
-];
+import { openapiClient, isPagingProps } from '@/lib/cdsf-client';
+import { eventRegistrationToCompetitionCard } from '@/lib/cdsf-formatters';
+import { useSession } from '@/lib/session';
 
 export default function CompetitionsScreen() {
   const [activeTab, setActiveTab] = useState<'registered' | 'results'>('registered');
-  const data = activeTab === 'registered' ? registeredCompetitions : resultCompetitions;
+  const { authHeaders } = useSession();
+
+  const registrationsQuery = openapiClient.useInfiniteQuery(
+    'get',
+    '/athletes/current/competitions/registrations',
+    {
+      headers: authHeaders,
+      params: {
+        query: {
+          pageSize: 5,
+        },
+      },
+    },
+    {
+      enabled: !!authHeaders && activeTab === 'registered',
+      ...isPagingProps,
+    },
+  );
+
+  const resultsQuery = openapiClient.useInfiniteQuery(
+    'get',
+    '/athletes/current/competitions/results',
+    {
+      headers: authHeaders,
+      params: {
+        query: {
+          pageSize: 5,
+        },
+      },
+    },
+    {
+      enabled: !!authHeaders && activeTab === 'results',
+      ...isPagingProps,
+    },
+  );
+
+  const currentQuery = activeTab === 'registered' ? registrationsQuery : resultsQuery;
+  const data: CompetitionListItemProps[] =
+    currentQuery.data?.pages.flatMap((page) =>
+      (page?.collection || []).map((item) => eventRegistrationToCompetitionCard(item, activeTab)),
+    ) || [];
+  const detailIconName = activeTab === 'registered' ? 'account-plus-outline' : 'trophy-outline';
 
   return (
     <FlatList
       contentContainerStyle={styles.listContent}
       data={data}
-      keyExtractor={(item) => `${item.dateMonth}-${item.dateDay}-${item.title}`}
+      keyExtractor={(item) => `${item.dateMonth}-${item.dateDay}-${item.title}-${item.city}`}
       showsVerticalScrollIndicator={false}
       stickyHeaderIndices={[0]}
       ListHeaderComponent={
@@ -122,7 +104,51 @@ export default function CompetitionsScreen() {
           </View>
         </View>
       }
-      renderItem={({ item }) => <CompetitionListItem {...item} />}
+      ListEmptyComponent={
+        <View style={styles.stateCard}>
+          {currentQuery.isLoading ? <ActivityIndicator color="#2f67ce" /> : null}
+          <Text style={styles.stateTitle}>
+            {currentQuery.isLoading
+              ? 'Nacitam souteze'
+              : currentQuery.isError
+                ? 'Nepodarilo se nacist souteze'
+                : activeTab === 'registered'
+                  ? 'Zadne prihlasky'
+                  : 'Zadne vysledky'}
+          </Text>
+          <Text style={styles.stateBody}>
+            {currentQuery.isLoading
+              ? 'Data z CDSF API se nacitaji do teto zalozky.'
+              : currentQuery.isError
+                ? 'Zkuste nacitani zopakovat.'
+                : activeTab === 'registered'
+                  ? 'Jakmile budou dostupne registrace, objevi se v tomto seznamu.'
+                  : 'Jakmile budou dostupne vysledky, objevi se v tomto seznamu.'}
+          </Text>
+          {currentQuery.isError ? (
+            <Pressable
+              onPress={() => {
+                void currentQuery.refetch();
+              }}
+              style={({ pressed }) => [styles.retryButton, pressed ? styles.retryButtonPressed : null]}
+            >
+              <Text style={styles.retryButtonText}>Zkusit znovu</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      }
+      ListFooterComponent={
+        currentQuery.isFetchingNextPage ? (
+          <View style={styles.footer}>
+            <ActivityIndicator color="#2f67ce" />
+          </View>
+        ) : null
+      }
+      onEndReached={currentQuery.hasNextPage ? () => void currentQuery.fetchNextPage() : undefined}
+      onEndReachedThreshold={0.4}
+      renderItem={({ item }) => (
+        <CompetitionListItem {...item} detailIconName={detailIconName} />
+      )}
       style={styles.list}
     />
   );
@@ -168,5 +194,46 @@ const styles = StyleSheet.create({
   },
   segmentTextActive: {
     color: '#2f67ce',
+  },
+  stateCard: {
+    marginHorizontal: 14,
+    marginTop: 16,
+    alignItems: 'center',
+    borderRadius: 18,
+    backgroundColor: '#fff',
+    paddingHorizontal: 20,
+    paddingVertical: 24,
+  },
+  stateTitle: {
+    color: '#394150',
+    fontSize: 18,
+    fontWeight: '700',
+    marginTop: 12,
+    textAlign: 'center',
+  },
+  stateBody: {
+    color: '#778091',
+    fontSize: 14,
+    lineHeight: 21,
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  retryButton: {
+    marginTop: 16,
+    borderRadius: 12,
+    backgroundColor: '#2f67ce',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  retryButtonPressed: {
+    opacity: 0.9,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  footer: {
+    paddingVertical: 20,
   },
 });

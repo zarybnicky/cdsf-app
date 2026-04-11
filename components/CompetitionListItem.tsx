@@ -7,8 +7,8 @@ export type CompetitionListItemProps = {
   city: string;
   dateDay: string;
   dateMonth: string;
-  primaryLine: string;
-  secondaryLine: string;
+  details: string[];
+  detailIconName?: keyof typeof MaterialCommunityIcons.glyphMap;
   title: string;
 };
 
@@ -16,8 +16,8 @@ export default function CompetitionListItem({
   city,
   dateDay,
   dateMonth,
-  primaryLine,
-  secondaryLine,
+  details,
+  detailIconName = 'account-plus-outline',
   title,
 }: CompetitionListItemProps) {
   return (
@@ -35,15 +35,12 @@ export default function CompetitionListItem({
         <Text style={styles.city}>{city}</Text>
         <Text style={styles.title}>{title}</Text>
 
-        <View style={styles.metaRow}>
-          <Text style={styles.metaText}>{primaryLine}</Text>
-          <MaterialCommunityIcons color="#6d8fc4" name="account-plus-outline" size={16} />
-        </View>
-
-        <View style={styles.metaRow}>
-          <Text style={styles.metaText}>{secondaryLine}</Text>
-          <MaterialCommunityIcons color="#6d8fc4" name="account-plus-outline" size={16} />
-        </View>
+        {details.map((detail, index) => (
+          <View key={`${title}-${detail}-${index}`} style={styles.metaRow}>
+            <Text style={styles.metaText}>{detail}</Text>
+            <MaterialCommunityIcons color="#6d8fc4" name={detailIconName} size={16} />
+          </View>
+        ))}
       </View>
     </View>
   );

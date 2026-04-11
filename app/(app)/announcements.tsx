@@ -1,47 +1,41 @@
-import { FlatList, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from 'react-native';
 
 import AnnouncementCard, { type AnnouncementCardProps } from '@/components/AnnouncementCard';
 import { Text } from '@/components/Themed';
-
-const announcements: AnnouncementCardProps[] = [
-  {
-    title: 'Odhlaseni ze souteze',
-    publishedAt: '/ ST 11. 3. 2026 / 11:56',
-    markdown: `Bylo zaregistrovano odhlaseni ze soutezni akce
-
-- **Mistrovstvi Ceske republiky 2026** v tanecnim sportu
-- **Soutezici:** Zarybnicky Jakub, Hegerova Veronika
-- **Soutez:** MCR Dospeli O 10T`,
-  },
-  {
-    title: 'Odhlaseni ze souteze',
-    publishedAt: '/ CT 26. 2. 2026 / 12:12',
-    markdown: `Bylo zaregistrovano odhlaseni ze soutezni akce
-
-- **Mistrovstvi CR 2026** v tanecnim sportu - latinskoamericke tance
-- **Kona se dne:** 28. 2. 2026
-- **Soutezici:** Zarybnicky Jakub, Hegerova Veronika
-- **Soutez:** MCR Dospeli O LAT`,
-  },
-  {
-    title: 'Oznameni o zaplaceni dlouhodobeho hostovani',
-    publishedAt: '/ PO 23. 2. 2026 / 16:37',
-    markdown: `Oznamujeme Vam, ze bylo zaplaceno nize uvedene dlouhodobe hostovani:
-
-- **Clen:** Zarybnicky Jakub
-- **Hostovani z:** Infinity Dance Team
-- **Hostovani do:** DSP Kometa Brno
-- **Od data:** 17. 2. 2026
-- **Do data:** 31. 12. 2026`,
-  },
-];
+import { openapiClient, isPagingProps } from '@/lib/cdsf-client';
+import { notificationToAnnouncementCard } from '@/lib/cdsf-formatters';
+import { useSession } from '@/lib/session';
 
 export default function AnnouncementsScreen() {
+  const { authHeaders } = useSession();
+
+  const query = openapiClient.useInfiniteQuery(
+    'get',
+    '/notifications',
+    {
+      headers: authHeaders,
+      params: {
+        query: {
+          pageSize: 10,
+        },
+      },
+    },
+    {
+      enabled: !!authHeaders,
+      ...isPagingProps,
+    },
+  );
+
+  const announcements: AnnouncementCardProps[] =
+    query.data?.pages.flatMap((page) =>
+      (page?.collection || []).map(notificationToAnnouncementCard),
+    ) || [];
+
   return (
     <FlatList
       contentContainerStyle={styles.listContent}
       data={announcements}
-      keyExtractor={(item) => `${item.title}-${item.publishedAt}`}
+      keyExtractor={(item) => item.id ?? `${item.title}-${item.publishedAt}`}
       ListHeaderComponent={
         <View style={styles.header}>
           <Text style={styles.kicker}>Aktuality</Text>
@@ -50,6 +44,44 @@ export default function AnnouncementsScreen() {
           </Text>
         </View>
       }
+      ListEmptyComponent={
+        <View style={styles.stateCard}>
+          {query.isLoading ? <ActivityIndicator color="#2f67ce" /> : null}
+          <Text style={styles.stateTitle}>
+            {query.isLoading
+              ? 'Nacitam aktuality'
+              : query.isError
+                ? 'Nepodarilo se nacist aktuality'
+                : 'Zatim tu nejsou zadne aktuality'}
+          </Text>
+          <Text style={styles.stateBody}>
+            {query.isLoading
+              ? 'Data z CDSF API se nacitaji do teto obrazovky.'
+              : query.isError
+                ? 'Zkuste nacitani zopakovat.'
+                : 'Jakmile budou v systemu dostupne, objevi se tady.'}
+          </Text>
+          {query.isError ? (
+            <Pressable
+              onPress={() => {
+                void query.refetch();
+              }}
+              style={({ pressed }) => [styles.retryButton, pressed ? styles.retryButtonPressed : null]}
+            >
+              <Text style={styles.retryButtonText}>Zkusit znovu</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      }
+      ListFooterComponent={
+        query.isFetchingNextPage ? (
+          <View style={styles.footer}>
+            <ActivityIndicator color="#2f67ce" />
+          </View>
+        ) : null
+      }
+      onEndReached={query.hasNextPage ? () => void query.fetchNextPage() : undefined}
+      onEndReachedThreshold={0.4}
       renderItem={({ item }) => <AnnouncementCard {...item} />}
       showsVerticalScrollIndicator={false}
       style={styles.list}
@@ -81,5 +113,46 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 21,
     marginTop: 6,
+  },
+  stateCard: {
+    marginHorizontal: 14,
+    marginTop: 8,
+    alignItems: 'center',
+    borderRadius: 18,
+    backgroundColor: '#fff',
+    paddingHorizontal: 20,
+    paddingVertical: 24,
+  },
+  stateTitle: {
+    color: '#394150',
+    fontSize: 18,
+    fontWeight: '700',
+    marginTop: 12,
+    textAlign: 'center',
+  },
+  stateBody: {
+    color: '#778091',
+    fontSize: 14,
+    lineHeight: 21,
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  retryButton: {
+    marginTop: 16,
+    borderRadius: 12,
+    backgroundColor: '#2f67ce',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  retryButtonPressed: {
+    opacity: 0.9,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  footer: {
+    paddingVertical: 20,
   },
 });
