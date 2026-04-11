@@ -1,21 +1,27 @@
-import type { InfiniteData, QueryClient } from '@tanstack/react-query';
+import type { InfiniteData, QueryClient } from "@tanstack/react-query";
 
-import type { components, paths } from '@/CDSF';
-import { fetchClient, isPagingProps, openapiClient, queryClient } from '@/lib/cdsf-client';
+import type { components, paths } from "@/CDSF";
+import {
+  fetchClient,
+  isPagingProps,
+  openapiClient,
+  queryClient,
+} from "@/lib/cdsf-client";
 import {
   filterNotifications,
   type NotificationPreferences,
-} from '@/lib/notification-preferences';
-import { restoreQueryCache, saveQueryCache } from '@/lib/react-query';
-import { filterUnseenItems, getStoredSeenIds } from '@/lib/seen-state';
+} from "@/lib/notification-preferences";
+import { restoreQueryCache, saveQueryCache } from "@/lib/react-query";
+import { filterUnseenItems, getStoredSeenIds } from "@/lib/seen-state";
 
 type AuthHeaders = {
   Authorization: string;
 };
 
-type NotificationsPage = paths['/notifications']['get']['responses'][200]['content']['application/json'];
+type NotificationsPage =
+  paths["/notifications"]["get"]["responses"][200]["content"]["application/json"];
 
-export type Notification = components['schemas']['Notification'];
+export type Notification = components["schemas"]["Notification"];
 export type NotificationsInfiniteData = InfiniteData<NotificationsPage, number>;
 export type SyncNotificationsProgress = {
   pages: NotificationsPage[];
@@ -37,11 +43,11 @@ export type SyncNotificationsInput = {
 };
 export type SyncNotificationsResult = SyncNotificationsProgress;
 
-export const notificationsSeenNamespace = 'notifications';
+export const notificationsSeenNamespace = "notifications";
 export const notificationsPageSize = 10;
 export const defaultNotificationsSyncMaxPages = 3;
 
-export function getNotificationSeenId(notification: Pick<Notification, 'id'>) {
+export function getNotificationSeenId(notification: Pick<Notification, "id">) {
   return notification.id.toString();
 }
 
@@ -59,16 +65,50 @@ export function createNotificationsQueryInit(
   };
 }
 
-export function getNotificationsQueryKey(authHeaders?: AuthHeaders, pageSize = notificationsPageSize) {
+export function getNotificationsQueryKey(
+  authHeaders?: AuthHeaders,
+  pageSize = notificationsPageSize,
+) {
   return openapiClient.queryOptions(
-    'get',
-    '/notifications',
+    "get",
+    "/notifications",
     createNotificationsQueryInit(authHeaders, pageSize),
   ).queryKey;
 }
 
 export function flattenNotificationPages(pages: readonly NotificationsPage[]) {
   return pages.flatMap((page) => page.collection || []);
+}
+
+function buildSyncNotificationsProgress({
+  pageParams,
+  pages,
+  nextPage,
+  preferences,
+  seenIds,
+}: {
+  pageParams: number[];
+  pages: NotificationsPage[];
+  nextPage: number | undefined;
+  preferences: NotificationPreferences;
+  seenIds: readonly string[];
+}): SyncNotificationsProgress {
+  const notifications = flattenNotificationPages(pages);
+  const visibleNotifications = filterNotifications(notifications, preferences);
+  const unseenNotifications = filterUnseenItems(
+    visibleNotifications,
+    seenIds,
+    getNotificationSeenId,
+  );
+
+  return {
+    pageParams,
+    pages,
+    notifications,
+    visibleNotifications,
+    unseenNotifications,
+    nextPage,
+  };
 }
 
 function mergeInfiniteNotificationData(
@@ -91,11 +131,15 @@ function mergeInfiniteNotificationData(
     }
   });
 
-  const pageParams = Array.from(pageMap.keys()).sort((left, right) => left - right);
+  const pageParams = Array.from(pageMap.keys()).sort(
+    (left, right) => left - right,
+  );
 
   return {
     pageParams,
-    pages: pageParams.map((pageParam) => pageMap.get(pageParam) as NotificationsPage),
+    pages: pageParams.map(
+      (pageParam) => pageMap.get(pageParam) as NotificationsPage,
+    ),
   } satisfies NotificationsInfiniteData;
 }
 
@@ -108,7 +152,7 @@ async function fetchNotificationsPage({
   page: number;
   pageSize: number;
 }) {
-  const response = await fetchClient.GET('/notifications', {
+  const response = await fetchClient.GET("/notifications", {
     headers: authHeaders,
     params: {
       query: {
@@ -123,7 +167,7 @@ async function fetchNotificationsPage({
   }
 
   if (!response.data) {
-    throw new Error('Notifications response did not include data.');
+    throw new Error("Notifications response did not include data.");
   }
 
   return response.data;
@@ -167,60 +211,47 @@ export async function syncNotifications({
     pageParams.push(pageParam);
     pages.push(page);
     nextPage = isPagingProps.getNextPageParam(page);
-
-    const notifications = flattenNotificationPages(pages);
-    const visibleNotifications = filterNotifications(notifications, preferences);
-    const unseenNotifications = filterUnseenItems(
-      visibleNotifications,
+    const progress = buildSyncNotificationsProgress({
+      pageParams,
+      pages,
+      nextPage,
+      preferences,
       seenIds,
-      getNotificationSeenId,
-    );
+    });
 
-    if (
-      stopWhen?.({
-        pageParams,
-        pages,
-        notifications,
-        visibleNotifications,
-        unseenNotifications,
-        nextPage,
-      })
-    ) {
+    if (stopWhen?.(progress)) {
       break;
     }
   }
 
-  const notifications = flattenNotificationPages(pages);
-  const visibleNotifications = filterNotifications(notifications, preferences);
-  const unseenNotifications = filterUnseenItems(
-    visibleNotifications,
+  const progress = buildSyncNotificationsProgress({
+    pageParams,
+    pages,
+    nextPage,
+    preferences,
     seenIds,
-    getNotificationSeenId,
-  );
+  });
 
   if (persistToCache) {
     await restoreQueryCache();
 
     const queryKey = getNotificationsQueryKey(authHeaders, pageSize);
-    const existingData = reactQueryClient.getQueryData<NotificationsInfiniteData>(queryKey);
+    const existingData =
+      reactQueryClient.getQueryData<NotificationsInfiniteData>(queryKey);
     const nextData = mergeInfiniteNotificationData(
       {
-        pageParams,
-        pages,
+        pageParams: progress.pageParams,
+        pages: progress.pages,
       },
       existingData,
     );
 
-    reactQueryClient.setQueryData<NotificationsInfiniteData>(queryKey, nextData);
+    reactQueryClient.setQueryData<NotificationsInfiniteData>(
+      queryKey,
+      nextData,
+    );
     await saveQueryCache();
   }
 
-  return {
-    pageParams,
-    pages,
-    notifications,
-    visibleNotifications,
-    unseenNotifications,
-    nextPage,
-  };
+  return progress;
 }

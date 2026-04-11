@@ -1,21 +1,22 @@
-import { Link, Stack } from 'expo-router';
-import { StyleSheet } from 'react-native';
+import { Link, Stack } from "expo-router";
+import { StyleSheet } from "react-native";
 
-import { Text, View } from '@/components/Themed';
-import { useSession } from '@/lib/session';
+import { Text, View } from "@/components/Themed";
+import { getAppEntryHref } from "@/lib/app-routes";
+import { useSession } from "@/lib/session";
 
 export default function NotFoundScreen() {
   const { session } = useSession();
-  const href = session ? '/announcements' : '/login';
+  const href = getAppEntryHref(session);
 
   return (
     <>
-      <Stack.Screen options={{ title: 'Oops!' }} />
+      <Stack.Screen options={{ title: "Nenalezeno" }} />
       <View style={styles.container}>
-        <Text style={styles.title}>This screen doesn&apos;t exist.</Text>
+        <Text style={styles.title}>Tuto obrazovku se nepodařilo najít.</Text>
 
         <Link href={href} style={styles.link}>
-          <Text style={styles.linkText}>Go to home screen!</Text>
+          <Text style={styles.linkText}>Přejít na úvod</Text>
         </Link>
       </View>
     </>
@@ -25,13 +26,13 @@ export default function NotFoundScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     padding: 20,
   },
   title: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   link: {
     marginTop: 15,
@@ -39,6 +40,6 @@ const styles = StyleSheet.create({
   },
   linkText: {
     fontSize: 14,
-    color: '#2e78b7',
+    color: "#2e78b7",
   },
 });

@@ -1,8 +1,8 @@
-import { SymbolView } from 'expo-symbols';
-import { Tabs } from 'expo-router';
+import { SymbolView } from "expo-symbols";
+import { Tabs } from "expo-router";
 
-import Colors from '@/constants/Colors';
-import { useColorScheme } from '@/components/useColorScheme';
+import Colors from "@/constants/Colors";
+import { useColorScheme } from "@/components/useColorScheme";
 
 export default function AppLayout() {
   const colorScheme = useColorScheme();
@@ -11,23 +11,23 @@ export default function AppLayout() {
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: Colors[colorScheme].tint,
-        tabBarInactiveTintColor: '#b8c0cc',
+        tabBarInactiveTintColor: "#b8c0cc",
         tabBarStyle: {
-          backgroundColor: '#fff',
-          borderTopColor: '#e3e7ee',
+          backgroundColor: "#fff",
+          borderTopColor: "#e3e7ee",
         },
         tabBarLabelStyle: {
           fontSize: 11,
-          fontWeight: '700',
+          fontWeight: "700",
         },
         headerShadowVisible: false,
         headerStyle: {
-          backgroundColor: '#f3f5f9',
+          backgroundColor: "#f3f5f9",
         },
         headerTitleStyle: {
-          color: '#6f7887',
+          color: "#6f7887",
           fontSize: 17,
-          fontWeight: '700',
+          fontWeight: "700",
           letterSpacing: 0.4,
         },
         headerShown: true,
@@ -36,13 +36,13 @@ export default function AppLayout() {
       <Tabs.Screen
         name="announcements"
         options={{
-          title: 'Announcements',
+          title: "Aktuality",
           tabBarIcon: ({ color }) => (
             <SymbolView
               name={{
-                ios: 'megaphone.fill',
-                android: 'campaign',
-                web: 'campaign',
+                ios: "megaphone.fill",
+                android: "campaign",
+                web: "campaign",
               }}
               tintColor={color}
               size={28}
@@ -53,13 +53,13 @@ export default function AppLayout() {
       <Tabs.Screen
         name="competitions"
         options={{
-          title: 'Competitions',
+          title: "Soutěže",
           tabBarIcon: ({ color }) => (
             <SymbolView
               name={{
-                ios: 'trophy.fill',
-                android: 'trophy',
-                web: 'trophy',
+                ios: "trophy.fill",
+                android: "trophy",
+                web: "trophy",
               }}
               tintColor={color}
               size={28}
@@ -70,14 +70,14 @@ export default function AppLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profile',
+          title: "Profil",
           headerShown: false,
           tabBarIcon: ({ color }) => (
             <SymbolView
               name={{
-                ios: 'person.fill',
-                android: 'person',
-                web: 'person',
+                ios: "person.fill",
+                android: "person",
+                web: "person",
               }}
               tintColor={color}
               size={28}

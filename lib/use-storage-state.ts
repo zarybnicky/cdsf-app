@@ -1,23 +1,25 @@
-import * as SecureStore from 'expo-secure-store';
-import { useEffect, useReducer } from 'react';
-import { Platform } from 'react-native';
+import * as SecureStore from "expo-secure-store";
+import { useEffect, useReducer } from "react";
+import { Platform } from "react-native";
 
+type StorageValue = string | null;
+type StorageState = [isLoading: boolean, value: StorageValue];
 type UseStorageStateHook = [
-  [isLoading: boolean, value: string | null],
-  (value: string | null) => Promise<void>,
+  StorageState,
+  (value: StorageValue) => Promise<void>,
 ];
 
 function useAsyncState(
-  initialState: [boolean, string | null] = [true, null],
-): [[boolean, string | null], (value: string | null) => void] {
+  initialState: StorageState = [true, null],
+): [StorageState, (value: StorageValue) => void] {
   return useReducer(
-    (_state: [boolean, string | null], value: string | null) => [false, value] as [boolean, string | null],
+    (_state: StorageState, value: StorageValue): StorageState => [false, value],
     initialState,
   );
 }
 
-export async function setStorageItemAsync(key: string, value: string | null) {
-  if (Platform.OS === 'web') {
+export async function setStorageItemAsync(key: string, value: StorageValue) {
+  if (Platform.OS === "web") {
     if (value === null) {
       localStorage.removeItem(key);
     } else {
@@ -35,7 +37,7 @@ export async function setStorageItemAsync(key: string, value: string | null) {
 }
 
 export async function getStorageItemAsync(key: string) {
-  if (Platform.OS === 'web') {
+  if (Platform.OS === "web") {
     return localStorage.getItem(key);
   }
 
@@ -46,16 +48,30 @@ export function useStorageState(key: string): UseStorageStateHook {
   const [state, setState] = useAsyncState();
 
   useEffect(() => {
-    getStorageItemAsync(key)
-      .then((value) => {
-        setState(value);
-      })
-      .catch(() => {
-        setState(null);
-      });
+    let isCancelled = false;
+
+    async function loadStoredValue() {
+      try {
+        const value = await getStorageItemAsync(key);
+
+        if (!isCancelled) {
+          setState(value);
+        }
+      } catch {
+        if (!isCancelled) {
+          setState(null);
+        }
+      }
+    }
+
+    void loadStoredValue();
+
+    return () => {
+      isCancelled = true;
+    };
   }, [key]);
 
-  async function setValue(value: string | null) {
+  async function setValue(value: StorageValue) {
     setState(value);
     await setStorageItemAsync(key, value);
   }

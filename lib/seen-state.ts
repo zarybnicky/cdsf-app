@@ -1,6 +1,6 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-export const seenStateStoragePrefix = 'seen-state';
+export const seenStateStoragePrefix = "seen-state";
 
 type StoredSeenState = {
   ids: string[];
@@ -10,7 +10,10 @@ function normalizeSeenIds(ids: Iterable<string>) {
   return Array.from(new Set(ids));
 }
 
-export function getSeenStateStorageKey(namespace: string, email?: string | null) {
+export function getSeenStateStorageKey(
+  namespace: string,
+  email?: string | null,
+) {
   const normalizedNamespace = namespace.trim().toLowerCase();
   const normalizedEmail = email?.trim().toLowerCase();
 
@@ -35,7 +38,9 @@ async function readStoredSeenState(key: string) {
 
     return {
       ids: normalizeSeenIds(
-        parsed.ids.filter((id): id is string => typeof id === 'string' && id.length > 0),
+        parsed.ids.filter(
+          (id): id is string => typeof id === "string" && id.length > 0,
+        ),
       ),
     };
   } catch {
@@ -43,8 +48,13 @@ async function readStoredSeenState(key: string) {
   }
 }
 
-export async function getStoredSeenIds(namespace: string, email?: string | null) {
-  const storedState = await readStoredSeenState(getSeenStateStorageKey(namespace, email));
+export async function getStoredSeenIds(
+  namespace: string,
+  email?: string | null,
+) {
+  const storedState = await readStoredSeenState(
+    getSeenStateStorageKey(namespace, email),
+  );
   return storedState?.ids || [];
 }
 

@@ -1,4 +1,10 @@
-import { createContext, type PropsWithChildren, useContext, useEffect, useState } from 'react';
+import {
+  createContext,
+  type PropsWithChildren,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 
 import {
   defaultNotificationPreferences,
@@ -6,8 +12,8 @@ import {
   setStoredNotificationPreferences,
   type NotificationPreferences,
   type NotificationType,
-} from '@/lib/notification-preferences';
-import { useSession } from '@/lib/session';
+} from "@/lib/notification-preferences";
+import { useSession } from "@/lib/session";
 
 type NotificationPreferencesContextValue = {
   isLoading: boolean;
@@ -18,42 +24,44 @@ type NotificationPreferencesContextValue = {
 const NotificationPreferencesContext =
   createContext<NotificationPreferencesContextValue | null>(null);
 
-export function NotificationPreferencesProvider({ children }: PropsWithChildren) {
+export function NotificationPreferencesProvider({
+  children,
+}: PropsWithChildren) {
   const { session } = useSession();
   const [isLoading, setIsLoading] = useState(true);
-  const [preferences, setPreferences] = useState(defaultNotificationPreferences);
+  const [preferences, setPreferences] = useState(
+    defaultNotificationPreferences,
+  );
   const sessionEmail = session?.email ?? null;
 
   useEffect(() => {
-    let isMounted = true;
+    let isCancelled = false;
 
-    setIsLoading(true);
+    async function loadNotificationPreferences() {
+      setIsLoading(true);
 
-    void getStoredNotificationPreferences(sessionEmail)
-      .then((storedPreferences) => {
-        if (!isMounted) {
-          return;
+      try {
+        const storedPreferences =
+          await getStoredNotificationPreferences(sessionEmail);
+
+        if (!isCancelled) {
+          setPreferences(storedPreferences);
         }
-
-        setPreferences(storedPreferences);
-      })
-      .catch(() => {
-        if (!isMounted) {
-          return;
+      } catch {
+        if (!isCancelled) {
+          setPreferences(defaultNotificationPreferences);
         }
-
-        setPreferences(defaultNotificationPreferences);
-      })
-      .finally(() => {
-        if (!isMounted) {
-          return;
+      } finally {
+        if (!isCancelled) {
+          setIsLoading(false);
         }
+      }
+    }
 
-        setIsLoading(false);
-      });
+    void loadNotificationPreferences();
 
     return () => {
-      isMounted = false;
+      isCancelled = true;
     };
   }, [sessionEmail]);
 
@@ -70,7 +78,9 @@ export function NotificationPreferencesProvider({ children }: PropsWithChildren)
   }
 
   return (
-    <NotificationPreferencesContext.Provider value={{ isLoading, preferences, setPreference }}>
+    <NotificationPreferencesContext.Provider
+      value={{ isLoading, preferences, setPreference }}
+    >
       {children}
     </NotificationPreferencesContext.Provider>
   );
@@ -81,7 +91,7 @@ export function useNotificationPreferences() {
 
   if (value === null) {
     throw new Error(
-      'useNotificationPreferences must be wrapped in a <NotificationPreferencesProvider />',
+      "useNotificationPreferences must be wrapped in a <NotificationPreferencesProvider />",
     );
   }
 

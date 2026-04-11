@@ -1,9 +1,9 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-import type { components } from '@/CDSF';
+import type { components } from "@/CDSF";
 
-export type Notification = components['schemas']['Notification'];
-export type NotificationType = Notification['type'];
+export type Notification = components["schemas"]["Notification"];
+export type NotificationType = Notification["type"];
 export type NotificationPreferences = Record<NotificationType, boolean>;
 
 type NotificationPreferenceMetadata = {
@@ -24,20 +24,20 @@ type LegacyNotificationPreferences = {
   officialsMessage?: boolean;
 };
 
-export const notificationPreferencesStorageKey = 'notification-preferences';
-const legacyNotificationPreferencesStorageKey = 'notificationPrefs';
+export const notificationPreferencesStorageKey = "notification-preferences";
+const legacyNotificationPreferencesStorageKey = "notificationPrefs";
 
 export const notificationPreferenceOrder = [
-  'CompetitionMessage',
-  'CompetitionChange',
-  'CompetitionRegistrationEndChange',
-  'MedicalCheckupExpiration',
-  'ClubTransferCompletion',
-  'ClubRepresentativeMessage',
-  'DivisionRepresentativeMessage',
-  'AdjudicatorsMessage',
-  'OfficialsMessage',
-  'ExecutiveBoardMinutes',
+  "CompetitionMessage",
+  "CompetitionChange",
+  "CompetitionRegistrationEndChange",
+  "MedicalCheckupExpiration",
+  "ClubTransferCompletion",
+  "ClubRepresentativeMessage",
+  "DivisionRepresentativeMessage",
+  "AdjudicatorsMessage",
+  "OfficialsMessage",
+  "ExecutiveBoardMinutes",
 ] as const satisfies readonly NotificationType[];
 
 export const defaultNotificationPreferences: NotificationPreferences = {
@@ -58,55 +58,62 @@ export const notificationPreferenceMetadata: Record<
   NotificationPreferenceMetadata
 > = {
   CompetitionMessage: {
-    label: 'Zpravy k soutezim',
-    description: 'Prakticke informace a organizacni zpravy ke konkretnim soutezim.',
+    label: "Zprávy k soutěžím",
+    description:
+      "Organizační informace a sdělení ke konkrétním soutěžím.",
   },
   CompetitionChange: {
-    label: 'Zmeny soutezi',
-    description: 'Zmeny terminu, mista nebo programu soutezi.',
+    label: "Změny soutěží",
+    description: "Změny termínu, místa, času nebo programu soutěže.",
   },
   CompetitionRegistrationEndChange: {
-    label: 'Terminy prihlaseni',
-    description: 'Zmeny uzavirek prihlasovani do soutezi.',
+    label: "Termíny přihlášení",
+    description: "Úpravy termínů uzávěrek přihlášek do soutěží.",
   },
   MedicalCheckupExpiration: {
-    label: 'Lekarska prohlidka',
-    description: 'Upozorneni na koncici nebo propadlou lekarskou prohlidku.',
+    label: "Lékařská prohlídka",
+    description: "Upozornění na blížící se konec platnosti lékařské prohlídky.",
   },
   ClubTransferCompletion: {
-    label: 'Dokonceni prestupu',
-    description: 'Informace o dokoncenem klubovem prestupu.',
+    label: "Dokončení přestupu",
+    description: "Potvrzení, že byl klubový přestup dokončen.",
   },
   ClubRepresentativeMessage: {
-    label: 'Klubovi zastupci',
-    description: 'Zpravy urcene klubovym zastupcum.',
+    label: "Kluboví zástupci",
+    description: "Sdělení určená klubovým zástupcům.",
   },
   DivisionRepresentativeMessage: {
-    label: 'Divizni zastupci',
-    description: 'Zpravy urcene diviznim zastupcum.',
+    label: "Divizní zástupci",
+    description: "Sdělení určená divizním zástupcům.",
   },
   AdjudicatorsMessage: {
-    label: 'Porotci',
-    description: 'Zpravy pro porotce a adjudicators.',
+    label: "Porotci",
+    description: "Sdělení určená porotcům.",
   },
   OfficialsMessage: {
-    label: 'Funkcionari',
-    description: 'Zpravy urcene funkcionarum a officials.',
+    label: "Funkcionáři",
+    description: "Sdělení určená funkcionářům.",
   },
   ExecutiveBoardMinutes: {
-    label: 'Zapisy vykonne rady',
-    description: 'Publikovane zapisy a administrativni vystupy vykonne rady.',
+    label: "Zápisy výkonné rady",
+    description: "Zveřejněné zápisy, usnesení a další výstupy výkonné rady.",
   },
 };
 
 function normalizeNotificationPreferences(
-  value: Partial<NotificationPreferences> | LegacyNotificationPreferences | null | undefined,
+  value:
+    | Partial<NotificationPreferences>
+    | LegacyNotificationPreferences
+    | null
+    | undefined,
 ) {
   const candidate =
-    value && typeof value === 'object' ? (value as Record<string, unknown>) : undefined;
+    value && typeof value === "object"
+      ? (value as Record<string, unknown>)
+      : undefined;
   const readBoolean = (...keys: string[]) => {
     for (const key of keys) {
-      if (typeof candidate?.[key] === 'boolean') {
+      if (typeof candidate?.[key] === "boolean") {
         return candidate[key] as boolean;
       }
     }
@@ -116,34 +123,38 @@ function normalizeNotificationPreferences(
 
   return {
     CompetitionMessage:
-      readBoolean('CompetitionMessage', 'competitionMessage') ??
+      readBoolean("CompetitionMessage", "competitionMessage") ??
       defaultNotificationPreferences.CompetitionMessage,
     CompetitionChange:
-      readBoolean('CompetitionChange', 'competitionChange') ??
+      readBoolean("CompetitionChange", "competitionChange") ??
       defaultNotificationPreferences.CompetitionChange,
     CompetitionRegistrationEndChange:
-      readBoolean('CompetitionRegistrationEndChange', 'competitionRegistrationEndChange') ??
-      defaultNotificationPreferences.CompetitionRegistrationEndChange,
+      readBoolean(
+        "CompetitionRegistrationEndChange",
+        "competitionRegistrationEndChange",
+      ) ?? defaultNotificationPreferences.CompetitionRegistrationEndChange,
     MedicalCheckupExpiration:
-      readBoolean('MedicalCheckupExpiration', 'medicalCheckupExpiration') ??
+      readBoolean("MedicalCheckupExpiration", "medicalCheckupExpiration") ??
       defaultNotificationPreferences.MedicalCheckupExpiration,
     ClubTransferCompletion:
-      readBoolean('ClubTransferCompletion', 'clubTransferCompletion') ??
+      readBoolean("ClubTransferCompletion", "clubTransferCompletion") ??
       defaultNotificationPreferences.ClubTransferCompletion,
     ClubRepresentativeMessage:
-      readBoolean('ClubRepresentativeMessage', 'clubRepresentativeMessage') ??
+      readBoolean("ClubRepresentativeMessage", "clubRepresentativeMessage") ??
       defaultNotificationPreferences.ClubRepresentativeMessage,
     DivisionRepresentativeMessage:
-      readBoolean('DivisionRepresentativeMessage', 'divisionRepresentativeMessage') ??
-      defaultNotificationPreferences.DivisionRepresentativeMessage,
+      readBoolean(
+        "DivisionRepresentativeMessage",
+        "divisionRepresentativeMessage",
+      ) ?? defaultNotificationPreferences.DivisionRepresentativeMessage,
     AdjudicatorsMessage:
-      readBoolean('AdjudicatorsMessage', 'adjudicatorsMessage') ??
+      readBoolean("AdjudicatorsMessage", "adjudicatorsMessage") ??
       defaultNotificationPreferences.AdjudicatorsMessage,
     OfficialsMessage:
-      readBoolean('OfficialsMessage', 'officialsMessage') ??
+      readBoolean("OfficialsMessage", "officialsMessage") ??
       defaultNotificationPreferences.OfficialsMessage,
     ExecutiveBoardMinutes:
-      readBoolean('ExecutiveBoardMinutes', 'executiveBoardMinutes') ??
+      readBoolean("ExecutiveBoardMinutes", "executiveBoardMinutes") ??
       defaultNotificationPreferences.ExecutiveBoardMinutes,
   };
 }
@@ -167,7 +178,9 @@ async function readStoredNotificationPreferences(
 
   try {
     return normalizeNotificationPreferences(
-      JSON.parse(storedValue) as Partial<NotificationPreferences> | LegacyNotificationPreferences,
+      JSON.parse(storedValue) as
+        | Partial<NotificationPreferences>
+        | LegacyNotificationPreferences,
     );
   } catch {
     return null;
@@ -212,7 +225,7 @@ export async function setStoredNotificationPreferences(
   );
 }
 
-type NotificationFilterable = Pick<Notification, 'overrideMuting' | 'type'>;
+type NotificationFilterable = Pick<Notification, "overrideMuting" | "type">;
 
 export function shouldIncludeNotification(
   notification: NotificationFilterable,
@@ -229,5 +242,7 @@ export function filterNotifications<T extends NotificationFilterable>(
   notifications: readonly T[],
   preferences: NotificationPreferences,
 ) {
-  return notifications.filter((notification) => shouldIncludeNotification(notification, preferences));
+  return notifications.filter((notification) =>
+    shouldIncludeNotification(notification, preferences),
+  );
 }

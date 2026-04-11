@@ -1,7 +1,7 @@
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { StyleSheet, View } from 'react-native';
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { StyleSheet, View } from "react-native";
 
-import { Text } from '@/components/Themed';
+import { Text } from "@/components/Themed";
 
 export type CompetitionListItemProps = {
   city: string;
@@ -17,7 +17,7 @@ export default function CompetitionListItem({
   dateDay,
   dateMonth,
   details,
-  detailIconName = 'account-plus-outline',
+  detailIconName = "account-plus-outline",
   title,
 }: CompetitionListItemProps) {
   return (
@@ -38,7 +38,11 @@ export default function CompetitionListItem({
         {details.map((detail, index) => (
           <View key={`${title}-${detail}-${index}`} style={styles.metaRow}>
             <Text style={styles.metaText}>{detail}</Text>
-            <MaterialCommunityIcons color="#6d8fc4" name={detailIconName} size={16} />
+            <MaterialCommunityIcons
+              color="#6d8fc4"
+              name={detailIconName}
+              size={16}
+            />
           </View>
         ))}
       </View>
@@ -48,72 +52,72 @@ export default function CompetitionListItem({
 
 const styles = StyleSheet.create({
   card: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderBottomWidth: 1,
-    borderBottomColor: '#e6eaf2',
+    borderBottomColor: "#e6eaf2",
     paddingHorizontal: 14,
     paddingVertical: 17,
   },
   dateBadge: {
     width: 42,
-    alignItems: 'stretch',
+    alignItems: "stretch",
     paddingTop: 1,
   },
   monthBadge: {
     borderTopLeftRadius: 10,
     borderTopRightRadius: 10,
-    backgroundColor: '#1f232b',
+    backgroundColor: "#1f232b",
     paddingVertical: 3,
   },
   monthText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 10,
-    fontWeight: '700',
-    textAlign: 'center',
+    fontWeight: "700",
+    textAlign: "center",
   },
   dayBadge: {
     borderBottomLeftRadius: 10,
     borderBottomRightRadius: 10,
     borderWidth: 1,
     borderTopWidth: 0,
-    borderColor: '#d4dae6',
-    backgroundColor: '#fff',
+    borderColor: "#d4dae6",
+    backgroundColor: "#fff",
     paddingVertical: 7,
   },
   dayText: {
-    color: '#11181c',
+    color: "#11181c",
     fontSize: 19,
-    fontWeight: '700',
+    fontWeight: "700",
     lineHeight: 19,
-    textAlign: 'center',
+    textAlign: "center",
   },
   content: {
     flex: 1,
     gap: 7,
   },
   city: {
-    color: '#8e98aa',
+    color: "#8e98aa",
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: "700",
     letterSpacing: 1,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
   },
   title: {
-    color: '#343b49',
+    color: "#343b49",
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: "700",
     lineHeight: 22,
   },
   metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     gap: 12,
   },
   metaText: {
-    color: '#4b5563',
+    color: "#4b5563",
     fontSize: 14,
     lineHeight: 19,
   },

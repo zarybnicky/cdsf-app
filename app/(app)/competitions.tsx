@@ -1,20 +1,98 @@
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useState } from "react";
+import {
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  StyleSheet,
+  View,
+} from "react-native";
 
-import CompetitionListItem, { type CompetitionListItemProps } from '@/components/CompetitionListItem';
-import { Text } from '@/components/Themed';
-import { openapiClient, isPagingProps } from '@/lib/cdsf-client';
-import { eventRegistrationToCompetitionCard } from '@/lib/cdsf-formatters';
-import { useSession } from '@/lib/session';
+import CompetitionListItem, {
+  type CompetitionListItemProps,
+} from "@/components/CompetitionListItem";
+import ScreenStateCard from "@/components/ScreenStateCard";
+import { Text } from "@/components/Themed";
+import { openapiClient, isPagingProps } from "@/lib/cdsf-client";
+import { eventRegistrationToCompetitionCard } from "@/lib/cdsf-formatters";
+import { useSession } from "@/lib/session";
+
+type CompetitionTab = "registered" | "results";
+type CompetitionTabDefinition = {
+  label: string;
+  iconName: keyof typeof MaterialCommunityIcons.glyphMap;
+  activeIconColor: string;
+  inactiveIconColor: string;
+  detailIconName: keyof typeof MaterialCommunityIcons.glyphMap;
+  emptyTitle: string;
+  emptyBody: string;
+};
+
+const competitionTabs: Record<CompetitionTab, CompetitionTabDefinition> = {
+  registered: {
+    label: "Přihlášky",
+    iconName: "medal-outline",
+    activeIconColor: "#2f67ce",
+    inactiveIconColor: "#c6ccd7",
+    detailIconName: "account-plus-outline",
+    emptyTitle: "Žádné přihlášky na soutěže",
+    emptyBody:
+      "Jakmile budou přihlášky na soutěže evidovány, zobrazí se zde.",
+  },
+  results: {
+    label: "Výsledky",
+    iconName: "trophy-outline",
+    activeIconColor: "#c0c6d1",
+    inactiveIconColor: "#d4d9e2",
+    detailIconName: "trophy-outline",
+    emptyTitle: "Žádné výsledky soutěží",
+    emptyBody: "Jakmile budou zveřejněny výsledky soutěží, zobrazí se zde.",
+  },
+};
+const competitionTabOrder: CompetitionTab[] = ["registered", "results"];
+
+type CompetitionTabButtonProps = {
+  activeTab: CompetitionTab;
+  tab: CompetitionTab;
+  onPress: (tab: CompetitionTab) => void;
+};
+
+function CompetitionTabButton({
+  activeTab,
+  tab,
+  onPress,
+}: CompetitionTabButtonProps) {
+  const config = competitionTabs[tab];
+  const isActive = activeTab === tab;
+
+  return (
+    <Pressable
+      onPress={() => {
+        onPress(tab);
+      }}
+      style={[styles.segment, isActive ? styles.segmentActive : null]}
+    >
+      <MaterialCommunityIcons
+        color={isActive ? config.activeIconColor : config.inactiveIconColor}
+        name={config.iconName}
+        size={17}
+      />
+      <Text
+        style={[styles.segmentText, isActive ? styles.segmentTextActive : null]}
+      >
+        {config.label}
+      </Text>
+    </Pressable>
+  );
+}
 
 export default function CompetitionsScreen() {
-  const [activeTab, setActiveTab] = useState<'registered' | 'results'>('registered');
+  const [activeTab, setActiveTab] = useState<CompetitionTab>("registered");
   const { authHeaders } = useSession();
 
   const registrationsQuery = openapiClient.useInfiniteQuery(
-    'get',
-    '/athletes/current/competitions/registrations',
+    "get",
+    "/athletes/current/competitions/registrations",
     {
       headers: authHeaders,
       params: {
@@ -24,14 +102,14 @@ export default function CompetitionsScreen() {
       },
     },
     {
-      enabled: !!authHeaders && activeTab === 'registered',
+      enabled: !!authHeaders && activeTab === "registered",
       ...isPagingProps,
     },
   );
 
   const resultsQuery = openapiClient.useInfiniteQuery(
-    'get',
-    '/athletes/current/competitions/results',
+    "get",
+    "/athletes/current/competitions/results",
     {
       headers: authHeaders,
       params: {
@@ -41,101 +119,66 @@ export default function CompetitionsScreen() {
       },
     },
     {
-      enabled: !!authHeaders && activeTab === 'results',
+      enabled: !!authHeaders && activeTab === "results",
       ...isPagingProps,
     },
   );
 
-  const currentQuery = activeTab === 'registered' ? registrationsQuery : resultsQuery;
+  const currentTab = competitionTabs[activeTab];
+  const currentQuery =
+    activeTab === "registered" ? registrationsQuery : resultsQuery;
   const data: CompetitionListItemProps[] =
     currentQuery.data?.pages.flatMap((page) =>
-      (page?.collection || []).map((item) => eventRegistrationToCompetitionCard(item, activeTab)),
+      (page?.collection || []).map((item) =>
+        eventRegistrationToCompetitionCard(item, activeTab),
+      ),
     ) || [];
-  const detailIconName = activeTab === 'registered' ? 'account-plus-outline' : 'trophy-outline';
+  const emptyStateTitle = currentQuery.isLoading
+    ? "Načítám přehled soutěží"
+    : currentQuery.isError
+      ? "Nepodařilo se načíst přehled soutěží"
+      : currentTab.emptyTitle;
+  const emptyStateBody = currentQuery.isLoading
+    ? "Přehled soutěží se načítá."
+    : currentQuery.isError
+      ? "Zkuste načtení zopakovat."
+      : currentTab.emptyBody;
+
+  function handleRetry() {
+    void currentQuery.refetch();
+  }
 
   return (
     <FlatList
       contentContainerStyle={styles.listContent}
       data={data}
-      keyExtractor={(item) => `${item.dateMonth}-${item.dateDay}-${item.title}-${item.city}`}
+      keyExtractor={(item) =>
+        `${item.dateMonth}-${item.dateDay}-${item.title}-${item.city}`
+      }
       showsVerticalScrollIndicator={false}
       stickyHeaderIndices={[0]}
       ListHeaderComponent={
         <View style={styles.segmentedControlShell}>
           <View style={styles.segmentedControl}>
-            <Pressable
-              onPress={() => {
-                setActiveTab('registered');
-              }}
-              style={[styles.segment, activeTab === 'registered' ? styles.segmentActive : null]}
-            >
-              <MaterialCommunityIcons
-                color={activeTab === 'registered' ? '#2f67ce' : '#c6ccd7'}
-                name="medal-outline"
-                size={17}
+            {competitionTabOrder.map((tab) => (
+              <CompetitionTabButton
+                key={tab}
+                activeTab={activeTab}
+                onPress={setActiveTab}
+                tab={tab}
               />
-              <Text
-                style={[
-                  styles.segmentText,
-                  activeTab === 'registered' ? styles.segmentTextActive : null,
-                ]}
-              >
-                Prihlasene
-              </Text>
-            </Pressable>
-
-            <Pressable
-              onPress={() => {
-                setActiveTab('results');
-              }}
-              style={[styles.segment, activeTab === 'results' ? styles.segmentActive : null]}
-            >
-              <MaterialCommunityIcons
-                color={activeTab === 'results' ? '#c0c6d1' : '#d4d9e2'}
-                name="trophy-outline"
-                size={17}
-              />
-              <Text
-                style={[styles.segmentText, activeTab === 'results' ? styles.segmentTextActive : null]}
-              >
-                Vysledky
-              </Text>
-            </Pressable>
+            ))}
           </View>
         </View>
       }
       ListEmptyComponent={
-        <View style={styles.stateCard}>
-          {currentQuery.isLoading ? <ActivityIndicator color="#2f67ce" /> : null}
-          <Text style={styles.stateTitle}>
-            {currentQuery.isLoading
-              ? 'Nacitam souteze'
-              : currentQuery.isError
-                ? 'Nepodarilo se nacist souteze'
-                : activeTab === 'registered'
-                  ? 'Zadne prihlasky'
-                  : 'Zadne vysledky'}
-          </Text>
-          <Text style={styles.stateBody}>
-            {currentQuery.isLoading
-              ? 'Data z CDSF API se nacitaji do teto zalozky.'
-              : currentQuery.isError
-                ? 'Zkuste nacitani zopakovat.'
-                : activeTab === 'registered'
-                  ? 'Jakmile budou dostupne registrace, objevi se v tomto seznamu.'
-                  : 'Jakmile budou dostupne vysledky, objevi se v tomto seznamu.'}
-          </Text>
-          {currentQuery.isError ? (
-            <Pressable
-              onPress={() => {
-                void currentQuery.refetch();
-              }}
-              style={({ pressed }) => [styles.retryButton, pressed ? styles.retryButtonPressed : null]}
-            >
-              <Text style={styles.retryButtonText}>Zkusit znovu</Text>
-            </Pressable>
-          ) : null}
-        </View>
+        <ScreenStateCard
+          body={emptyStateBody}
+          isLoading={currentQuery.isLoading}
+          onRetry={currentQuery.isError ? handleRetry : undefined}
+          style={styles.stateCard}
+          title={emptyStateTitle}
+        />
       }
       ListFooterComponent={
         currentQuery.isFetchingNextPage ? (
@@ -144,10 +187,17 @@ export default function CompetitionsScreen() {
           </View>
         ) : null
       }
-      onEndReached={currentQuery.hasNextPage ? () => void currentQuery.fetchNextPage() : undefined}
+      onEndReached={
+        currentQuery.hasNextPage
+          ? () => void currentQuery.fetchNextPage()
+          : undefined
+      }
       onEndReachedThreshold={0.4}
       renderItem={({ item }) => (
-        <CompetitionListItem {...item} detailIconName={detailIconName} />
+        <CompetitionListItem
+          {...item}
+          detailIconName={currentTab.detailIconName}
+        />
       )}
       style={styles.list}
     />
@@ -157,81 +207,47 @@ export default function CompetitionsScreen() {
 const styles = StyleSheet.create({
   list: {
     flex: 1,
-    backgroundColor: '#eef2f7',
+    backgroundColor: "#eef2f7",
   },
   listContent: {
     paddingBottom: 28,
   },
   segmentedControlShell: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderBottomWidth: 1,
-    borderBottomColor: '#e4e8f0',
+    borderBottomColor: "#e4e8f0",
     paddingHorizontal: 4,
   },
   segmentedControl: {
-    flexDirection: 'row',
+    flexDirection: "row",
   },
   segment: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 7,
     borderBottomWidth: 3,
-    borderBottomColor: 'transparent',
+    borderBottomColor: "transparent",
     paddingHorizontal: 12,
     paddingVertical: 14,
   },
   segmentActive: {
-    borderBottomColor: '#2f67ce',
+    borderBottomColor: "#2f67ce",
   },
   segmentText: {
-    color: '#c5ccd8',
+    color: "#c5ccd8",
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: "700",
     letterSpacing: 0.7,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
   },
   segmentTextActive: {
-    color: '#2f67ce',
+    color: "#2f67ce",
   },
   stateCard: {
     marginHorizontal: 14,
     marginTop: 16,
-    alignItems: 'center',
-    borderRadius: 18,
-    backgroundColor: '#fff',
-    paddingHorizontal: 20,
-    paddingVertical: 24,
-  },
-  stateTitle: {
-    color: '#394150',
-    fontSize: 18,
-    fontWeight: '700',
-    marginTop: 12,
-    textAlign: 'center',
-  },
-  stateBody: {
-    color: '#778091',
-    fontSize: 14,
-    lineHeight: 21,
-    marginTop: 8,
-    textAlign: 'center',
-  },
-  retryButton: {
-    marginTop: 16,
-    borderRadius: 12,
-    backgroundColor: '#2f67ce',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  retryButtonPressed: {
-    opacity: 0.9,
-  },
-  retryButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '700',
   },
   footer: {
     paddingVertical: 20,

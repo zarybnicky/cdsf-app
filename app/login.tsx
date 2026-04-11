@@ -1,19 +1,19 @@
-import { useState } from 'react';
+import { useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
   StyleSheet,
   TextInput,
-} from 'react-native';
+} from "react-native";
 
-import { Text, View } from '@/components/Themed';
-import { useSession } from '@/lib/session';
+import { Text, View } from "@/components/Themed";
+import { useSession } from "@/lib/session";
 
 export default function LoginScreen() {
   const { signIn } = useSession();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -21,7 +21,7 @@ export default function LoginScreen() {
     const normalizedEmail = email.trim().toLowerCase();
 
     if (!normalizedEmail || !password) {
-      setError('Enter both email and password.');
+      setError("Zadejte e-mailovou adresu i heslo.");
       return;
     }
 
@@ -34,7 +34,7 @@ export default function LoginScreen() {
       if (caughtError instanceof Error) {
         setError(caughtError.message);
       } else {
-        setError('Unable to sign in right now.');
+        setError("Přihlášení se nepodařilo.");
       }
     } finally {
       setIsSubmitting(false);
@@ -43,24 +43,26 @@ export default function LoginScreen() {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
       style={styles.keyboardAvoidingView}
     >
       <View style={styles.container}>
         <View style={styles.card}>
           <Text style={styles.eyebrow}>CDSF</Text>
-          <Text style={styles.title}>Login</Text>
-          <Text style={styles.body}>Enter your credentials to restore a persisted session.</Text>
+          <Text style={styles.title}>Přihlášení</Text>
+          <Text style={styles.body}>
+            Přihlaste se e-mailovou adresou a heslem ke svému účtu.
+          </Text>
 
           <View style={styles.form}>
             <View style={styles.field}>
-              <Text style={styles.label}>Email</Text>
+              <Text style={styles.label}>E-mail</Text>
               <TextInput
                 autoCapitalize="none"
                 autoComplete="email"
                 keyboardType="email-address"
                 onChangeText={setEmail}
-                placeholder="you@example.com"
+                placeholder="jmeno@priklad.cz"
                 placeholderTextColor="#7a869a"
                 style={styles.input}
                 value={email}
@@ -68,7 +70,7 @@ export default function LoginScreen() {
             </View>
 
             <View style={styles.field}>
-              <Text style={styles.label}>Password</Text>
+              <Text style={styles.label}>Heslo</Text>
               <TextInput
                 autoCapitalize="none"
                 autoComplete="password"
@@ -94,7 +96,9 @@ export default function LoginScreen() {
                 isSubmitting ? styles.buttonDisabled : null,
               ]}
             >
-              <Text style={styles.buttonText}>{isSubmitting ? 'Logging in...' : 'Login'}</Text>
+              <Text style={styles.buttonText}>
+                {isSubmitting ? "Přihlašování..." : "Přihlásit se"}
+              </Text>
             </Pressable>
           </View>
         </View>
@@ -109,25 +113,25 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
     padding: 24,
   },
   card: {
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: '#d4dce6',
+    borderColor: "#d4dce6",
     padding: 24,
     gap: 10,
   },
   eyebrow: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: "700",
     letterSpacing: 2,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
   },
   title: {
     fontSize: 32,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   body: {
     fontSize: 15,
@@ -143,27 +147,27 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   input: {
     borderWidth: 1,
-    borderColor: '#c4cfdd',
+    borderColor: "#c4cfdd",
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 16,
-    color: '#11181c',
-    backgroundColor: '#fff',
+    color: "#11181c",
+    backgroundColor: "#fff",
   },
   error: {
-    color: '#b42318',
+    color: "#b42318",
     fontSize: 14,
   },
   button: {
     marginTop: 6,
-    alignItems: 'center',
+    alignItems: "center",
     borderRadius: 12,
-    backgroundColor: '#0a7ea4',
+    backgroundColor: "#0a7ea4",
     paddingHorizontal: 18,
     paddingVertical: 14,
   },
@@ -174,8 +178,8 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   buttonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: "700",
   },
 });

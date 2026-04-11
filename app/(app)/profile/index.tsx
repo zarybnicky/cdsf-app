@@ -1,16 +1,17 @@
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { FlatList, StyleSheet } from "react-native";
 
-import ProfileAthleteCard from '@/components/ProfileAthleteCard';
-import { Text } from '@/components/Themed';
-import { openapiClient } from '@/lib/cdsf-client';
-import { useSession } from '@/lib/session';
+import ProfileAthleteCard from "@/components/ProfileAthleteCard";
+import ScreenHeader from "@/components/ScreenHeader";
+import ScreenStateCard from "@/components/ScreenStateCard";
+import { openapiClient } from "@/lib/cdsf-client";
+import { useSession } from "@/lib/session";
 
 export default function ProfileScreen() {
   const { authHeaders, session } = useSession();
 
   const athletesQuery = openapiClient.useQuery(
-    'get',
-    '/athletes/current',
+    "get",
+    "/athletes/current",
     {
       headers: authHeaders,
     },
@@ -20,6 +21,20 @@ export default function ProfileScreen() {
   );
 
   const athletes = athletesQuery.data?.collection || [];
+  const stateTitle = athletesQuery.isLoading
+    ? "Načítám profil"
+    : athletesQuery.isError
+      ? "Nepodařilo se načíst profilové údaje"
+      : "K tomuto účtu nejsou přiřazeny žádné údaje";
+  const stateBody = athletesQuery.isLoading
+    ? "Profilové údaje se načítají."
+    : athletesQuery.isError
+      ? "Zkuste načtení zopakovat."
+      : "Jakmile budou údaje k účtu dostupné, zobrazí se zde.";
+
+  function handleRetry() {
+    void athletesQuery.refetch();
+  }
 
   return (
     <FlatList
@@ -27,40 +42,23 @@ export default function ProfileScreen() {
       data={athletes}
       keyExtractor={(item) => item.idt.toString()}
       ListHeaderComponent={
-        <View style={styles.header}>
-          <Text style={styles.title}>Profil</Text>
-          <Text style={styles.body}>Prihlasen jako {session?.email ?? 'neznamy uzivatel'}</Text>
-          <Text style={styles.caption}>Nastaveni a odhlaseni najdete pod ikonou ozubeneho kola.</Text>
-        </View>
+        <ScreenHeader
+          body={`Přihlášený účet: ${session?.email ?? "neznámý účet"}`}
+          bodyStyle={styles.body}
+          caption="Nastavení upozornění a odhlášení jsou dostupné v pravém horním rohu."
+          captionStyle={styles.caption}
+          style={styles.header}
+          title="Profil"
+        />
       }
       ListEmptyComponent={
-        <View style={styles.stateCard}>
-          {athletesQuery.isLoading ? <ActivityIndicator color="#2f67ce" /> : null}
-          <Text style={styles.stateTitle}>
-            {athletesQuery.isLoading
-              ? 'Nacitam profil'
-              : athletesQuery.isError
-                ? 'Nepodarilo se nacist profil'
-                : 'Zadni sportovci nenalezeni'}
-          </Text>
-          <Text style={styles.stateBody}>
-            {athletesQuery.isLoading
-              ? 'Data sportovcu se nacitaji z CDSF API a ulozi se do cache pro offline pouziti.'
-              : athletesQuery.isError
-                ? 'Zkuste nacitani zopakovat.'
-                : 'Jakmile budou k uctu prirazeni sportovci, objevi se tady.'}
-          </Text>
-          {athletesQuery.isError ? (
-            <Pressable
-              onPress={() => {
-                void athletesQuery.refetch();
-              }}
-              style={({ pressed }) => [styles.retryButton, pressed ? styles.retryButtonPressed : null]}
-            >
-              <Text style={styles.retryButtonText}>Zkusit znovu</Text>
-            </Pressable>
-          ) : null}
-        </View>
+        <ScreenStateCard
+          body={stateBody}
+          isLoading={athletesQuery.isLoading}
+          onRetry={athletesQuery.isError ? handleRetry : undefined}
+          style={styles.stateCard}
+          title={stateTitle}
+        />
       }
       renderItem={({ item }) => <ProfileAthleteCard athlete={item} />}
       showsVerticalScrollIndicator={false}
@@ -72,7 +70,7 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   list: {
     flex: 1,
-    backgroundColor: '#eef2f7',
+    backgroundColor: "#eef2f7",
   },
   listContent: {
     paddingHorizontal: 14,
@@ -81,59 +79,14 @@ const styles = StyleSheet.create({
   },
   header: {
     marginBottom: 14,
-    paddingHorizontal: 4,
-  },
-  title: {
-    color: '#394150',
-    fontSize: 28,
-    fontWeight: '700',
   },
   body: {
-    color: '#525c6b',
-    fontSize: 15,
-    lineHeight: 22,
-    marginTop: 8,
+    color: "#525c6b",
   },
   caption: {
-    color: '#7a8596',
-    fontSize: 14,
-    lineHeight: 21,
-    marginTop: 8,
+    color: "#7a8596",
   },
   stateCard: {
-    alignItems: 'center',
     borderRadius: 20,
-    backgroundColor: '#fff',
-    paddingHorizontal: 20,
-    paddingVertical: 24,
-  },
-  stateTitle: {
-    color: '#394150',
-    fontSize: 18,
-    fontWeight: '700',
-    marginTop: 12,
-    textAlign: 'center',
-  },
-  stateBody: {
-    color: '#778091',
-    fontSize: 14,
-    lineHeight: 21,
-    marginTop: 8,
-    textAlign: 'center',
-  },
-  retryButton: {
-    marginTop: 16,
-    borderRadius: 12,
-    backgroundColor: '#2f67ce',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  retryButtonPressed: {
-    opacity: 0.9,
-  },
-  retryButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '700',
   },
 });

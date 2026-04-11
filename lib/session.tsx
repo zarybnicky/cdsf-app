@@ -1,11 +1,14 @@
-import { createContext, PropsWithChildren, useContext, useMemo } from 'react';
+import { createContext, PropsWithChildren, useContext, useMemo } from "react";
 
-import { cdsfAppPurpose, fetchClient } from '@/lib/cdsf-client';
-import { getStorageItemAsync, useStorageState } from '@/lib/use-storage-state';
+import { cdsfAppPurpose, fetchClient } from "@/lib/cdsf-client";
+import { getStorageItemAsync, useStorageState } from "@/lib/use-storage-state";
 
 export type Session = {
   email: string;
   token: string;
+};
+type AuthHeaders = {
+  Authorization: string;
 };
 
 type SignInInput = {
@@ -16,15 +19,37 @@ type SignInInput = {
 type SessionContextValue = {
   isLoading: boolean;
   session: Session | null;
-  authHeaders: { Authorization: string } | undefined;
+  authHeaders: AuthHeaders | undefined;
   signIn: (input: SignInInput) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
 const SessionContext = createContext<SessionContextValue | null>(null);
-export const sessionStorageKey = 'session';
+export const sessionStorageKey = "session";
 
-export function parseStoredSession(storedSession: string | null): Session | null {
+function createAuthHeaders(session: Session | null): AuthHeaders | undefined {
+  return session ? { Authorization: session.token } : undefined;
+}
+
+function serializeSession(session: Session) {
+  return JSON.stringify(session);
+}
+
+function getSignInErrorMessage(status: number) {
+  if (status === 401) {
+    return "Zadaný e-mail nebo heslo nejsou správné.";
+  }
+
+  if (status === 400) {
+    return "Přihlášení nelze dokončit.";
+  }
+
+  return "Přihlášení se nepodařilo dokončit.";
+}
+
+export function parseStoredSession(
+  storedSession: string | null,
+): Session | null {
   if (!storedSession) {
     return null;
   }
@@ -32,7 +57,7 @@ export function parseStoredSession(storedSession: string | null): Session | null
   try {
     const parsed = JSON.parse(storedSession) as Partial<Session>;
 
-    if (typeof parsed.email === 'string' && typeof parsed.token === 'string') {
+    if (typeof parsed.email === "string" && typeof parsed.token === "string") {
       return {
         email: parsed.email,
         token: parsed.token,
@@ -50,46 +75,37 @@ export async function getStoredSession() {
 }
 
 export function SessionProvider({ children }: PropsWithChildren) {
-  const [[isLoading, storedSession], setStoredSession] = useStorageState(sessionStorageKey);
+  const [[isLoading, storedSession], setStoredSession] =
+    useStorageState(sessionStorageKey);
 
-  const session = useMemo<Session | null>(() => parseStoredSession(storedSession), [storedSession]);
-
-  const authHeaders = useMemo(
-    () => (session ? { Authorization: session.token } : undefined),
-    [session],
+  const session = useMemo<Session | null>(
+    () => parseStoredSession(storedSession),
+    [storedSession],
   );
+  const authHeaders = useMemo(() => createAuthHeaders(session), [session]);
 
   async function signIn({ email, password }: SignInInput) {
     if (session) {
       return;
     }
 
-    const response = await fetchClient.POST('/credentials', {
+    const response = await fetchClient.POST("/credentials", {
       body: {
         login: email,
         password,
         purpose: cdsfAppPurpose,
       },
     });
+    const token = response.data;
 
-    if (!response.data) {
-      const status = response.response.status;
-
-      if (status === 401) {
-        throw new Error('Invalid email or password.');
-      }
-
-      if (status === 400) {
-        throw new Error('The login request was rejected.');
-      }
-
-      throw new Error('Unable to sign in right now.');
+    if (!token) {
+      throw new Error(getSignInErrorMessage(response.response.status));
     }
 
     await setStoredSession(
-      JSON.stringify({
+      serializeSession({
         email,
-        token: `Bearer ${response.data}`,
+        token: `Bearer ${token}`,
       }),
     );
   }
@@ -104,7 +120,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
     }
 
     try {
-      await fetchClient.DELETE('/credentials/current', {
+      await fetchClient.DELETE("/credentials/current", {
         headers: {
           Authorization: currentSession.token,
         },
@@ -120,7 +136,9 @@ export function SessionProvider({ children }: PropsWithChildren) {
   }
 
   return (
-    <SessionContext.Provider value={{ isLoading, session, authHeaders, signIn, signOut }}>
+    <SessionContext.Provider
+      value={{ isLoading, session, authHeaders, signIn, signOut }}
+    >
       {children}
     </SessionContext.Provider>
   );
@@ -130,7 +148,7 @@ export function useSession() {
   const value = useContext(SessionContext);
 
   if (value === null) {
-    throw new Error('useSession must be wrapped in a <SessionProvider />');
+    throw new Error("useSession must be wrapped in a <SessionProvider />");
   }
 
   return value;
