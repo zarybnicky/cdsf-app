@@ -18,3 +18,8 @@ export const queryPersister = createAsyncStoragePersister({
   storage: AsyncStorage,
   key: 'cdsf-app-react-query-cache',
 });
+
+export async function clearQueryCache() {
+  queryClient.clear();
+  await queryPersister.removeClient();
+}

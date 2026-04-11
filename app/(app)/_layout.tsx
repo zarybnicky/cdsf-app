@@ -15,15 +15,15 @@ export default function AppLayout() {
       }}
     >
       <Tabs.Screen
-        name="index"
+        name="announcements"
         options={{
-          title: 'Home',
+          title: 'Announcements',
           tabBarIcon: ({ color }) => (
             <SymbolView
               name={{
-                ios: 'house.fill',
-                android: 'home',
-                web: 'home',
+                ios: 'megaphone.fill',
+                android: 'campaign',
+                web: 'campaign',
               }}
               tintColor={color}
               size={28}
@@ -32,15 +32,33 @@ export default function AppLayout() {
         }}
       />
       <Tabs.Screen
-        name="two"
+        name="competitions"
         options={{
-          title: 'Activity',
+          title: 'Competitions',
           tabBarIcon: ({ color }) => (
             <SymbolView
               name={{
-                ios: 'sparkles',
-                android: 'bolt',
-                web: 'bolt',
+                ios: 'trophy.fill',
+                android: 'trophy',
+                web: 'trophy',
+              }}
+              tintColor={color}
+              size={28}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Profile',
+          headerShown: false,
+          tabBarIcon: ({ color }) => (
+            <SymbolView
+              name={{
+                ios: 'person.fill',
+                android: 'person',
+                web: 'person',
               }}
               tintColor={color}
               size={28}
