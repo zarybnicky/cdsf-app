@@ -1,24 +1,30 @@
-import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { StyleSheet, View } from "react-native";
 
 import { Text } from "@/components/Themed";
+
+export type CompetitionListItemDetail = {
+  label: string;
+  value?: string;
+};
 
 export type CompetitionListItemProps = {
   city: string;
   dateDay: string;
   dateMonth: string;
-  details: string[];
-  detailIconName?: keyof typeof MaterialCommunityIcons.glyphMap;
+  dateYear: string;
+  details: CompetitionListItemDetail[];
   title: string;
+  variant?: "registered" | "results";
 };
 
 export default function CompetitionListItem({
   city,
   dateDay,
   dateMonth,
+  dateYear,
   details,
-  detailIconName = "account-plus-outline",
   title,
+  variant = "registered",
 }: CompetitionListItemProps) {
   return (
     <View style={styles.card}>
@@ -28,6 +34,7 @@ export default function CompetitionListItem({
         </View>
         <View style={styles.dayBadge}>
           <Text style={styles.dayText}>{dateDay}</Text>
+          <Text style={styles.yearText}>{dateYear}</Text>
         </View>
       </View>
 
@@ -36,15 +43,39 @@ export default function CompetitionListItem({
         <Text style={styles.title}>{title}</Text>
 
         {details.map((detail, index) => (
-          <View key={`${title}-${detail}-${index}`} style={styles.metaRow}>
-            <View style={styles.detailIconShell}>
-              <MaterialCommunityIcons
-                color="#2457b3"
-                name={detailIconName}
-                size={14}
-              />
-            </View>
-            <Text style={styles.metaText}>{detail}</Text>
+          <View
+            key={`${title}-${detail.label}-${detail.value ?? "detail"}-${index}`}
+            style={
+              variant === "results"
+                ? styles.resultsMetaRow
+                : styles.registrationMetaRow
+            }
+          >
+            {variant === "results" ? (
+              <View style={styles.resultsMetaCopy}>
+                <View style={styles.resultsMetaLabelWrap}>
+                  <Text style={styles.resultsMetaLabel}>{detail.label}</Text>
+                </View>
+                {detail.value ? (
+                  <Text style={styles.resultsMetaValue}>{detail.value}</Text>
+                ) : null}
+              </View>
+            ) : (
+              <>
+                <View style={styles.metaMarker} />
+                <Text style={styles.registrationMetaText}>
+                  {detail.label}
+                  {detail.value ? (
+                    <>
+                      <Text style={styles.metaSeparator}> · </Text>
+                      <Text style={styles.registrationMetaValue}>
+                        {detail.value}
+                      </Text>
+                    </>
+                  ) : null}
+                </Text>
+              </>
+            )}
           </View>
         ))}
       </View>
@@ -55,23 +86,23 @@ export default function CompetitionListItem({
 const styles = StyleSheet.create({
   card: {
     flexDirection: "row",
-    gap: 12,
-    borderRadius: 18,
+    gap: 10,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: "#dde4ed",
+    borderColor: "#dfe5ee",
     backgroundColor: "#fff",
-    marginHorizontal: 12,
-    marginTop: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
+    marginHorizontal: 10,
+    marginTop: 8,
+    paddingHorizontal: 11,
+    paddingVertical: 10,
     shadowColor: "#15243f",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.04,
-    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.02,
+    shadowRadius: 6,
     elevation: 1,
   },
   dateBadge: {
-    width: 48,
+    width: 46,
     alignItems: "stretch",
     paddingTop: 2,
   },
@@ -83,8 +114,8 @@ const styles = StyleSheet.create({
   },
   monthText: {
     color: "#fff",
-    fontSize: 10,
-    fontWeight: "700",
+    fontSize: 9,
+    fontWeight: "800",
     textAlign: "center",
   },
   dayBadge: {
@@ -94,51 +125,95 @@ const styles = StyleSheet.create({
     borderTopWidth: 0,
     borderColor: "#d4dae6",
     backgroundColor: "#fff",
-    paddingVertical: 8,
+    alignItems: "center",
+    paddingTop: 5,
+    paddingBottom: 4,
   },
   dayText: {
-    color: "#11181c",
-    fontSize: 20,
+    color: "#1c2735",
+    fontSize: 19,
     fontWeight: "800",
-    lineHeight: 20,
+    lineHeight: 19,
+    textAlign: "center",
+  },
+  yearText: {
+    color: "#8793a3",
+    fontSize: 8,
+    fontWeight: "700",
+    letterSpacing: 0.2,
+    lineHeight: 10,
+    marginTop: 2,
     textAlign: "center",
   },
   content: {
     flex: 1,
-    gap: 6,
+    gap: 5,
   },
   city: {
     color: "#2457b3",
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "700",
-    letterSpacing: 0.9,
+    letterSpacing: 0.45,
     textTransform: "uppercase",
   },
   title: {
-    color: "#182334",
-    fontSize: 16,
-    fontWeight: "800",
-    letterSpacing: -0.2,
-    lineHeight: 21,
+    color: "#223045",
+    fontSize: 15.5,
+    fontWeight: "700",
+    letterSpacing: -0.1,
+    lineHeight: 20,
   },
-  metaRow: {
+  registrationMetaRow: {
     flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 9,
-  },
-  detailIconShell: {
-    width: 22,
-    height: 22,
     alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 11,
-    backgroundColor: "#eef4ff",
-    marginTop: 1,
+    gap: 6,
   },
-  metaText: {
-    color: "#4f5c6f",
+  metaMarker: {
+    width: 4,
+    height: 4,
+    borderRadius: 999,
+    backgroundColor: "#c3ccda",
+    marginLeft: 2,
+  },
+  registrationMetaText: {
+    color: "#5b6778",
     flex: 1,
-    fontSize: 13.5,
-    lineHeight: 19,
+    fontSize: 12.5,
+    lineHeight: 17,
+  },
+  metaSeparator: {
+    color: "#8a95a5",
+  },
+  registrationMetaValue: {
+    color: "#315ea8",
+    fontSize: 12.5,
+    fontWeight: "700",
+    lineHeight: 17,
+  },
+  resultsMetaRow: {
+    paddingTop: 1,
+  },
+  resultsMetaCopy: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "baseline",
+  },
+  resultsMetaLabelWrap: {
+    flex: 1,
+    minWidth: 0,
+    paddingRight: 10,
+  },
+  resultsMetaLabel: {
+    color: "#5b6778",
+    fontSize: 12.5,
+    lineHeight: 17,
+  },
+  resultsMetaValue: {
+    color: "#315ea8",
+    fontSize: 12.5,
+    fontWeight: "700",
+    lineHeight: 17,
+    fontVariant: ["tabular-nums"],
+    textAlign: "right",
   },
 });

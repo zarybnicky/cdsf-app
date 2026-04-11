@@ -113,8 +113,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-end",
     backgroundColor: "#fff",
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     paddingTop: 10,
+    paddingBottom: 6,
   },
   bar: {
     height: 64,
@@ -127,11 +128,9 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
   },
   label: {
-    color: "#384152",
-    fontFamily: "SpaceMono",
-    fontSize: 14,
-    letterSpacing: 1.6,
-    marginTop: 8,
+    color: "#4a5568",
+    fontSize: 13,
+    letterSpacing: 1.4,
   },
   fallback: {
     alignItems: "center",

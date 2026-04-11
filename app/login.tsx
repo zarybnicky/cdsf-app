@@ -54,10 +54,7 @@ export default function LoginScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.container}>
-          <BrandBanner
-            style={styles.banner}
-            subtitle="Mobilní přehled soutěží, aktualit a členských údajů."
-          />
+          <BrandBanner style={styles.banner} subtitle="#tanciscsts" />
 
           <View style={styles.card}>
             <Text style={styles.eyebrow}>Členský účet</Text>
@@ -137,7 +134,7 @@ const styles = StyleSheet.create({
     paddingVertical: 24,
   },
   banner: {
-    borderRadius: 24,
+    borderRadius: 22,
   },
   eyebrow: {
     color: "#2457b3",
@@ -147,8 +144,7 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   card: {
-    marginTop: -26,
-    marginHorizontal: 10,
+    marginTop: 12,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: "#d8dee7",

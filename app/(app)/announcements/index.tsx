@@ -2,7 +2,7 @@ import { useEffect, useMemo } from "react";
 import { ActivityIndicator, FlatList, StyleSheet, View } from "react-native";
 
 import AnnouncementCard from "@/components/AnnouncementCard";
-import ScreenHeader from "@/components/ScreenHeader";
+import ListTopShadow from "@/components/ListTopShadow";
 import ScreenStateCard from "@/components/ScreenStateCard";
 import { Text } from "@/components/Themed";
 import { openapiClient, isPagingProps } from "@/lib/cdsf-client";
@@ -77,7 +77,7 @@ export default function AnnouncementsScreen() {
     : isError
       ? "Zkuste načtení zopakovat."
       : hiddenNotificationCount > 0
-        ? "V nastavení profilu můžete upravit filtry a zobrazit další sdělení."
+        ? "V nastavení aktualit můžete upravit filtry a zobrazit další sdělení."
         : "Jakmile budou zveřejněny nové informace, zobrazí se zde.";
 
   useEffect(() => {
@@ -120,75 +120,75 @@ export default function AnnouncementsScreen() {
   }
 
   return (
-    <FlatList
-      contentContainerStyle={styles.listContent}
-      data={announcements}
-      keyExtractor={(item) => item.id ?? `${item.title}-${item.publishedAt}`}
-      ListHeaderComponent={
-        <ScreenHeader
-          body="Důležitá sdělení ke soutěžím, administrativě a dění ve svazu."
-          bodyStyle={styles.subtitle}
-          eyebrow="Informační servis"
-          style={styles.header}
-          title="Aktuality"
-        >
-          {shouldShowFilterNotice ? (
-            <View style={styles.filterNotice}>
-              <Text style={styles.filterNoticeTitle}>
-                Skryté položky: {hiddenNotificationCount}
-              </Text>
-              <Text style={styles.filterNoticeBody}>
-                Důležitá oznámení se zobrazují vždy.
-              </Text>
+    <View style={styles.container}>
+      <ListTopShadow />
+      <FlatList
+        contentContainerStyle={styles.listContent}
+        data={announcements}
+        keyExtractor={(item) => item.id ?? `${item.title}-${item.publishedAt}`}
+        ListHeaderComponent={
+          shouldShowFilterNotice ? (
+            <View style={styles.header}>
+              <View style={styles.filterNotice}>
+                <Text style={styles.filterNoticeTitle}>
+                  Skryté položky: {hiddenNotificationCount}
+                </Text>
+                <Text style={styles.filterNoticeBody}>
+                  Důležitá oznámení se zobrazují vždy.
+                </Text>
+              </View>
             </View>
-          ) : null}
-        </ScreenHeader>
-      }
-      ListEmptyComponent={
-        <ScreenStateCard
-          body={emptyStateBody}
-          isLoading={isLoadingState}
-          onRetry={isError ? handleRetry : undefined}
-          style={styles.stateCard}
-          title={emptyStateTitle}
-        />
-      }
-      ListFooterComponent={
-        isFetchingNextPage ? (
-          <View style={styles.footer}>
-            <ActivityIndicator color="#2f67ce" />
-          </View>
-        ) : null
-      }
-      onEndReached={hasNextPage ? () => void fetchNextPage() : undefined}
-      onEndReachedThreshold={0.4}
-      renderItem={({ item }) => <AnnouncementCard {...item} />}
-      showsVerticalScrollIndicator={false}
-      style={styles.list}
-    />
+          ) : (
+            <View style={styles.headerSpacer} />
+          )
+        }
+        ListEmptyComponent={
+          <ScreenStateCard
+            body={emptyStateBody}
+            isLoading={isLoadingState}
+            onRetry={isError ? handleRetry : undefined}
+            style={styles.stateCard}
+            title={emptyStateTitle}
+          />
+        }
+        ListFooterComponent={
+          isFetchingNextPage ? (
+            <View style={styles.footer}>
+              <ActivityIndicator color="#2f67ce" />
+            </View>
+          ) : null
+        }
+        onEndReached={hasNextPage ? () => void fetchNextPage() : undefined}
+        onEndReachedThreshold={0.4}
+        renderItem={({ item }) => <AnnouncementCard {...item} />}
+        showsVerticalScrollIndicator={false}
+        style={styles.list}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  list: {
+  container: {
     flex: 1,
     backgroundColor: "#f4f6f8",
   },
+  list: {
+    flex: 1,
+  },
   listContent: {
-    paddingTop: 10,
+    paddingTop: 6,
     paddingBottom: 24,
   },
   header: {
-    marginBottom: 8,
-    paddingHorizontal: 14,
+    marginBottom: 2,
+    paddingHorizontal: 12,
+    paddingTop: 4,
   },
-  subtitle: {
-    color: "#5b6778",
-    fontSize: 14,
-    lineHeight: 20,
+  headerSpacer: {
+    height: 6,
   },
   filterNotice: {
-    marginTop: 10,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: "#dbe4f0",

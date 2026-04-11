@@ -39,7 +39,9 @@ export default function ProfileAthleteCard({
 
       <View style={styles.barcodeCard}>
         <Text style={styles.barcodeTitle}>Členský kód</Text>
-        <Ean8Barcode value={athlete.idt} />
+        <View style={styles.barcodePanel}>
+          <Ean8Barcode value={athlete.idt} />
+        </View>
       </View>
     </View>
   );
@@ -113,16 +115,26 @@ const styles = StyleSheet.create({
   barcodeCard: {
     borderTopWidth: 1,
     borderTopColor: "#eef2f6",
+    alignItems: "center",
     backgroundColor: "#f7f9fc",
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingTop: 14,
+    paddingBottom: 16,
+  },
+  barcodePanel: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#dde4ed",
+    backgroundColor: "#fff",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
   barcodeTitle: {
     color: "#6b7485",
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "700",
     letterSpacing: 0.9,
-    marginBottom: 12,
+    marginBottom: 10,
     textAlign: "center",
     textTransform: "uppercase",
   },

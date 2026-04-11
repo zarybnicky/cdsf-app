@@ -36,7 +36,10 @@ export default function BrandBanner({ style, subtitle }: BrandBannerProps) {
 
 const styles = StyleSheet.create({
   banner: {
-    minHeight: 154,
+    minHeight: 146,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: "#d9e1ea",
     justifyContent: "center",
     overflow: "hidden",
   },
@@ -45,7 +48,7 @@ const styles = StyleSheet.create({
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    backgroundColor: "rgba(255, 255, 255, 0.58)",
   },
   content: {
     flexDirection: "row",
@@ -59,10 +62,10 @@ const styles = StyleSheet.create({
   },
   title: {
     color: "#121923",
-    fontSize: 27,
+    fontSize: 25,
     fontWeight: "800",
     letterSpacing: -0.6,
-    lineHeight: 32,
+    lineHeight: 30,
     textTransform: "uppercase",
   },
   subtitle: {
@@ -70,6 +73,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     lineHeight: 18,
-    marginTop: 8,
+    marginTop: 6,
   },
 });

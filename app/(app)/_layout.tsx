@@ -16,9 +16,12 @@ export default function AppLayout() {
         tabBarActiveTintColor: Colors[colorScheme].tint,
         tabBarInactiveTintColor: "#7f8795",
         tabBarStyle: styles.tabBar,
+        tabBarItemStyle: styles.tabBarItem,
+        tabBarIconStyle: styles.tabBarIcon,
         tabBarLabelStyle: styles.tabBarLabel,
         headerBackground: () => <BrandHeaderBackground />,
-        headerLeft: () => <BrandMark size={31} style={styles.headerMark} />,
+        headerTransparent: false,
+        headerLeft: () => <BrandMark size={27} style={styles.headerMark} />,
         headerLeftContainerStyle: styles.headerLeftContainer,
         headerShadowVisible: false,
         headerStyle: styles.header,
@@ -31,6 +34,7 @@ export default function AppLayout() {
       <Tabs.Screen
         name="announcements"
         options={{
+          headerShown: false,
           title: "Aktuality",
           tabBarIcon: ({ color }) => (
             <SymbolView
@@ -40,7 +44,7 @@ export default function AppLayout() {
                 web: "campaign",
               }}
               tintColor={color}
-              size={28}
+              size={24}
             />
           ),
         }}
@@ -57,7 +61,7 @@ export default function AppLayout() {
                 web: "trophy",
               }}
               tintColor={color}
-              size={28}
+              size={24}
             />
           ),
         }}
@@ -75,7 +79,7 @@ export default function AppLayout() {
                 web: "person",
               }}
               tintColor={color}
-              size={28}
+              size={24}
             />
           ),
         }}
@@ -86,30 +90,39 @@ export default function AppLayout() {
 
 const styles = StyleSheet.create({
   header: {
-    backgroundColor: "transparent",
+    backgroundColor: "#f4f7fb",
+    overflow: "hidden",
   },
   headerLeftContainer: {
-    paddingLeft: 12,
+    paddingLeft: 10,
   },
   headerMark: {
-    marginRight: 6,
+    marginRight: 4,
   },
   headerTitle: {
-    color: "#182334",
-    fontSize: 21,
-    fontWeight: "800",
-    letterSpacing: -0.4,
+    color: "#223045",
+    fontSize: 19,
+    fontWeight: "700",
+    letterSpacing: -0.2,
   },
   tabBar: {
-    height: 64,
+    height: 60,
     borderTopColor: "#dbe2eb",
     backgroundColor: "#fff",
-    paddingTop: 6,
-    paddingBottom: 8,
+    paddingTop: 2,
+    paddingBottom: 2,
+  },
+  tabBarItem: {
+    paddingTop: 2,
+    paddingBottom: 0,
+  },
+  tabBarIcon: {
+    marginBottom: 0,
   },
   tabBarLabel: {
-    fontSize: 11,
+    fontSize: 9.5,
     fontWeight: "700",
-    marginTop: 2,
+    lineHeight: 11,
+    marginTop: 0,
   },
 });

@@ -1,4 +1,5 @@
 import type { components } from "@/CDSF";
+import { parseCdsfDate } from "@/lib/cdsf-dates";
 
 const weekdayLabels = ["NE", "PO", "ÚT", "ST", "ČT", "PÁ", "SO"];
 const monthLabels = [
@@ -20,6 +21,10 @@ type Notification = components["schemas"]["Notification"];
 type EventRegistration = components["schemas"]["EventRegistration"];
 type CompetitionRegistration = components["schemas"]["CompetitionRegistration"];
 type Athlete = components["schemas"]["Athlete"];
+type RuntimeCompetitionRegistration = CompetitionRegistration & {
+  competitorsCount?: number;
+  fromClass?: CompetitionRegistration["class"];
+};
 
 const translatedAgeLabels: Partial<Record<Athlete["age"], string>> = {
   "Under 8": "Do 8 let",
@@ -40,18 +45,6 @@ const translatedAgeLabels: Partial<Record<Athlete["age"], string>> = {
   "Senior V": "Seniori V",
 };
 
-function parseDate(input: string) {
-  const dateOnlyMatch = input.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-
-  if (dateOnlyMatch) {
-    const [, year, month, day] = dateOnlyMatch;
-    return new Date(Number(year), Number(month) - 1, Number(day));
-  }
-
-  const date = new Date(input);
-  return Number.isNaN(date.getTime()) ? null : date;
-}
-
 function pad(value: number) {
   return value.toString().padStart(2, "0");
 }
@@ -68,12 +61,16 @@ function formatDisciplineLabel(
   discipline: CompetitionRegistration["discipline"],
 ) {
   switch (discipline) {
+    case "Standard":
+      return "STT";
+    case "Latin":
+      return "LAT";
     case "TenDances":
-      return "10 tanců";
+      return "10T";
     case "Standard+Latin":
-      return "Std + Lat";
+      return "STT + LAT";
     case "SingleOfTenDances":
-      return "Single 10 t.";
+      return "Single 10T";
     case "FreeStyle":
       return "Freestyle";
     default:
@@ -81,26 +78,70 @@ function formatDisciplineLabel(
   }
 }
 
-function formatPlacement(ranking?: number, rankingTo?: number) {
+function formatCompetitionClassLabel(
+  competition: RuntimeCompetitionRegistration,
+) {
+  const classLabel = competition.class;
+
+  if (
+    !classLabel ||
+    classLabel === "Open" ||
+    classLabel === ("Unknown" as CompetitionRegistration["class"])
+  ) {
+    return undefined;
+  }
+
+  return classLabel;
+}
+
+function formatCompetitionGradePrefix(
+  grade?: CompetitionRegistration["grade"],
+) {
+  switch (grade) {
+    case "Championship":
+      return "MČR";
+    case "League":
+      return "TL";
+    case "SuperLeague":
+      return "STL";
+    default:
+      return undefined;
+  }
+}
+
+function formatPlacement(
+  ranking?: number,
+  rankingTo?: number,
+  competitorsCount?: number,
+) {
   if (typeof ranking !== "number") {
     return undefined;
   }
 
-  if (typeof rankingTo === "number" && rankingTo > ranking) {
-    return `${ranking}-${rankingTo}. místo`;
+  const rankingLabel =
+    typeof rankingTo === "number" && rankingTo > ranking
+      ? `${ranking}-${rankingTo}`
+      : `${ranking}`;
+
+  if (typeof competitorsCount === "number" && competitorsCount > 0) {
+    return `${rankingLabel}\u2009/\u2009${competitorsCount}`;
   }
 
-  return `${ranking}. místo`;
+  if (typeof rankingTo === "number" && rankingTo > ranking) {
+    return `${ranking}.-${rankingTo}.`;
+  }
+
+  return `${ranking}.`;
 }
 
 export function formatNotificationTimestamp(createdAt: string) {
-  const date = parseDate(createdAt);
+  const date = parseCdsfDate(createdAt);
 
   if (!date) {
     return createdAt;
   }
 
-  return `/ ${weekdayLabels[date.getDay()]} ${date.getDate()}. ${date.getMonth() + 1}. ${date.getFullYear()} / ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  return `${weekdayLabels[date.getDay()]} ${date.getDate()}.\u2009${date.getMonth() + 1}.\u2009${date.getFullYear()} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 export function notificationToAnnouncementCard(notification: Notification) {
@@ -134,18 +175,20 @@ export function notificationToAnnouncementCard(notification: Notification) {
 }
 
 export function formatCompetitionBadge(dateString: string) {
-  const date = parseDate(dateString);
+  const date = parseCdsfDate(dateString);
 
   if (!date) {
     return {
       dateDay: "--",
       dateMonth: "---",
+      dateYear: "----",
     };
   }
 
   return {
     dateDay: pad(date.getDate()),
     dateMonth: monthLabels[date.getMonth()],
+    dateYear: date.getFullYear().toString(),
   };
 }
 
@@ -154,7 +197,7 @@ export function formatSimpleDate(input?: string) {
     return undefined;
   }
 
-  const date = parseDate(input);
+  const date = parseCdsfDate(input);
 
   if (!date) {
     return input;
@@ -172,24 +215,36 @@ export function eventRegistrationToCompetitionCard(
   variant: "registered" | "results",
 ) {
   const details = event.competitions.map((competition) => {
-    const base = `${formatTranslatedAge(competition.age)} ${formatDisciplineLabel(competition.discipline)}`;
+    const runtimeCompetition = competition as RuntimeCompetitionRegistration;
+    const classLabel = formatCompetitionClassLabel(runtimeCompetition);
+    const gradePrefix = formatCompetitionGradePrefix(competition.grade);
+    const base = [
+      gradePrefix,
+      formatTranslatedAge(competition.age),
+      classLabel,
+      formatDisciplineLabel(competition.discipline),
+    ]
+      .filter(Boolean)
+      .join(" ");
 
     if (variant === "results") {
       const placement = formatPlacement(
         competition.ranking,
         competition.rankingTo,
+        runtimeCompetition.competitorsCount,
       );
 
       if (placement) {
-        return `${base} ${placement}`;
+        return {
+          label: base,
+          value: placement,
+        };
       }
     }
 
-    if (competition.class) {
-      return `${base} ${competition.class}`;
-    }
-
-    return base;
+    return {
+      label: base,
+    };
   });
 
   return {

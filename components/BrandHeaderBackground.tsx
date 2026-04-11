@@ -2,7 +2,7 @@ import { ImageBackground, StyleSheet, View } from "react-native";
 
 export default function BrandHeaderBackground() {
   return (
-    <View style={styles.container}>
+    <View pointerEvents="none" style={styles.container}>
       <ImageBackground
         imageStyle={styles.image}
         resizeMode="cover"
@@ -18,14 +18,15 @@ export default function BrandHeaderBackground() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#e4e9ef",
+    backgroundColor: "#edf2f7",
+    overflow: "hidden",
   },
   image: {
-    opacity: 0.95,
+    opacity: 0.18,
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(255, 255, 255, 0.22)",
+    backgroundColor: "#f4f7fb",
   },
   border: {
     position: "absolute",
