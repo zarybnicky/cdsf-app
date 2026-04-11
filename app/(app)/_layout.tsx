@@ -11,6 +11,25 @@ export default function AppLayout() {
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: Colors[colorScheme].tint,
+        tabBarInactiveTintColor: '#b8c0cc',
+        tabBarStyle: {
+          backgroundColor: '#fff',
+          borderTopColor: '#e3e7ee',
+        },
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: '700',
+        },
+        headerShadowVisible: false,
+        headerStyle: {
+          backgroundColor: '#f3f5f9',
+        },
+        headerTitleStyle: {
+          color: '#6f7887',
+          fontSize: 17,
+          fontWeight: '700',
+          letterSpacing: 0.4,
+        },
         headerShown: true,
       }}
     >
