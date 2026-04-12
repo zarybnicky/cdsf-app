@@ -2,7 +2,7 @@ import { StyleSheet, View } from "react-native";
 
 import type { components } from "@/CDSF";
 import Ean8Barcode from "@/components/Ean8Barcode";
-import { formatSimpleDate, formatTranslatedAge } from "@/lib/cdsf-formatters";
+import { formatSimpleDate, getAgeLabel } from "@/lib/cdsf";
 
 import { Text } from "./Themed";
 
@@ -15,7 +15,7 @@ type ProfileAthleteCardProps = {
 export default function ProfileAthleteCard({
   athlete,
 }: ProfileAthleteCardProps) {
-  const translatedAge = formatTranslatedAge(athlete.age);
+  const translatedAge = getAgeLabel(athlete.age);
   const medicalCheckupExpiration =
     formatSimpleDate(athlete.medicalCheckupExpiration) ?? "Není uvedena";
 

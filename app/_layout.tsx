@@ -1,18 +1,14 @@
-import {
-  DarkTheme,
-  DefaultTheme,
-  ThemeProvider,
-} from "@react-navigation/native";
+import { DefaultTheme, ThemeProvider } from "@react-navigation/native";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
+import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import "react-native-reanimated";
 
-import { useColorScheme } from "@/components/useColorScheme";
 import { NotificationPreferencesProvider } from "@/lib/notification-preferences-provider";
-import { useAnnouncementsNotificationRuntime } from "@/lib/notification-runtime";
+import { useNotificationRuntime } from "@/lib/notification-runtime";
 import {
   queryCacheMaxAge,
   queryClient,
@@ -30,18 +26,17 @@ void SplashScreen.preventAutoHideAsync();
 
 type RootNavigatorProps = {
   fontsLoaded: boolean;
-  hasRestoredQueryCache: boolean;
+  cacheReady: boolean;
 };
 
 function RootNavigator({
   fontsLoaded,
-  hasRestoredQueryCache,
+  cacheReady,
 }: RootNavigatorProps) {
   const { isLoading, session } = useSession();
-  const colorScheme = useColorScheme();
-  const isAppReady = fontsLoaded && hasRestoredQueryCache && !isLoading;
+  const isAppReady = fontsLoaded && cacheReady && !isLoading;
 
-  useAnnouncementsNotificationRuntime(isAppReady ? session : null);
+  useNotificationRuntime(isAppReady ? session : null);
 
   useEffect(() => {
     if (isAppReady) {
@@ -54,7 +49,8 @@ function RootNavigator({
   }
 
   return (
-    <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+    <ThemeProvider value={DefaultTheme}>
+      <StatusBar backgroundColor="#f4f7fb" style="dark" />
       <Stack>
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Protected guard={session !== null}>
@@ -72,8 +68,8 @@ export default function RootLayout() {
   const [fontsLoaded, error] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
-  const [hasRestoredQueryCache, setHasRestoredQueryCache] = useState(false);
-  const handleQueryCacheRestoreSettled = () => setHasRestoredQueryCache(true);
+  const [cacheReady, setCacheReady] = useState(false);
+  const onCacheReady = () => setCacheReady(true);
 
   if (error) {
     throw error;
@@ -83,14 +79,14 @@ export default function RootLayout() {
     <PersistQueryClientProvider
       client={queryClient}
       persistOptions={{ persister: queryPersister, maxAge: queryCacheMaxAge }}
-      onSuccess={handleQueryCacheRestoreSettled}
-      onError={handleQueryCacheRestoreSettled}
+      onSuccess={onCacheReady}
+      onError={onCacheReady}
     >
       <SessionProvider>
         <NotificationPreferencesProvider>
           <RootNavigator
             fontsLoaded={fontsLoaded}
-            hasRestoredQueryCache={hasRestoredQueryCache}
+            cacheReady={cacheReady}
           />
         </NotificationPreferencesProvider>
       </SessionProvider>

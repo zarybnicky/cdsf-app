@@ -7,9 +7,9 @@ import {
 } from "react";
 
 import {
-  defaultNotificationPreferences,
-  getStoredNotificationPreferences,
-  setStoredNotificationPreferences,
+  defaultPreferences,
+  loadPreferences,
+  savePreferences,
   type NotificationPreferences,
   type NotificationType,
 } from "@/lib/notification-preferences";
@@ -28,52 +28,49 @@ export function NotificationPreferencesProvider({
   children,
 }: PropsWithChildren) {
   const { session } = useSession();
+  const email = session?.email ?? null;
   const [isLoading, setIsLoading] = useState(true);
-  const [preferences, setPreferences] = useState(
-    defaultNotificationPreferences,
-  );
-  const sessionEmail = session?.email ?? null;
+  const [preferences, setPreferences] = useState(defaultPreferences);
 
   useEffect(() => {
-    let isCancelled = false;
+    let cancelled = false;
 
-    async function loadNotificationPreferences() {
+    async function load() {
       setIsLoading(true);
 
       try {
-        const storedPreferences =
-          await getStoredNotificationPreferences(sessionEmail);
+        const stored = await loadPreferences(email);
 
-        if (!isCancelled) {
-          setPreferences(storedPreferences);
+        if (!cancelled) {
+          setPreferences(stored);
         }
       } catch {
-        if (!isCancelled) {
-          setPreferences(defaultNotificationPreferences);
+        if (!cancelled) {
+          setPreferences(defaultPreferences);
         }
       } finally {
-        if (!isCancelled) {
+        if (!cancelled) {
           setIsLoading(false);
         }
       }
     }
 
-    void loadNotificationPreferences();
+    void load();
 
     return () => {
-      isCancelled = true;
+      cancelled = true;
     };
-  }, [sessionEmail]);
+  }, [email]);
 
   function setPreference(type: NotificationType, enabled: boolean) {
-    setPreferences((currentPreferences) => {
-      const nextPreferences = {
-        ...currentPreferences,
+    setPreferences((current) => {
+      const next = {
+        ...current,
         [type]: enabled,
       };
 
-      void setStoredNotificationPreferences(nextPreferences, sessionEmail);
-      return nextPreferences;
+      void savePreferences(next, email);
+      return next;
     });
   }
 

@@ -1,7 +1,12 @@
+import type { components } from "@/CDSF";
 import { StyleSheet, View } from "react-native";
 
 import MarkdownText from "@/components/MarkdownText";
 import { Text } from "@/components/Themed";
+import { parseCdsfDate } from "@/lib/cdsf";
+import { stripMarkdown } from "@/lib/markdown";
+
+type Notification = components["schemas"]["Notification"];
 
 export type AnnouncementCardProps = {
   id?: string;
@@ -9,6 +14,52 @@ export type AnnouncementCardProps = {
   publishedAt: string;
   markdown: string;
 };
+
+const weekdayLabels = ["NE", "PO", "ÚT", "ST", "ČT", "PÁ", "SO"];
+
+function pad(value: number) {
+  return value.toString().padStart(2, "0");
+}
+
+function formatPublishedAt(createdAt: string) {
+  const date = parseCdsfDate(createdAt);
+
+  if (!date) {
+    return createdAt;
+  }
+
+  return `${weekdayLabels[date.getDay()]} ${date.getDate()}.\u2009${date.getMonth() + 1}.\u2009${date.getFullYear()} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+export function announcementFromNotification(
+  notification: Notification,
+): AnnouncementCardProps {
+  const sections: string[] = [];
+
+  if (notification.message?.trim()) {
+    sections.push(notification.message.trim());
+  }
+
+  if (notification.author?.trim()) {
+    sections.push(`Autor: **${notification.author.trim()}**`);
+  }
+
+  if (notification.contact?.trim()) {
+    sections.push(
+      `Kontakt: [${notification.contact.trim()}](mailto:${notification.contact.trim()})`,
+    );
+  }
+
+  if (notification.link?.trim()) {
+    sections.push(`[Otevřít odkaz](${notification.link.trim()})`);
+  }
+
+  return {
+    id: notification.id.toString(),
+    title: stripMarkdown(notification.caption),
+    publishedAt: formatPublishedAt(notification.created),
+    markdown: sections.join("\n\n") || stripMarkdown(notification.caption),
+  };
+}
 
 export default function AnnouncementCard({
   title,

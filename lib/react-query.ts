@@ -23,11 +23,11 @@ export const queryPersister = createAsyncStoragePersister({
   key: "cdsf-app-react-query-cache",
 });
 
-let queryCacheRestorePromise: Promise<void> | null = null;
+let restorePromise: Promise<void> | null = null;
 
-export function restoreQueryCache() {
-  if (!queryCacheRestorePromise) {
-    queryCacheRestorePromise = persistQueryClientRestore({
+export function restoreCache() {
+  if (!restorePromise) {
+    restorePromise = persistQueryClientRestore({
       queryClient,
       persister: queryPersister,
       maxAge: queryCacheMaxAge,
@@ -36,18 +36,18 @@ export function restoreQueryCache() {
     });
   }
 
-  return queryCacheRestorePromise;
+  return restorePromise;
 }
 
-export async function saveQueryCache() {
-  await restoreQueryCache();
+export async function saveCache() {
+  await restoreCache();
   await persistQueryClientSave({
     queryClient,
     persister: queryPersister,
   });
 }
 
-export async function clearQueryCache() {
+export async function clearCache() {
   queryClient.clear();
   await queryPersister.removeClient();
 }

@@ -1,6 +1,6 @@
 import { Redirect, Stack } from "expo-router";
 
-import { getAppEntryHref } from "@/lib/app-routes";
+import { announcementsHref, loginHref } from "@/lib/app-routes";
 import { useSession } from "@/lib/session";
 
 export default function IndexScreen() {
@@ -13,7 +13,7 @@ export default function IndexScreen() {
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <Redirect href={getAppEntryHref(session)} />
+      <Redirect href={session ? announcementsHref : loginHref} />
     </>
   );
 }

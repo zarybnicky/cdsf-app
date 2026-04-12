@@ -8,7 +8,7 @@ import ProfileAthleteCard from "@/components/ProfileAthleteCard";
 import ScreenStateCard from "@/components/ScreenStateCard";
 import { Text, View } from "@/components/Themed";
 import { openapiClient } from "@/lib/cdsf-client";
-import { clearQueryCache } from "@/lib/react-query";
+import { clearCache } from "@/lib/react-query";
 import { useSession } from "@/lib/session";
 
 export default function ProfileScreen() {
@@ -28,6 +28,7 @@ export default function ProfileScreen() {
   );
 
   const athletes = athletesQuery.data?.collection || [];
+  const isRefreshing = athletesQuery.isRefetching && !athletesQuery.isLoading;
   const stateTitle = athletesQuery.isLoading
     ? "Načítám profil"
     : athletesQuery.isError
@@ -39,7 +40,8 @@ export default function ProfileScreen() {
       ? "Zkuste načtení zopakovat."
       : "Jakmile budou údaje k účtu dostupné, zobrazí se zde.";
 
-  function handleRetry() {
+  function refreshProfile() {
+    setIsMenuOpen(false);
     void athletesQuery.refetch();
   }
 
@@ -47,7 +49,7 @@ export default function ProfileScreen() {
     setIsSubmitting(true);
 
     try {
-      await clearQueryCache();
+      await clearCache();
       await signOut();
     } finally {
       setIsSubmitting(false);
@@ -95,7 +97,7 @@ export default function ProfileScreen() {
           <ScreenStateCard
             body={stateBody}
             isLoading={athletesQuery.isLoading}
-            onRetry={athletesQuery.isError ? handleRetry : undefined}
+            onRetry={athletesQuery.isError ? refreshProfile : undefined}
             style={styles.stateCard}
             title={stateTitle}
           />
@@ -103,7 +105,9 @@ export default function ProfileScreen() {
         onScrollBeginDrag={() => {
           setIsMenuOpen(false);
         }}
+        onRefresh={refreshProfile}
         renderItem={({ item }) => <ProfileAthleteCard athlete={item} />}
+        refreshing={isRefreshing}
         showsVerticalScrollIndicator={false}
         style={styles.list}
       />

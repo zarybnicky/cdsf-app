@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Stack } from "expo-router";
 import {
   ActivityIndicator,
   FlatList,
@@ -8,15 +9,12 @@ import {
 } from "react-native";
 
 import type { components } from "@/CDSF";
-import CompetitionListItem, {
-  type CompetitionListItemProps,
-} from "@/components/CompetitionListItem";
+import CompetitionListItem from "@/components/CompetitionListItem";
 import ListTopShadow from "@/components/ListTopShadow";
 import ScreenStateCard from "@/components/ScreenStateCard";
 import { Text } from "@/components/Themed";
 import { openapiClient, isPagingProps } from "@/lib/cdsf-client";
-import { getCdsfTimestamp } from "@/lib/cdsf-dates";
-import { eventRegistrationToCompetitionCard } from "@/lib/cdsf-formatters";
+import { getDateMs } from "@/lib/cdsf";
 import { useSession } from "@/lib/session";
 
 type CompetitionTab = "registered" | "results";
@@ -42,14 +40,9 @@ const competitionTabs: Record<CompetitionTab, CompetitionTabDefinition> = {
 const competitionTabOrder: CompetitionTab[] = ["registered", "results"];
 const competitionPageSize = 100;
 
-function getCompetitionTimestamp(event: CompetitionEvent) {
-  return getCdsfTimestamp(event.date);
-}
-
 function sortCompetitionEvents(events: CompetitionEvent[]) {
   return [...events].sort((left, right) => {
-    const timestampDifference =
-      getCompetitionTimestamp(right) - getCompetitionTimestamp(left);
+    const timestampDifference = getDateMs(right.date) - getDateMs(left.date);
 
     if (timestampDifference !== 0) {
       return timestampDifference;
@@ -61,8 +54,7 @@ function sortCompetitionEvents(events: CompetitionEvent[]) {
 
 function sortCompetitionEventsAscending(events: CompetitionEvent[]) {
   return [...events].sort((left, right) => {
-    const timestampDifference =
-      getCompetitionTimestamp(left) - getCompetitionTimestamp(right);
+    const timestampDifference = getDateMs(left.date) - getDateMs(right.date);
 
     if (timestampDifference !== 0) {
       return timestampDifference;
@@ -96,6 +88,7 @@ function CompetitionTabButton({
   return (
     <Pressable
       accessibilityRole="tab"
+      accessibilityState={{ selected: isActive }}
       hitSlop={4}
       onPress={() => {
         onPress(tab);
@@ -156,12 +149,12 @@ export default function CompetitionsScreen() {
   const currentTab = competitionTabs[activeTab];
   const currentQuery =
     activeTab === "registered" ? registrationsQuery : resultsQuery;
+  const isRefreshing = currentQuery.isRefetching && !currentQuery.isLoading;
   const registrationsStartTimestamp = getRegistrationsStartTimestamp();
   const allEvents =
     currentQuery.data?.pages.flatMap((page) => page?.collection || []) || [];
   const newestFetchedEventTimestamp = allEvents.reduce(
-    (newestTimestamp, event) =>
-      Math.max(newestTimestamp, getCompetitionTimestamp(event)),
+    (newestTimestamp, event) => Math.max(newestTimestamp, getDateMs(event.date)),
     Number.NEGATIVE_INFINITY,
   );
   const isSeekingCurrentRegistrations =
@@ -182,13 +175,10 @@ export default function CompetitionsScreen() {
     activeTab === "registered"
       ? sortCompetitionEventsAscending(
           allEvents.filter(
-            (event) => getCompetitionTimestamp(event) >= registrationsStartTimestamp,
+            (event) => getDateMs(event.date) >= registrationsStartTimestamp,
           ),
         )
       : sortCompetitionEvents(allEvents);
-  const data: CompetitionListItemProps[] = visibleEvents.map((item) =>
-    eventRegistrationToCompetitionCard(item, activeTab),
-  );
   const emptyStateTitle = isLoadingState
     ? activeTab === "registered" && isSeekingCurrentRegistrations
       ? "Načítám aktuální přihlášky"
@@ -218,39 +208,44 @@ export default function CompetitionsScreen() {
     void currentQuery.fetchNextPage();
   }, [activeTab, currentQuery]);
 
-  function handleRetry() {
+  function refreshCurrentTab() {
     void currentQuery.refetch();
   }
 
   return (
     <View style={styles.container}>
-      <View style={styles.segmentedControlShell}>
-        <View style={styles.segmentedControl}>
-          {competitionTabOrder.map((tab) => (
-            <CompetitionTabButton
-              key={tab}
-              activeTab={activeTab}
-              onPress={setActiveTab}
-              tab={tab}
-            />
-          ))}
-        </View>
-      </View>
+      <Stack.Screen
+        options={{
+          title: "Soutěže",
+          headerRight: () => (
+            <View accessibilityRole="tablist" style={styles.headerToggle}>
+              {competitionTabOrder.map((tab) => (
+                <CompetitionTabButton
+                  key={tab}
+                  activeTab={activeTab}
+                  onPress={setActiveTab}
+                  tab={tab}
+                />
+              ))}
+            </View>
+          ),
+        }}
+      />
 
       <View style={styles.listArea}>
         <ListTopShadow />
         <FlatList
           contentContainerStyle={styles.listContent}
-          data={data}
+          data={visibleEvents}
           keyExtractor={(item) =>
-            `${item.dateYear}-${item.dateMonth}-${item.dateDay}-${item.title}-${item.city}`
+            item.eventId?.toString() ?? `${item.eventName}-${item.date}`
           }
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <ScreenStateCard
               body={emptyStateBody}
               isLoading={isLoadingState}
-              onRetry={currentQuery.isError ? handleRetry : undefined}
+              onRetry={currentQuery.isError ? refreshCurrentTab : undefined}
               style={styles.stateCard}
               title={emptyStateTitle}
             />
@@ -262,6 +257,7 @@ export default function CompetitionsScreen() {
               </View>
             ) : null
           }
+          onRefresh={refreshCurrentTab}
           onEndReached={
             currentQuery.hasNextPage
               ? () => void currentQuery.fetchNextPage()
@@ -269,8 +265,9 @@ export default function CompetitionsScreen() {
           }
           onEndReachedThreshold={0.4}
           renderItem={({ item }) => (
-            <CompetitionListItem {...item} variant={activeTab} />
+            <CompetitionListItem event={item} variant={activeTab} />
           )}
+          refreshing={isRefreshing}
           style={styles.list}
         />
       </View>
@@ -294,23 +291,22 @@ const styles = StyleSheet.create({
   listContent: {
     paddingBottom: 20,
   },
-  segmentedControlShell: {
-    zIndex: 1,
-    backgroundColor: "#f4f6f8",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  segmentedControl: {
+  headerToggle: {
     flexDirection: "row",
-    gap: 6,
+    gap: 3,
+    marginRight: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#dfe6ef",
+    backgroundColor: "#eef3f8",
+    padding: 3,
   },
   segment: {
-    flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 12,
+    borderRadius: 9,
     paddingHorizontal: 10,
-    paddingVertical: 9,
+    paddingVertical: 6,
   },
   segmentActive: {
     backgroundColor: "#fff",
@@ -327,10 +323,9 @@ const styles = StyleSheet.create({
   },
   segmentText: {
     color: "#7e8997",
-    fontSize: 11.5,
+    fontSize: 12,
     fontWeight: "700",
-    letterSpacing: 0.15,
-    textTransform: "uppercase",
+    letterSpacing: -0.1,
   },
   segmentTextActive: {
     color: "#2457b3",

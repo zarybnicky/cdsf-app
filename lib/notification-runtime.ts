@@ -8,46 +8,35 @@ import * as TaskManager from "expo-task-manager";
 import { useRouter } from "expo-router";
 
 import { announcementsHref } from "@/lib/app-routes";
-import { notificationToAnnouncementCard } from "@/lib/cdsf-formatters";
-import { getStoredNotificationPreferences } from "@/lib/notification-preferences";
+import { stripMarkdown } from "@/lib/markdown";
+import { loadPreferences } from "@/lib/notification-preferences";
 import {
-  getNotificationSeenId,
-  notificationsSeenNamespace,
+  seenNs,
   syncNotifications,
   type Notification,
 } from "@/lib/notification-sync";
-import type { Session } from "@/lib/session";
-import { getStoredSession } from "@/lib/session";
-import {
-  getStoredSeenState,
-  markSeenIds,
-  removeSeenIds,
-} from "@/lib/seen-state";
+import { getSession, type Session } from "@/lib/session";
+import { addSeenIds, dropSeenIds, getSeenState } from "@/lib/seen-state";
 
-export const announcementsBackgroundTaskName =
-  "cdsf-announcements-background-sync";
-const announcementsNotificationChannelId = "cdsf-announcements";
-const announcementsBackgroundIntervalMinutes = 15;
-const announcementsNotificationColor = "#2457b3";
-const announcementsNotificationPreviewMaxLength = 140;
+const bgTaskName = "cdsf-announcements-background-sync";
+const channelId = "cdsf-announcements";
+const bgIntervalMins = 15;
+const notifColor = "#2457b3";
+const previewMaxLen = 140;
 const isWeb = Platform.OS === "web";
 
-type AnnouncementHref = typeof announcementsHref;
-type AnnouncementNotificationData = {
-  href: AnnouncementHref;
-};
 type NotificationPermissions = Awaited<
   ReturnType<typeof Notifications.getPermissionsAsync>
 >;
-export type AnnouncementsNotificationDebugSnapshot = {
-  backgroundStatusLabel: string;
+export type DebugSnapshot = {
+  bgStatus: string;
   canAskAgain: boolean;
-  notificationsAllowed: boolean;
-  permissionStatusLabel: string;
+  allowed: boolean;
+  permissionStatus: string;
   platform: typeof Platform.OS;
   seenCount: number;
-  taskManagerAvailable: boolean;
-  taskRegistered: boolean;
+  taskManager: boolean;
+  registered: boolean;
 };
 
 Notifications.setNotificationHandler({
@@ -59,7 +48,7 @@ Notifications.setNotificationHandler({
   }),
 });
 
-function allowsNotifications(permissions: NotificationPermissions) {
+function hasPermission(permissions: NotificationPermissions) {
   return (
     permissions.granted ||
     permissions.ios?.status ===
@@ -68,7 +57,7 @@ function allowsNotifications(permissions: NotificationPermissions) {
   );
 }
 
-function getBackgroundTaskStatusLabel(
+function bgStatusLabel(
   status: BackgroundTask.BackgroundTaskStatus | null,
 ) {
   if (status === BackgroundTask.BackgroundTaskStatus.Available) {
@@ -82,7 +71,7 @@ function getBackgroundTaskStatusLabel(
   return "Neznámé";
 }
 
-function getPermissionStatusLabel(permissions: NotificationPermissions) {
+function permissionLabel(permissions: NotificationPermissions) {
   if (permissions.granted) {
     return "Povoleno";
   }
@@ -110,35 +99,22 @@ function getPermissionStatusLabel(permissions: NotificationPermissions) {
   return "Nepovoleno";
 }
 
-async function markNotificationsSeenForSession(
-  session: Session,
-  notifications: readonly Pick<Notification, "id">[],
-) {
-  await markSeenIds(
-    notificationsSeenNamespace,
-    notifications.map(getNotificationSeenId),
-    session.email,
-  );
-}
-
-async function areAnnouncementsNotificationsAllowedAsync(
-  requestIfNeeded: boolean,
-) {
+async function requestNotificationsPermission() {
   if (isWeb) {
     return false;
   }
 
-  const currentPermissions = await Notifications.getPermissionsAsync();
+  const current = await Notifications.getPermissionsAsync();
 
-  if (allowsNotifications(currentPermissions)) {
+  if (hasPermission(current)) {
     return true;
   }
 
-  if (!requestIfNeeded || !currentPermissions.canAskAgain) {
+  if (!current.canAskAgain) {
     return false;
   }
 
-  const nextPermissions = await Notifications.requestPermissionsAsync({
+  const next = await Notifications.requestPermissionsAsync({
     ios: {
       allowAlert: true,
       allowBadge: true,
@@ -146,126 +122,90 @@ async function areAnnouncementsNotificationsAllowedAsync(
     },
   });
 
-  return allowsNotifications(nextPermissions);
+  return hasPermission(next);
 }
 
-async function ensureAnnouncementsNotificationChannelAsync() {
+async function ensureChannel() {
   if (Platform.OS !== "android") {
     return;
   }
 
-  await Notifications.setNotificationChannelAsync(
-    announcementsNotificationChannelId,
-    {
-      name: "Aktuality",
-      description: "Upozornění na nová sdělení v části Aktuality.",
-      enableLights: true,
-      enableVibrate: true,
-      importance: Notifications.AndroidImportance.HIGH,
-      lightColor: announcementsNotificationColor,
-      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
-      showBadge: true,
-      vibrationPattern: [0, 250, 150, 250],
-    },
-  );
+  await Notifications.setNotificationChannelAsync(channelId, {
+    name: "Aktuality",
+    description: "Upozornění na nová sdělení v části Aktuality.",
+    enableLights: true,
+    enableVibrate: true,
+    importance: Notifications.AndroidImportance.HIGH,
+    lightColor: notifColor,
+    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+    showBadge: true,
+    vibrationPattern: [0, 250, 150, 250],
+  });
 }
 
-export async function requestAnnouncementsNotificationPermissionsAsync() {
-  if (isWeb) {
-    return false;
-  }
-
-  await ensureAnnouncementsNotificationChannelAsync();
-  return areAnnouncementsNotificationsAllowedAsync(true);
-}
-
-function stripNotificationPreviewText(value: string) {
-  return value
-    .replace(/!\[([^\]]*)]\(([^)]+)\)/g, "$1")
-    .replace(/\[([^\]]+)]\(([^)]+)\)/g, "$1")
-    .replace(/[*_`~>#-]/g, " ")
+function previewText(value: string, maxLength = previewMaxLen) {
+  const preview = stripMarkdown(value)
+    .replace(/[>#-]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-}
-
-function truncateNotificationPreview(
-  value: string,
-  maxLength = announcementsNotificationPreviewMaxLength,
-) {
-  if (value.length <= maxLength) {
-    return value;
+  if (preview.length <= maxLength) {
+    return preview;
   }
-
-  return `${value.slice(0, maxLength - 1).trimEnd()}…`;
+  return `${preview.slice(0, maxLength - 1).trimEnd()}…`;
 }
 
-function buildAnnouncementsNotificationPreview(notification: Notification) {
+function previewBody(notification: Notification) {
   const message = notification.message?.trim();
-
   if (message) {
-    return truncateNotificationPreview(stripNotificationPreviewText(message));
+    return previewText(message);
   }
-
   if (notification.author?.trim()) {
     return `Autor: ${notification.author.trim()}`;
   }
-
   if (notification.contact?.trim()) {
     return `Kontakt: ${notification.contact.trim()}`;
   }
-
   return "Otevřete aplikaci pro detail aktuality.";
 }
 
-function buildAnnouncementsNotificationContent(
-  unseenNotifications: readonly Notification[],
-) {
-  const [latestNotification] = unseenNotifications;
-  const latestAnnouncement = notificationToAnnouncementCard(latestNotification);
-  const unseenCount = unseenNotifications.length;
-  const isSingleNotification = unseenCount === 1;
-  const preview = buildAnnouncementsNotificationPreview(latestNotification);
+function getContent(unseen: readonly Notification[]) {
+  const [latest] = unseen;
+  const latestTitle = stripMarkdown(latest.caption);
+  const count = unseen.length;
+  const single = count === 1;
+  const preview = previewBody(latest);
 
   return {
-    body: isSingleNotification
+    body: single
       ? preview
-      : `${preview} · +${unseenCount - 1} další`,
-    color: announcementsNotificationColor,
-    data: {
-      href: announcementsHref,
-    } satisfies AnnouncementNotificationData,
-    subtitle: isSingleNotification
+      : `${preview} · +${count - 1} další`,
+    color: notifColor,
+    subtitle: single
       ? "Aktuality ČSTS"
-      : latestAnnouncement.title,
-    title: isSingleNotification
-      ? latestAnnouncement.title
-      : `Nové aktuality ČSTS (${unseenCount})`,
+      : latestTitle,
+    title: single
+      ? latestTitle
+      : `Nové aktuality ČSTS (${count})`,
   };
 }
 
-async function scheduleAnnouncementsNotificationAsync(
-  unseenNotifications: readonly Notification[],
-) {
-  if (unseenNotifications.length === 0) {
+async function scheduleNotification(unseen: readonly Notification[]) {
+  if (unseen.length === 0) {
     return;
   }
-
-  await ensureAnnouncementsNotificationChannelAsync();
-
+  await ensureChannel();
   await Notifications.scheduleNotificationAsync({
-    content: {
-      ...buildAnnouncementsNotificationContent(unseenNotifications),
-    },
+    content: getContent(unseen),
     trigger:
       Platform.OS === "android"
         ? {
-            channelId: announcementsNotificationChannelId,
+            channelId,
           }
         : null,
   });
 }
 
-export async function triggerAnnouncementsBackgroundTaskForTestingAsync() {
+export async function runWorkerForTest() {
   if (isWeb) {
     return false;
   }
@@ -273,97 +213,91 @@ export async function triggerAnnouncementsBackgroundTaskForTestingAsync() {
   return BackgroundTask.triggerTaskWorkerForTestingAsync();
 }
 
-export async function replayLatestAnnouncementThroughBackgroundTaskForTestingAsync() {
+export async function replayLatestForTest() {
   if (isWeb) {
     return false;
   }
 
-  const session = await getStoredSession();
-
+  const session = await getSession();
   if (!session) {
     return false;
   }
 
-  const [preferences, seenState] = await Promise.all([
-    getStoredNotificationPreferences(session.email),
-    getStoredSeenState(notificationsSeenNamespace, session.email),
+  const [preferences, seen] = await Promise.all([
+    loadPreferences(session.email),
+    getSeenState(seenNs, session.email),
   ]);
-  const syncResult = await syncNotifications({
+  const result = await syncNotifications({
     authHeaders: { Authorization: session.token },
     email: session.email,
     maxPages: 3,
     persistToCache: false,
     preferences,
-    seenIds: seenState.ids,
-    stopWhen: ({ nextPage, visibleNotifications }) =>
-      visibleNotifications.length > 0 || nextPage === undefined,
+    seenIds: seen.ids,
+    stopWhen: ({ nextPage, visible }) =>
+      visible.length > 0 || nextPage === undefined,
   });
-  const latestVisibleNotification = syncResult.visibleNotifications[0];
+  const latest = result.visible[0];
 
-  if (!latestVisibleNotification) {
+  if (!latest) {
     return false;
   }
 
-  await removeSeenIds(
-    notificationsSeenNamespace,
-    [getNotificationSeenId(latestVisibleNotification)],
-    session.email,
-  );
+  await dropSeenIds(seenNs, [latest.id.toString()], session.email);
 
-  await runAnnouncementsBackgroundTaskAsync();
+  await runBgTask();
   return true;
 }
 
-async function runAnnouncementsSync(allowLocalNotifications: boolean) {
-  const session = await getStoredSession();
-
+async function runSync(allowLocalNotifications: boolean) {
+  const session = await getSession();
   if (!session) {
     return;
   }
 
-  const [seenState, preferences] = await Promise.all([
-    getStoredSeenState(notificationsSeenNamespace, session.email),
-    getStoredNotificationPreferences(session.email),
+  const [seen, preferences] = await Promise.all([
+    getSeenState(seenNs, session.email),
+    loadPreferences(session.email),
   ]);
-  const seenIds = seenState.ids;
-  const syncResult = await syncNotifications({
+  const result = await syncNotifications({
     authHeaders: { Authorization: session.token },
     email: session.email,
     preferences,
-    seenIds,
-    stopWhen: ({ nextPage, unseenNotifications }) =>
-      unseenNotifications.length > 0 || nextPage === undefined,
+    seenIds: seen.ids,
+    stopWhen: ({ nextPage, unseen }) =>
+      unseen.length > 0 || nextPage === undefined,
   });
+  const toMarkSeen = seen.initialized ? result.unseen : result.visible;
 
-  if (!seenState.initialized) {
-    await markNotificationsSeenForSession(
-      session,
-      syncResult.visibleNotifications,
-    );
+  if (toMarkSeen.length === 0) {
     return;
   }
 
-  if (syncResult.unseenNotifications.length === 0 || !allowLocalNotifications) {
-    return;
+  if (seen.initialized) {
+    if (!allowLocalNotifications) {
+      return;
+    }
+
+    await scheduleNotification(toMarkSeen);
   }
 
-  await scheduleAnnouncementsNotificationAsync(syncResult.unseenNotifications);
-  await markNotificationsSeenForSession(
-    session,
-    syncResult.unseenNotifications,
+  await addSeenIds(
+    seenNs,
+    toMarkSeen.map((notification) => notification.id.toString()),
+    session.email,
   );
 }
 
-async function runAnnouncementsBackgroundTaskAsync() {
-  await runAnnouncementsSync(
-    await areAnnouncementsNotificationsAllowedAsync(false),
+async function runBgTask() {
+  await runSync(
+    isWeb ? false : hasPermission(await Notifications.getPermissionsAsync()),
   );
 }
 
-if (!TaskManager.isTaskDefined(announcementsBackgroundTaskName)) {
-  TaskManager.defineTask(announcementsBackgroundTaskName, async () => {
+if (!TaskManager.isTaskDefined(bgTaskName)) {
+  TaskManager.defineTask(bgTaskName, async () => {
     try {
-      await runAnnouncementsBackgroundTaskAsync();
+      await runBgTask();
       return BackgroundTask.BackgroundTaskResult.Success;
     } catch (error) {
       console.error("Announcements background task failed.", error);
@@ -372,160 +306,121 @@ if (!TaskManager.isTaskDefined(announcementsBackgroundTaskName)) {
   });
 }
 
-async function isAnnouncementsBackgroundTaskAvailableAsync() {
+async function isBgTaskAvailable() {
   if (isWeb) {
     return false;
   }
 
   try {
-    const [isTaskManagerAvailable, backgroundTaskStatus] = await Promise.all([
+    const [taskManager, status] = await Promise.all([
       TaskManager.isAvailableAsync(),
       BackgroundTask.getStatusAsync(),
     ]);
 
-    return (
-      isTaskManagerAvailable &&
-      backgroundTaskStatus === BackgroundTask.BackgroundTaskStatus.Available
-    );
+    return taskManager && status === BackgroundTask.BackgroundTaskStatus.Available;
   } catch {
     return false;
   }
 }
 
-async function registerAnnouncementsBackgroundTaskAsync() {
-  if (!(await isAnnouncementsBackgroundTaskAvailableAsync())) {
+async function registerBgTask() {
+  if (!(await isBgTaskAvailable())) {
     return;
   }
 
-  if (
-    await TaskManager.isTaskRegisteredAsync(announcementsBackgroundTaskName)
-  ) {
+  if (await TaskManager.isTaskRegisteredAsync(bgTaskName)) {
     return;
   }
 
-  await BackgroundTask.registerTaskAsync(announcementsBackgroundTaskName, {
-    minimumInterval: announcementsBackgroundIntervalMinutes,
+  await BackgroundTask.registerTaskAsync(bgTaskName, {
+    minimumInterval: bgIntervalMins,
   });
 }
 
-async function unregisterAnnouncementsBackgroundTaskAsync() {
-  if (!(await isAnnouncementsBackgroundTaskAvailableAsync())) {
+async function unregisterBgTask() {
+  if (!(await isBgTaskAvailable())) {
     return;
   }
 
-  if (
-    !(await TaskManager.isTaskRegisteredAsync(announcementsBackgroundTaskName))
-  ) {
+  if (!(await TaskManager.isTaskRegisteredAsync(bgTaskName))) {
     return;
   }
 
-  await BackgroundTask.unregisterTaskAsync(announcementsBackgroundTaskName);
+  await BackgroundTask.unregisterTaskAsync(bgTaskName);
 }
 
-export async function getAnnouncementsNotificationDebugSnapshotAsync(
+export async function getDebugSnapshot(
   email?: string | null,
-): Promise<AnnouncementsNotificationDebugSnapshot> {
-  const seenState = email
-    ? await getStoredSeenState(notificationsSeenNamespace, email)
-    : { ids: [], initialized: false };
-  const seenIds = seenState.ids;
+): Promise<DebugSnapshot> {
+  const seen = email
+    ? await getSeenState(seenNs, email)
+    : { ids: new Set<string>(), initialized: false };
 
   if (isWeb) {
     return {
-      backgroundStatusLabel: "Web",
+      bgStatus: "Web",
       canAskAgain: false,
-      notificationsAllowed: false,
-      permissionStatusLabel: "Nepodporováno",
+      allowed: false,
+      permissionStatus: "Nepodporováno",
       platform: Platform.OS,
-      seenCount: seenIds.length,
-      taskManagerAvailable: false,
-      taskRegistered: false,
+      seenCount: seen.ids.size,
+      taskManager: false,
+      registered: false,
     };
   }
 
   const permissions = await Notifications.getPermissionsAsync();
-  let taskManagerAvailable = false;
-  let taskRegistered = false;
-  let backgroundStatusLabel = "Neznámé";
+  let taskManager = false;
+  let registered = false;
+  let bgStatus = "Neznámé";
 
   try {
-    const [isAvailable, backgroundTaskStatus] = await Promise.all([
+    const [isAvailable, status] = await Promise.all([
       TaskManager.isAvailableAsync(),
       BackgroundTask.getStatusAsync(),
     ]);
 
-    taskManagerAvailable = isAvailable;
-    backgroundStatusLabel = getBackgroundTaskStatusLabel(backgroundTaskStatus);
+    taskManager = isAvailable;
+    bgStatus = bgStatusLabel(status);
 
     if (isAvailable) {
-      taskRegistered = await TaskManager.isTaskRegisteredAsync(
-        announcementsBackgroundTaskName,
-      );
+      registered = await TaskManager.isTaskRegisteredAsync(bgTaskName);
     }
   } catch {
-    backgroundStatusLabel = "Nedostupné";
+    bgStatus = "Nedostupné";
   }
 
   return {
-    backgroundStatusLabel,
+    bgStatus,
     canAskAgain: permissions.canAskAgain,
-    notificationsAllowed: allowsNotifications(permissions),
-    permissionStatusLabel: getPermissionStatusLabel(permissions),
+    allowed: hasPermission(permissions),
+    permissionStatus: permissionLabel(permissions),
     platform: Platform.OS,
-    seenCount: seenIds.length,
-    taskManagerAvailable,
-    taskRegistered,
+    seenCount: seen.ids.size,
+    taskManager,
+    registered,
   };
 }
 
-async function bootstrapAnnouncementsNotificationRuntimeAsync(
-  requestPermissions: boolean,
-) {
+async function bootstrapRuntime(requestPermissions: boolean) {
   if (isWeb) {
     return;
   }
 
-  await ensureAnnouncementsNotificationChannelAsync();
-  await Promise.all([
-    registerAnnouncementsBackgroundTaskAsync(),
-    areAnnouncementsNotificationsAllowedAsync(requestPermissions),
-  ]);
-  await runAnnouncementsSync(false);
+  await ensureChannel();
+
+  if (requestPermissions) {
+    await requestNotificationsPermission();
+  }
+
+  await registerBgTask();
+  await runSync(false);
 }
 
-function getHrefFromNotificationResponse(
-  response: Notifications.NotificationResponse,
-): AnnouncementHref {
-  const data = response.notification.request.content.data as
-    | Partial<AnnouncementNotificationData>
-    | undefined;
-
-  return data?.href === announcementsHref ? data.href : announcementsHref;
-}
-
-function shouldRequestNotificationPermissions(
-  previousSession: Session | null | undefined,
-  session: Session,
-) {
-  return (
-    previousSession !== undefined && previousSession?.email !== session.email
-  );
-}
-
-function logAnnouncementsRuntimeError(message: string, error: unknown) {
-  console.error(message, error);
-}
-
-function runWithLoggedError(promise: Promise<unknown>, message: string) {
-  void promise.catch((error) => {
-    logAnnouncementsRuntimeError(message, error);
-  });
-}
-
-export function useAnnouncementsNotificationRuntime(session: Session | null) {
+export function useNotificationRuntime(session: Session | null) {
   const router = useRouter();
-  const lastHandledNotificationIdRef = useRef<string | null>(null);
-  const previousSessionRef = useRef<Session | null | undefined>(undefined);
+  const lastHandledIdRef = useRef<string | null>(null);
+  const prevSessionRef = useRef<Session | null | undefined>(undefined);
 
   useEffect(() => {
     if (isWeb || !session) {
@@ -533,29 +428,25 @@ export function useAnnouncementsNotificationRuntime(session: Session | null) {
     }
 
     const handleResponse = (response: Notifications.NotificationResponse) => {
-      const href = getHrefFromNotificationResponse(response);
-      const notificationId = response.notification.request.identifier;
+      const id = response.notification.request.identifier;
 
-      if (lastHandledNotificationIdRef.current === notificationId) {
+      if (lastHandledIdRef.current === id) {
         return;
       }
 
-      lastHandledNotificationIdRef.current = notificationId;
-      router.push(href);
+      lastHandledIdRef.current = id;
+      router.push(announcementsHref);
       Notifications.clearLastNotificationResponse();
     };
 
-    const lastNotificationResponse =
-      Notifications.getLastNotificationResponse();
+    const lastResponse = Notifications.getLastNotificationResponse();
 
-    if (lastNotificationResponse) {
-      handleResponse(lastNotificationResponse);
+    if (lastResponse) {
+      handleResponse(lastResponse);
     }
 
     const subscription = Notifications.addNotificationResponseReceivedListener(
-      (response) => {
-        handleResponse(response);
-      },
+      handleResponse,
     );
 
     return () => {
@@ -568,23 +459,28 @@ export function useAnnouncementsNotificationRuntime(session: Session | null) {
       return;
     }
 
-    const previousSession = previousSessionRef.current;
-    previousSessionRef.current = session;
+    const prevSession = prevSessionRef.current;
+    prevSessionRef.current = session;
 
     if (!session) {
-      lastHandledNotificationIdRef.current = null;
-      runWithLoggedError(
-        unregisterAnnouncementsBackgroundTaskAsync(),
-        "Unable to unregister announcements background task.",
-      );
+      lastHandledIdRef.current = null;
+      void unregisterBgTask().catch((error) => {
+        console.error(
+          "Unable to unregister announcements background task.",
+          error,
+        );
+      });
       return;
     }
 
-    runWithLoggedError(
-      bootstrapAnnouncementsNotificationRuntimeAsync(
-        shouldRequestNotificationPermissions(previousSession, session),
-      ),
-      "Unable to bootstrap announcements notification runtime.",
-    );
+    const requestPermissions =
+      prevSession !== undefined && prevSession?.email !== session.email;
+
+    void bootstrapRuntime(requestPermissions).catch((error) => {
+      console.error(
+        "Unable to bootstrap announcements notification runtime.",
+        error,
+      );
+    });
   }, [session]);
 }

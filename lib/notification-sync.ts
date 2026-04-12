@@ -6,28 +6,28 @@ import {
   filterNotifications,
   type NotificationPreferences,
 } from "@/lib/notification-preferences";
-import { restoreQueryCache, saveQueryCache } from "@/lib/react-query";
-import { queryClient } from "@/lib/react-query";
-import { filterUnseenItems, getStoredSeenIds } from "@/lib/seen-state";
+import { queryClient, restoreCache, saveCache } from "@/lib/react-query";
+import { getSeenState } from "@/lib/seen-state";
 
 type AuthHeaders = {
   Authorization: string;
 };
 
-type NotificationsPage =
+type Page =
   paths["/notifications"]["get"]["responses"][200]["content"]["application/json"];
 
 export type Notification = components["schemas"]["Notification"];
-export type NotificationsInfiniteData = InfiniteData<NotificationsPage, number>;
-export type SyncNotificationsProgress = {
-  pages: NotificationsPage[];
+type CachedPages = InfiniteData<Page, number>;
+
+export type SyncProgress = {
+  pages: Page[];
   pageParams: number[];
   notifications: Notification[];
-  visibleNotifications: Notification[];
-  unseenNotifications: Notification[];
+  visible: Notification[];
+  unseen: Notification[];
   nextPage: number | undefined;
 };
-export type SyncNotificationsInput = {
+export type SyncInput = {
   authHeaders?: AuthHeaders;
   email?: string | null;
   maxPages?: number;
@@ -35,96 +35,49 @@ export type SyncNotificationsInput = {
   persistToCache?: boolean;
   preferences: NotificationPreferences;
   reactQueryClient?: QueryClient;
-  seenIds?: readonly string[];
-  stopWhen?: (progress: SyncNotificationsProgress) => boolean;
+  seenIds?: ReadonlySet<string>;
+  stopWhen?: (progress: SyncProgress) => boolean;
 };
-export type SyncNotificationsResult = SyncNotificationsProgress;
 
-export const notificationsSeenNamespace = "notifications";
-export const notificationsPageSize = 10;
-const defaultNotificationsSyncMaxPages = 3;
+export const seenNs = "notifications";
+export const pageSize = 10;
+const defaultMaxPages = 3;
 
-export function getNotificationSeenId(notification: Pick<Notification, "id">) {
-  return notification.id.toString();
-}
-
-export function createNotificationsQueryInit(
+export function queryInit(
   authHeaders?: AuthHeaders,
-  pageSize = notificationsPageSize,
+  size = pageSize,
 ) {
   return {
     ...(authHeaders ? { headers: authHeaders } : {}),
     params: {
       query: {
-        pageSize,
+        pageSize: size,
       },
     },
   };
 }
 
-function getNotificationsQueryKey(
-  authHeaders?: AuthHeaders,
-  pageSize = notificationsPageSize,
-) {
-  return openapiClient.queryOptions(
-    "get",
-    "/notifications",
-    createNotificationsQueryInit(authHeaders, pageSize),
-  ).queryKey;
-}
-
-export function flattenNotificationPages(pages: readonly NotificationsPage[]) {
+export function flattenPages(pages: readonly Page[]) {
   return pages.flatMap((page) => page.collection || []);
 }
 
-function buildSyncNotificationsProgress({
-  pageParams,
-  pages,
-  nextPage,
-  preferences,
-  seenIds,
-}: {
-  pageParams: number[];
-  pages: NotificationsPage[];
-  nextPage: number | undefined;
-  preferences: NotificationPreferences;
-  seenIds: readonly string[];
-}): SyncNotificationsProgress {
-  const notifications = flattenNotificationPages(pages);
-  const visibleNotifications = filterNotifications(notifications, preferences);
-  const unseenNotifications = filterUnseenItems(
-    visibleNotifications,
-    seenIds,
-    getNotificationSeenId,
-  );
-
-  return {
-    pageParams,
-    pages,
-    notifications,
-    visibleNotifications,
-    unseenNotifications,
-    nextPage,
-  };
-}
-
-function mergeInfiniteNotificationData(
-  fetchedData: NotificationsInfiniteData,
-  existingData: NotificationsInfiniteData | undefined,
+function mergeData(
+  fetched: CachedPages,
+  existing: CachedPages | undefined,
 ) {
-  if (!existingData) {
-    return fetchedData;
+  if (!existing) {
+    return fetched;
   }
 
-  const pageMap = new Map<number, NotificationsPage>();
+  const pageMap = new Map<number, Page>();
 
-  fetchedData.pageParams.forEach((pageParam, index) => {
-    pageMap.set(pageParam, fetchedData.pages[index]);
+  fetched.pageParams.forEach((pageParam, index) => {
+    pageMap.set(pageParam, fetched.pages[index]);
   });
 
-  existingData.pageParams.forEach((pageParam, index) => {
+  existing.pageParams.forEach((pageParam, index) => {
     if (!pageMap.has(pageParam)) {
-      pageMap.set(pageParam, existingData.pages[index]);
+      pageMap.set(pageParam, existing.pages[index]);
     }
   });
 
@@ -134,16 +87,14 @@ function mergeInfiniteNotificationData(
 
   return {
     pageParams,
-    pages: pageParams.map(
-      (pageParam) => pageMap.get(pageParam) as NotificationsPage,
-    ),
-  } satisfies NotificationsInfiniteData;
+    pages: pageParams.map((pageParam) => pageMap.get(pageParam) as Page),
+  } satisfies CachedPages;
 }
 
-async function fetchNotificationsPage({
+async function fetchPage({
   authHeaders,
   page,
-  pageSize,
+  pageSize: size,
 }: {
   authHeaders: AuthHeaders;
   page: number;
@@ -154,7 +105,7 @@ async function fetchNotificationsPage({
     params: {
       query: {
         page,
-        pageSize,
+        pageSize: size,
       },
     },
   });
@@ -173,83 +124,94 @@ async function fetchNotificationsPage({
 export async function syncNotifications({
   authHeaders,
   email,
-  maxPages = defaultNotificationsSyncMaxPages,
-  pageSize = notificationsPageSize,
+  maxPages = defaultMaxPages,
+  pageSize: size = pageSize,
   persistToCache = true,
   preferences,
   reactQueryClient = queryClient,
   seenIds,
   stopWhen,
-}: SyncNotificationsInput): Promise<SyncNotificationsResult> {
+}: SyncInput): Promise<SyncProgress> {
   if (!authHeaders) {
     return {
       pageParams: [],
       pages: [],
       notifications: [],
-      visibleNotifications: [],
-      unseenNotifications: [],
+      visible: [],
+      unseen: [],
       nextPage: undefined,
     };
   }
 
-  const maxPagesToFetch = Math.max(1, Math.floor(maxPages));
-  const resolvedSeenIds =
-    seenIds ?? (await getStoredSeenIds(notificationsSeenNamespace, email));
+  const limit = Math.max(1, Math.floor(maxPages));
+  const seen = seenIds ?? (await getSeenState(seenNs, email)).ids;
   const pageParams: number[] = [];
-  const pages: NotificationsPage[] = [];
+  const pages: Page[] = [];
   let nextPage: number | undefined = 1;
 
-  while (nextPage !== undefined && pageParams.length < maxPagesToFetch) {
+  while (nextPage !== undefined && pageParams.length < limit) {
     const pageParam = nextPage;
-    const page = await fetchNotificationsPage({
+    const page = await fetchPage({
       authHeaders,
       page: pageParam,
-      pageSize,
+      pageSize: size,
     });
 
     pageParams.push(pageParam);
     pages.push(page);
     nextPage = isPagingProps.getNextPageParam(page);
-    const progress = buildSyncNotificationsProgress({
+    const notifications = flattenPages(pages);
+    const visible = filterNotifications(notifications, preferences);
+    const unseen = visible.filter(
+      (notification) => !seen.has(notification.id.toString()),
+    );
+    const progress = {
       pageParams,
       pages,
+      notifications,
+      visible,
+      unseen,
       nextPage,
-      preferences,
-      seenIds: resolvedSeenIds,
-    });
+    } satisfies SyncProgress;
 
     if (stopWhen?.(progress)) {
       break;
     }
   }
 
-  const progress = buildSyncNotificationsProgress({
+  const notifications = flattenPages(pages);
+  const visible = filterNotifications(notifications, preferences);
+  const unseen = visible.filter(
+    (notification) => !seen.has(notification.id.toString()),
+  );
+  const progress = {
     pageParams,
     pages,
+    notifications,
+    visible,
+    unseen,
     nextPage,
-    preferences,
-    seenIds: resolvedSeenIds,
-  });
+  } satisfies SyncProgress;
 
   if (persistToCache) {
-    await restoreQueryCache();
+    await restoreCache();
 
-    const queryKey = getNotificationsQueryKey(authHeaders, pageSize);
-    const existingData =
-      reactQueryClient.getQueryData<NotificationsInfiniteData>(queryKey);
-    const nextData = mergeInfiniteNotificationData(
+    const key = openapiClient.queryOptions(
+      "get",
+      "/notifications",
+      queryInit(authHeaders, size),
+    ).queryKey;
+    const existing = reactQueryClient.getQueryData<CachedPages>(key);
+    const next = mergeData(
       {
         pageParams: progress.pageParams,
         pages: progress.pages,
       },
-      existingData,
+      existing,
     );
 
-    reactQueryClient.setQueryData<NotificationsInfiniteData>(
-      queryKey,
-      nextData,
-    );
-    await saveQueryCache();
+    reactQueryClient.setQueryData<CachedPages>(key, next);
+    await saveCache();
   }
 
   return progress;

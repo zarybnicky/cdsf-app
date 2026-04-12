@@ -9,8 +9,8 @@ import {
 
 import { Text } from "@/components/Themed";
 import {
-  notificationPreferenceMetadata,
-  notificationPreferenceOrder,
+  preferenceMetadata,
+  preferenceOrder,
   type NotificationType,
 } from "@/lib/notification-preferences";
 import { useNotificationPreferences } from "@/lib/notification-preferences-provider";
@@ -32,7 +32,7 @@ function NotificationPreferenceRow({
   isLastRow,
   onValueChange,
 }: NotificationPreferenceRowProps) {
-  const metadata = notificationPreferenceMetadata[type];
+  const metadata = preferenceMetadata[type];
 
   return (
     <View
@@ -60,24 +60,24 @@ export default function NotificationPreferencesCard({
   style,
 }: NotificationPreferencesCardProps) {
   const {
-    isLoading: areNotificationPreferencesLoading,
-    preferences: notificationPreferences,
+    isLoading: isPreferencesLoading,
+    preferences,
     setPreference,
   } = useNotificationPreferences();
 
   return (
     <View style={[styles.card, style]}>
-      {areNotificationPreferencesLoading ? (
+      {isPreferencesLoading ? (
         <View style={styles.loadingRow}>
           <ActivityIndicator color="#2f67ce" />
           <Text style={styles.loadingText}>Načítám nastavení upozornění</Text>
         </View>
       ) : (
-        notificationPreferenceOrder.map((type, index) => (
+        preferenceOrder.map((type, index) => (
           <NotificationPreferenceRow
             key={type}
-            enabled={notificationPreferences[type]}
-            isLastRow={index === notificationPreferenceOrder.length - 1}
+            enabled={preferences[type]}
+            isLastRow={index === preferenceOrder.length - 1}
             onValueChange={(value) => {
               setPreference(type, value);
             }}
@@ -106,17 +106,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.035,
     shadowRadius: 12,
     elevation: 1,
-  },
-  cardTitle: {
-    color: "#223045",
-    fontSize: 16,
-    fontWeight: "800",
-  },
-  cardBody: {
-    color: "#627082",
-    fontSize: 13,
-    lineHeight: 18,
-    marginTop: 5,
   },
   loadingRow: {
     flexDirection: "row",

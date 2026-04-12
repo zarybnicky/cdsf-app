@@ -1,7 +1,14 @@
-import { createContext, PropsWithChildren, useContext, useMemo } from "react";
+import * as SecureStore from "expo-secure-store";
+import {
+  createContext,
+  type PropsWithChildren,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
+import { Platform } from "react-native";
 
 import { cdsfAppPurpose, fetchClient } from "@/lib/cdsf-client";
-import { getStorageItemAsync, useStorageState } from "@/lib/use-storage-state";
 
 export type Session = {
   email: string;
@@ -25,9 +32,11 @@ type SessionContextValue = {
 };
 
 const SessionContext = createContext<SessionContextValue | null>(null);
-const sessionStorageKey = "session";
+const storageKey = "session";
+type StoredSession = string | null;
+type StoredState = [isLoading: boolean, value: StoredSession];
 
-function getSignInErrorMessage(status: number) {
+function signInError(status: number) {
   if (status === 401) {
     return "Zadaný e-mail nebo heslo nejsou správné.";
   }
@@ -39,13 +48,13 @@ function getSignInErrorMessage(status: number) {
   return "Přihlášení se nepodařilo dokončit.";
 }
 
-function parseStoredSession(storedSession: string | null): Session | null {
-  if (!storedSession) {
+function parseSession(value: string | null): Session | null {
+  if (!value) {
     return null;
   }
 
   try {
-    const parsed = JSON.parse(storedSession) as Partial<Session>;
+    const parsed = JSON.parse(value) as Partial<Session>;
 
     if (typeof parsed.email === "string" && typeof parsed.token === "string") {
       return {
@@ -60,22 +69,73 @@ function parseStoredSession(storedSession: string | null): Session | null {
   return null;
 }
 
-export async function getStoredSession() {
-  return parseStoredSession(await getStorageItemAsync(sessionStorageKey));
+async function saveSession(value: StoredSession) {
+  if (Platform.OS === "web") {
+    if (value === null) {
+      localStorage.removeItem(storageKey);
+    } else {
+      localStorage.setItem(storageKey, value);
+    }
+
+    return;
+  }
+
+  await (value === null
+    ? SecureStore.deleteItemAsync(storageKey)
+    : SecureStore.setItemAsync(storageKey, value));
+}
+
+async function loadSession() {
+  if (Platform.OS === "web") {
+    return localStorage.getItem(storageKey);
+  }
+
+  return SecureStore.getItemAsync(storageKey);
+}
+
+function useStoredSession(): [StoredState, (value: StoredSession) => Promise<void>] {
+  const [state, setState] = useState<StoredState>([true, null]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      try {
+        const value = await loadSession();
+
+        if (!cancelled) {
+          setState([false, value]);
+        }
+      } catch {
+        if (!cancelled) {
+          setState([false, null]);
+        }
+      }
+    }
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function setValue(value: StoredSession) {
+    setState([false, value]);
+    await saveSession(value);
+  }
+
+  return [state, setValue];
+}
+
+export async function getSession() {
+  return parseSession(await loadSession());
 }
 
 export function SessionProvider({ children }: PropsWithChildren) {
-  const [[isLoading, storedSession], setStoredSession] =
-    useStorageState(sessionStorageKey);
-
-  const session = useMemo<Session | null>(
-    () => parseStoredSession(storedSession),
-    [storedSession],
-  );
-  const authHeaders = useMemo<AuthHeaders | undefined>(
-    () => (session ? { Authorization: session.token } : undefined),
-    [session],
-  );
+  const [[isLoading, storedSession], setStoredSession] = useStoredSession();
+  const session = parseSession(storedSession);
+  const authHeaders = session ? { Authorization: session.token } : undefined;
 
   async function signIn({ email, password }: SignInInput) {
     if (session) {
@@ -92,7 +152,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
     const token = response.data;
 
     if (!token) {
-      throw new Error(getSignInErrorMessage(response.response.status));
+      throw new Error(signInError(response.response.status));
     }
 
     await setStoredSession(

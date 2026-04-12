@@ -6,28 +6,14 @@ export type Notification = components["schemas"]["Notification"];
 export type NotificationType = Notification["type"];
 export type NotificationPreferences = Record<NotificationType, boolean>;
 
-type NotificationPreferenceMetadata = {
+type PrefMeta = {
   label: string;
   description: string;
 };
 
-type LegacyNotificationPreferences = {
-  adjudicatorsMessage?: boolean;
-  clubRepresentativeMessage?: boolean;
-  clubTransferCompletion?: boolean;
-  competitionChange?: boolean;
-  competitionMessage?: boolean;
-  competitionRegistrationEndChange?: boolean;
-  divisionRepresentativeMessage?: boolean;
-  executiveBoardMinutes?: boolean;
-  medicalCheckupExpiration?: boolean;
-  officialsMessage?: boolean;
-};
+const preferencesStorageKey = "notification-preferences";
 
-const notificationPreferencesStorageKey = "notification-preferences";
-const legacyNotificationPreferencesStorageKey = "notificationPrefs";
-
-export const notificationPreferenceOrder = [
+export const preferenceOrder = [
   "CompetitionMessage",
   "CompetitionChange",
   "CompetitionRegistrationEndChange",
@@ -40,7 +26,7 @@ export const notificationPreferenceOrder = [
   "ExecutiveBoardMinutes",
 ] as const satisfies readonly NotificationType[];
 
-export const defaultNotificationPreferences: NotificationPreferences = {
+export const defaultPreferences: NotificationPreferences = {
   CompetitionMessage: true,
   CompetitionChange: true,
   CompetitionRegistrationEndChange: true,
@@ -53,9 +39,9 @@ export const defaultNotificationPreferences: NotificationPreferences = {
   ExecutiveBoardMinutes: true,
 };
 
-export const notificationPreferenceMetadata: Record<
+export const preferenceMetadata: Record<
   NotificationType,
-  NotificationPreferenceMetadata
+  PrefMeta
 > = {
   CompetitionMessage: {
     label: "Zprávy k soutěžím",
@@ -99,12 +85,8 @@ export const notificationPreferenceMetadata: Record<
   },
 };
 
-function normalizeNotificationPreferences(
-  value:
-    | Partial<NotificationPreferences>
-    | LegacyNotificationPreferences
-    | null
-    | undefined,
+function normalizePrefs(
+  value: Partial<NotificationPreferences> | null | undefined,
 ) {
   const candidate =
     value && typeof value === "object"
@@ -122,53 +104,45 @@ function normalizeNotificationPreferences(
 
   return {
     CompetitionMessage:
-      readBoolean("CompetitionMessage", "competitionMessage") ??
-      defaultNotificationPreferences.CompetitionMessage,
+      readBoolean("CompetitionMessage") ??
+      defaultPreferences.CompetitionMessage,
     CompetitionChange:
-      readBoolean("CompetitionChange", "competitionChange") ??
-      defaultNotificationPreferences.CompetitionChange,
+      readBoolean("CompetitionChange") ?? defaultPreferences.CompetitionChange,
     CompetitionRegistrationEndChange:
-      readBoolean(
-        "CompetitionRegistrationEndChange",
-        "competitionRegistrationEndChange",
-      ) ?? defaultNotificationPreferences.CompetitionRegistrationEndChange,
+      readBoolean("CompetitionRegistrationEndChange") ??
+      defaultPreferences.CompetitionRegistrationEndChange,
     MedicalCheckupExpiration:
-      readBoolean("MedicalCheckupExpiration", "medicalCheckupExpiration") ??
-      defaultNotificationPreferences.MedicalCheckupExpiration,
+      readBoolean("MedicalCheckupExpiration") ??
+      defaultPreferences.MedicalCheckupExpiration,
     ClubTransferCompletion:
-      readBoolean("ClubTransferCompletion", "clubTransferCompletion") ??
-      defaultNotificationPreferences.ClubTransferCompletion,
+      readBoolean("ClubTransferCompletion") ??
+      defaultPreferences.ClubTransferCompletion,
     ClubRepresentativeMessage:
-      readBoolean("ClubRepresentativeMessage", "clubRepresentativeMessage") ??
-      defaultNotificationPreferences.ClubRepresentativeMessage,
+      readBoolean("ClubRepresentativeMessage") ??
+      defaultPreferences.ClubRepresentativeMessage,
     DivisionRepresentativeMessage:
-      readBoolean(
-        "DivisionRepresentativeMessage",
-        "divisionRepresentativeMessage",
-      ) ?? defaultNotificationPreferences.DivisionRepresentativeMessage,
+      readBoolean("DivisionRepresentativeMessage") ??
+      defaultPreferences.DivisionRepresentativeMessage,
     AdjudicatorsMessage:
-      readBoolean("AdjudicatorsMessage", "adjudicatorsMessage") ??
-      defaultNotificationPreferences.AdjudicatorsMessage,
+      readBoolean("AdjudicatorsMessage") ??
+      defaultPreferences.AdjudicatorsMessage,
     OfficialsMessage:
-      readBoolean("OfficialsMessage", "officialsMessage") ??
-      defaultNotificationPreferences.OfficialsMessage,
+      readBoolean("OfficialsMessage") ?? defaultPreferences.OfficialsMessage,
     ExecutiveBoardMinutes:
-      readBoolean("ExecutiveBoardMinutes", "executiveBoardMinutes") ??
-      defaultNotificationPreferences.ExecutiveBoardMinutes,
+      readBoolean("ExecutiveBoardMinutes") ??
+      defaultPreferences.ExecutiveBoardMinutes,
   };
 }
 
-export function getNotificationPreferencesStorageKey(email?: string | null) {
+export function getPreferencesStorageKey(email?: string | null) {
   const normalizedEmail = email?.trim().toLowerCase();
 
   return normalizedEmail
-    ? `${notificationPreferencesStorageKey}:${normalizedEmail}`
-    : notificationPreferencesStorageKey;
+    ? `${preferencesStorageKey}:${normalizedEmail}`
+    : preferencesStorageKey;
 }
 
-async function readStoredNotificationPreferences(
-  key: string,
-): Promise<NotificationPreferences | null> {
+async function readPrefs(key: string): Promise<NotificationPreferences | null> {
   const storedValue = await AsyncStorage.getItem(key);
 
   if (!storedValue) {
@@ -176,72 +150,45 @@ async function readStoredNotificationPreferences(
   }
 
   try {
-    return normalizeNotificationPreferences(
-      JSON.parse(storedValue) as
-        | Partial<NotificationPreferences>
-        | LegacyNotificationPreferences,
-    );
+    return normalizePrefs(JSON.parse(storedValue) as Partial<NotificationPreferences>);
   } catch {
     return null;
   }
 }
 
-export async function getStoredNotificationPreferences(email?: string | null) {
-  const scopedPreferences = await readStoredNotificationPreferences(
-    getNotificationPreferencesStorageKey(email),
-  );
+export async function loadPreferences(email?: string | null) {
+  const scoped = await readPrefs(getPreferencesStorageKey(email));
 
-  if (scopedPreferences) {
-    return scopedPreferences;
+  if (scoped) {
+    return scoped;
   }
 
-  const unscopedPreferences = await readStoredNotificationPreferences(
-    notificationPreferencesStorageKey,
-  );
+  const unscoped = await readPrefs(preferencesStorageKey);
 
-  if (unscopedPreferences) {
-    return unscopedPreferences;
+  if (unscoped) {
+    return unscoped;
   }
 
-  const legacyPreferences = await readStoredNotificationPreferences(
-    legacyNotificationPreferencesStorageKey,
-  );
-
-  if (legacyPreferences) {
-    return legacyPreferences;
-  }
-
-  return { ...defaultNotificationPreferences };
+  return { ...defaultPreferences };
 }
 
-export async function setStoredNotificationPreferences(
+export async function savePreferences(
   preferences: NotificationPreferences,
   email?: string | null,
 ) {
   await AsyncStorage.setItem(
-    getNotificationPreferencesStorageKey(email),
-    JSON.stringify(normalizeNotificationPreferences(preferences)),
+    getPreferencesStorageKey(email),
+    JSON.stringify(normalizePrefs(preferences)),
   );
 }
 
 type NotificationFilterable = Pick<Notification, "overrideMuting" | "type">;
-
-export function shouldIncludeNotification(
-  notification: NotificationFilterable,
-  preferences: NotificationPreferences,
-) {
-  if (notification.overrideMuting) {
-    return true;
-  }
-
-  return preferences[notification.type] !== false;
-}
 
 export function filterNotifications<T extends NotificationFilterable>(
   notifications: readonly T[],
   preferences: NotificationPreferences,
 ) {
   return notifications.filter((notification) =>
-    shouldIncludeNotification(notification, preferences),
+    notification.overrideMuting ? true : preferences[notification.type],
   );
 }

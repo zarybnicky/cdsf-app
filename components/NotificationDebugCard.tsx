@@ -9,23 +9,22 @@ import {
 
 import { Text } from "@/components/Themed";
 import {
-  getAnnouncementsNotificationDebugSnapshotAsync,
-  replayLatestAnnouncementThroughBackgroundTaskForTestingAsync,
-  requestAnnouncementsNotificationPermissionsAsync,
-  triggerAnnouncementsBackgroundTaskForTestingAsync,
-  type AnnouncementsNotificationDebugSnapshot,
+  getDebugSnapshot,
+  replayLatestForTest,
+  runWorkerForTest,
+  type DebugSnapshot,
 } from "@/lib/notification-runtime";
 import { useSession } from "@/lib/session";
 
-const defaultStatus: AnnouncementsNotificationDebugSnapshot = {
-  backgroundStatusLabel: "Načítám",
+const emptySnapshot: DebugSnapshot = {
+  bgStatus: "Načítám",
   canAskAgain: false,
-  notificationsAllowed: false,
-  permissionStatusLabel: "Načítám",
+  allowed: false,
+  permissionStatus: "Načítám",
   platform: Platform.OS,
   seenCount: 0,
-  taskManagerAvailable: false,
-  taskRegistered: false,
+  taskManager: false,
+  registered: false,
 };
 
 type ActionState = "idle" | "loading";
@@ -76,8 +75,7 @@ function StatusRow({ label, value }: StatusRowProps) {
 
 export default function NotificationDebugCard() {
   const { session } = useSession();
-  const [snapshot, setSnapshot] =
-    useState<AnnouncementsNotificationDebugSnapshot>(defaultStatus);
+  const [snapshot, setSnapshot] = useState<DebugSnapshot>(emptySnapshot);
   const [actionState, setActionState] = useState<ActionState>("idle");
   const [feedback, setFeedback] = useState<string | null>(null);
 
@@ -85,9 +83,7 @@ export default function NotificationDebugCard() {
     let isCancelled = false;
 
     async function loadSnapshot() {
-      const nextSnapshot = await getAnnouncementsNotificationDebugSnapshotAsync(
-        session?.email,
-      );
+      const nextSnapshot = await getDebugSnapshot(session?.email);
 
       if (!isCancelled) {
         setSnapshot(nextSnapshot);
@@ -102,9 +98,7 @@ export default function NotificationDebugCard() {
   }, [session?.email]);
 
   async function refreshSnapshot() {
-    setSnapshot(
-      await getAnnouncementsNotificationDebugSnapshotAsync(session?.email),
-    );
+    setSnapshot(await getDebugSnapshot(session?.email));
   }
 
   async function runAction(
@@ -132,9 +126,6 @@ export default function NotificationDebugCard() {
       <View style={styles.headerRow}>
         <View style={styles.headerCopy}>
           <Text style={styles.title}>Vývojářské testování</Text>
-          <Text style={styles.body}>
-            Ověření oprávnění, místních oznámení a běhu úlohy na pozadí.
-          </Text>
         </View>
         <Pressable
           accessibilityRole="button"
@@ -152,26 +143,23 @@ export default function NotificationDebugCard() {
 
       <View style={styles.statusCard}>
         <StatusRow label="Platforma" value={snapshot.platform} />
-        <StatusRow label="Oprávnění" value={snapshot.permissionStatusLabel} />
+        <StatusRow label="Oprávnění" value={snapshot.permissionStatus} />
         <StatusRow
           label="Lze znovu požádat"
           value={snapshot.canAskAgain ? "Ano" : "Ne"}
         />
         <StatusRow
           label="Lokální oznámení"
-          value={snapshot.notificationsAllowed ? "Povolena" : "Nepovolena"}
+          value={snapshot.allowed ? "Povolena" : "Nepovolena"}
         />
         <StatusRow
           label="Task Manager"
-          value={snapshot.taskManagerAvailable ? "Dostupný" : "Nedostupný"}
+          value={snapshot.taskManager ? "Dostupný" : "Nedostupný"}
         />
-        <StatusRow
-          label="Úloha na pozadí"
-          value={snapshot.backgroundStatusLabel}
-        />
+        <StatusRow label="Úloha na pozadí" value={snapshot.bgStatus} />
         <StatusRow
           label="Úloha registrována"
-          value={snapshot.taskRegistered ? "Ano" : "Ne"}
+          value={snapshot.registered ? "Ano" : "Ne"}
         />
         <StatusRow label="Seen ID" value={snapshot.seenCount.toString()} />
       </View>
@@ -179,20 +167,10 @@ export default function NotificationDebugCard() {
       <View style={styles.actions}>
         <DebugActionButton
           actionState={actionState}
-          label="Požádat o oprávnění"
-          onPress={() => {
-            void runAction(
-              requestAnnouncementsNotificationPermissionsAsync,
-              "Oprávnění byla zkontrolována.",
-            );
-          }}
-        />
-        <DebugActionButton
-          actionState={actionState}
           label="Spustit worker"
           onPress={() => {
             void runAction(
-              triggerAnnouncementsBackgroundTaskForTestingAsync,
+              runWorkerForTest,
               "Worker byl spuštěn.",
             );
           }}
@@ -202,7 +180,7 @@ export default function NotificationDebugCard() {
           label="Znovu oznámit poslední"
           onPress={() => {
             void runAction(
-              replayLatestAnnouncementThroughBackgroundTaskForTestingAsync,
+              replayLatestForTest,
               "Poslední oznámení bylo znovu připraveno a worker byl spuštěn.",
             );
           }}

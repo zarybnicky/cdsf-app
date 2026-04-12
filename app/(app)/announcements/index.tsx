@@ -1,39 +1,35 @@
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 import { ActivityIndicator, FlatList, StyleSheet, View } from "react-native";
 
-import AnnouncementCard from "@/components/AnnouncementCard";
+import AnnouncementCard, {
+  announcementFromNotification,
+} from "@/components/AnnouncementCard";
 import ListTopShadow from "@/components/ListTopShadow";
 import ScreenStateCard from "@/components/ScreenStateCard";
 import { Text } from "@/components/Themed";
 import { openapiClient, isPagingProps } from "@/lib/cdsf-client";
-import { notificationToAnnouncementCard } from "@/lib/cdsf-formatters";
 import { filterNotifications } from "@/lib/notification-preferences";
 import { useNotificationPreferences } from "@/lib/notification-preferences-provider";
 import {
-  createNotificationsQueryInit,
-  flattenNotificationPages,
-  getNotificationSeenId,
-  notificationsPageSize,
-  notificationsSeenNamespace,
+  flattenPages,
+  pageSize,
+  queryInit,
+  seenNs,
 } from "@/lib/notification-sync";
 import { useSession } from "@/lib/session";
-import { markSeenIds } from "@/lib/seen-state";
+import { addSeenIds } from "@/lib/seen-state";
 
 export default function AnnouncementsScreen() {
   const { authHeaders, session } = useSession();
   const {
-    isLoading: areNotificationPreferencesLoading,
-    preferences: notificationPreferences,
+    isLoading: arePreferencesLoading,
+    preferences,
   } = useNotificationPreferences();
-  const notificationsQueryInit = createNotificationsQueryInit(
-    authHeaders,
-    notificationsPageSize,
-  );
 
   const query = openapiClient.useInfiniteQuery(
     "get",
     "/notifications",
-    notificationsQueryInit,
+    queryInit(authHeaders, pageSize),
     {
       enabled: !!authHeaders,
       ...isPagingProps,
@@ -41,42 +37,32 @@ export default function AnnouncementsScreen() {
   );
   const { fetchNextPage, hasNextPage, isError, isFetchingNextPage, isLoading } =
     query;
+  const isRefreshing = query.isRefetching && !isLoading;
 
-  const notifications = useMemo(
-    () => flattenNotificationPages(query.data?.pages ?? []),
-    [query.data?.pages],
-  );
-  const visibleNotifications = useMemo(
-    () => filterNotifications(notifications, notificationPreferences),
-    [notificationPreferences, notifications],
-  );
-  const visibleNotificationIds = useMemo(
-    () => visibleNotifications.map(getNotificationSeenId),
-    [visibleNotifications],
-  );
-  const hiddenNotificationCount =
-    notifications.length - visibleNotifications.length;
+  const notifications = flattenPages(query.data?.pages ?? []);
+  const visible = filterNotifications(notifications, preferences);
+  const visibleIds = visible.map((notification) => notification.id.toString());
+  const hiddenCount = notifications.length - visible.length;
   const isLoadingState =
     isLoading ||
-    areNotificationPreferencesLoading ||
-    (isFetchingNextPage && visibleNotifications.length === 0);
+    arePreferencesLoading ||
+    (isFetchingNextPage && visible.length === 0);
   const announcements = isLoadingState
     ? []
-    : visibleNotifications.map(notificationToAnnouncementCard);
-  const shouldShowFilterNotice =
-    hiddenNotificationCount > 0 && !isLoadingState && !isError;
+    : visible.map(announcementFromNotification);
+  const showFilterNotice = hiddenCount > 0 && !isLoadingState && !isError;
   const emptyStateTitle = isLoadingState
     ? "Načítám aktuality"
     : isError
       ? "Nepodařilo se načíst aktuality"
-      : hiddenNotificationCount > 0
+      : hiddenCount > 0
         ? "Podle zvoleného filtru zde nejsou žádné aktuality"
         : "Zatím nejsou dostupné žádné aktuality";
   const emptyStateBody = isLoadingState
     ? "Aktuality se načítají."
     : isError
       ? "Zkuste načtení zopakovat."
-      : hiddenNotificationCount > 0
+      : hiddenCount > 0
         ? "V nastavení aktualit můžete upravit filtry a zobrazit další sdělení."
         : "Jakmile budou zveřejněny nové informace, zobrazí se zde.";
 
@@ -86,7 +72,7 @@ export default function AnnouncementsScreen() {
       isError ||
       !hasNextPage ||
       notifications.length === 0 ||
-      visibleNotifications.length > 0
+      visible.length > 0
     ) {
       return;
     }
@@ -100,22 +86,18 @@ export default function AnnouncementsScreen() {
     isLoading,
     isLoadingState,
     notifications.length,
-    visibleNotifications.length,
+    visible.length,
   ]);
 
   useEffect(() => {
-    if (isLoadingState || isError || visibleNotificationIds.length === 0) {
+    if (isLoadingState || isError || visibleIds.length === 0) {
       return;
     }
 
-    void markSeenIds(
-      notificationsSeenNamespace,
-      visibleNotificationIds,
-      session?.email,
-    );
-  }, [isError, isLoadingState, session?.email, visibleNotificationIds]);
+    void addSeenIds(seenNs, visibleIds, session?.email);
+  }, [isError, isLoadingState, session?.email, visibleIds]);
 
-  function handleRetry() {
+  function refresh() {
     void query.refetch();
   }
 
@@ -127,11 +109,11 @@ export default function AnnouncementsScreen() {
         data={announcements}
         keyExtractor={(item) => item.id ?? `${item.title}-${item.publishedAt}`}
         ListHeaderComponent={
-          shouldShowFilterNotice ? (
+          showFilterNotice ? (
             <View style={styles.header}>
               <View style={styles.filterNotice}>
                 <Text style={styles.filterNoticeTitle}>
-                  Skryté položky: {hiddenNotificationCount}
+                  Skryté položky: {hiddenCount}
                 </Text>
                 <Text style={styles.filterNoticeBody}>
                   Důležitá oznámení se zobrazují vždy.
@@ -146,7 +128,7 @@ export default function AnnouncementsScreen() {
           <ScreenStateCard
             body={emptyStateBody}
             isLoading={isLoadingState}
-            onRetry={isError ? handleRetry : undefined}
+            onRetry={isError ? refresh : undefined}
             style={styles.stateCard}
             title={emptyStateTitle}
           />
@@ -158,9 +140,11 @@ export default function AnnouncementsScreen() {
             </View>
           ) : null
         }
+        onRefresh={refresh}
         onEndReached={hasNextPage ? () => void fetchNextPage() : undefined}
         onEndReachedThreshold={0.4}
         renderItem={({ item }) => <AnnouncementCard {...item} />}
+        refreshing={isRefreshing}
         showsVerticalScrollIndicator={false}
         style={styles.list}
       />
