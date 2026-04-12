@@ -28,6 +28,8 @@ export const announcementsBackgroundTaskName =
   "cdsf-announcements-background-sync";
 const announcementsNotificationChannelId = "cdsf-announcements";
 const announcementsBackgroundIntervalMinutes = 15;
+const announcementsNotificationColor = "#2457b3";
+const announcementsNotificationPreviewMaxLength = 140;
 const isWeb = Platform.OS === "web";
 
 type AnnouncementHref = typeof announcementsHref;
@@ -160,7 +162,7 @@ async function ensureAnnouncementsNotificationChannelAsync() {
       enableLights: true,
       enableVibrate: true,
       importance: Notifications.AndroidImportance.HIGH,
-      lightColor: "#2f67ce",
+      lightColor: announcementsNotificationColor,
       lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
       showBadge: true,
       vibrationPattern: [0, 250, 150, 250],
@@ -177,6 +179,44 @@ export async function requestAnnouncementsNotificationPermissionsAsync() {
   return areAnnouncementsNotificationsAllowedAsync(true);
 }
 
+function stripNotificationPreviewText(value: string) {
+  return value
+    .replace(/!\[([^\]]*)]\(([^)]+)\)/g, "$1")
+    .replace(/\[([^\]]+)]\(([^)]+)\)/g, "$1")
+    .replace(/[*_`~>#-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function truncateNotificationPreview(
+  value: string,
+  maxLength = announcementsNotificationPreviewMaxLength,
+) {
+  if (value.length <= maxLength) {
+    return value;
+  }
+
+  return `${value.slice(0, maxLength - 1).trimEnd()}…`;
+}
+
+function buildAnnouncementsNotificationPreview(notification: Notification) {
+  const message = notification.message?.trim();
+
+  if (message) {
+    return truncateNotificationPreview(stripNotificationPreviewText(message));
+  }
+
+  if (notification.author?.trim()) {
+    return `Autor: ${notification.author.trim()}`;
+  }
+
+  if (notification.contact?.trim()) {
+    return `Kontakt: ${notification.contact.trim()}`;
+  }
+
+  return "Otevřete aplikaci pro detail aktuality.";
+}
+
 function buildAnnouncementsNotificationContent(
   unseenNotifications: readonly Notification[],
 ) {
@@ -184,17 +224,22 @@ function buildAnnouncementsNotificationContent(
   const latestAnnouncement = notificationToAnnouncementCard(latestNotification);
   const unseenCount = unseenNotifications.length;
   const isSingleNotification = unseenCount === 1;
+  const preview = buildAnnouncementsNotificationPreview(latestNotification);
 
   return {
     body: isSingleNotification
-      ? latestAnnouncement.title
-      : `${latestAnnouncement.title} a další oznámení`,
+      ? preview
+      : `${preview} · +${unseenCount - 1} další`,
+    color: announcementsNotificationColor,
     data: {
       href: announcementsHref,
     } satisfies AnnouncementNotificationData,
+    subtitle: isSingleNotification
+      ? "Aktuality ČSTS"
+      : latestAnnouncement.title,
     title: isSingleNotification
-      ? "Nové oznámení"
-      : `Nová oznámení (${unseenCount})`,
+      ? latestAnnouncement.title
+      : `Nové aktuality ČSTS (${unseenCount})`,
   };
 }
 
@@ -218,32 +263,6 @@ async function scheduleAnnouncementsNotificationAsync(
           }
         : null,
   });
-}
-
-export async function scheduleSampleAnnouncementsNotificationAsync() {
-  if (isWeb) {
-    return false;
-  }
-
-  await ensureAnnouncementsNotificationChannelAsync();
-
-  await Notifications.scheduleNotificationAsync({
-    content: {
-      body: "Otevřením přejdete do části Aktuality.",
-      data: {
-        href: announcementsHref,
-      } satisfies AnnouncementNotificationData,
-      title: "Testovací oznámení",
-    },
-    trigger:
-      Platform.OS === "android"
-        ? {
-            channelId: announcementsNotificationChannelId,
-          }
-        : null,
-  });
-
-  return true;
 }
 
 export async function triggerAnnouncementsBackgroundTaskForTestingAsync() {
@@ -291,7 +310,8 @@ export async function replayLatestAnnouncementThroughBackgroundTaskForTestingAsy
     session.email,
   );
 
-  return triggerAnnouncementsBackgroundTaskForTestingAsync();
+  await runAnnouncementsBackgroundTaskAsync();
+  return true;
 }
 
 async function runAnnouncementsSync(allowLocalNotifications: boolean) {

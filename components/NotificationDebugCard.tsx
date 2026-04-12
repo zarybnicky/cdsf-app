@@ -12,7 +12,6 @@ import {
   getAnnouncementsNotificationDebugSnapshotAsync,
   replayLatestAnnouncementThroughBackgroundTaskForTestingAsync,
   requestAnnouncementsNotificationPermissionsAsync,
-  scheduleSampleAnnouncementsNotificationAsync,
   triggerAnnouncementsBackgroundTaskForTestingAsync,
   type AnnouncementsNotificationDebugSnapshot,
 } from "@/lib/notification-runtime";
@@ -208,16 +207,6 @@ export default function NotificationDebugCard() {
             );
           }}
         />
-        <DebugActionButton
-          actionState={actionState}
-          label="Poslat testovací oznámení"
-          onPress={() => {
-            void runAction(
-              scheduleSampleAnnouncementsNotificationAsync,
-              "Testovací oznámení bylo odesláno.",
-            );
-          }}
-        />
       </View>
 
       {feedback ? <Text style={styles.feedback}>{feedback}</Text> : null}
@@ -307,6 +296,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   actionButton: {
+    alignSelf: "stretch",
     alignItems: "center",
     justifyContent: "center",
     minHeight: 42,
@@ -325,6 +315,7 @@ const styles = StyleSheet.create({
   },
   actionButtonText: {
     color: "#2457b3",
+    flexShrink: 1,
     fontSize: 12.5,
     fontWeight: "700",
     lineHeight: 17,
