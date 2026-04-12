@@ -1,14 +1,17 @@
 import * as SecureStore from "expo-secure-store";
+import type { Middleware } from "openapi-fetch";
 import {
   createContext,
   type PropsWithChildren,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from "react";
 import { Platform } from "react-native";
 
 import { cdsfAppPurpose, fetchClient } from "@/lib/cdsf-client";
+import { clearCache } from "@/lib/react-query";
 
 export type Session = {
   email: string;
@@ -35,6 +38,10 @@ const SessionContext = createContext<SessionContextValue | null>(null);
 const storageKey = "session";
 type StoredSession = string | null;
 type StoredState = [isLoading: boolean, value: StoredSession];
+
+function isSessionRequest(schemaPath: string) {
+  return schemaPath === "/credentials" || schemaPath === "/credentials/current";
+}
 
 function signInError(status: number) {
   if (status === 401) {
@@ -136,6 +143,49 @@ export function SessionProvider({ children }: PropsWithChildren) {
   const [[isLoading, storedSession], setStoredSession] = useStoredSession();
   const session = parseSession(storedSession);
   const authHeaders = session ? { Authorization: session.token } : undefined;
+  const sessionRef = useRef(session);
+  const setStoredSessionRef = useRef(setStoredSession);
+  const isClearingInvalidSessionRef = useRef(false);
+
+  sessionRef.current = session;
+  setStoredSessionRef.current = setStoredSession;
+
+  useEffect(() => {
+    const unauthorizedMiddleware: Middleware = {
+      async onResponse({ request, response, schemaPath }) {
+        if (response.status !== 401 || isSessionRequest(schemaPath)) {
+          return;
+        }
+
+        const authorization = request.headers.get("Authorization");
+        const currentSession = sessionRef.current;
+
+        if (
+          isClearingInvalidSessionRef.current ||
+          !authorization ||
+          !currentSession ||
+          currentSession.token !== authorization
+        ) {
+          return;
+        }
+
+        isClearingInvalidSessionRef.current = true;
+
+        try {
+          await clearCache();
+          await setStoredSessionRef.current(null);
+        } finally {
+          isClearingInvalidSessionRef.current = false;
+        }
+      },
+    };
+
+    fetchClient.use(unauthorizedMiddleware);
+
+    return () => {
+      fetchClient.eject(unauthorizedMiddleware);
+    };
+  }, []);
 
   async function signIn({ email, password }: SignInInput) {
     if (session) {

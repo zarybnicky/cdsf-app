@@ -473,8 +473,7 @@ export function useNotificationRuntime(session: Session | null) {
       return;
     }
 
-    const requestPermissions =
-      prevSession !== undefined && prevSession?.email !== session.email;
+    const requestPermissions = prevSession?.email !== session.email;
 
     void bootstrapRuntime(requestPermissions).catch((error) => {
       console.error(
