@@ -4,6 +4,7 @@ const seenStateStoragePrefix = "seen-state";
 
 type StoredSeenState = {
   ids: string[];
+  initialized: boolean;
 };
 
 function normalizeSeenIds(ids: Iterable<string>) {
@@ -36,25 +37,42 @@ async function readStoredSeenState(key: string) {
       return null;
     }
 
-    return {
-      ids: normalizeSeenIds(
-        parsed.ids.filter(
-          (id): id is string => typeof id === "string" && id.length > 0,
-        ),
+    const ids = normalizeSeenIds(
+      parsed.ids.filter(
+        (id): id is string => typeof id === "string" && id.length > 0,
       ),
+    );
+    const initialized =
+      typeof parsed.initialized === "boolean"
+        ? parsed.initialized
+        : ids.length > 0;
+
+    return {
+      ids,
+      initialized,
     };
   } catch {
     return null;
   }
 }
 
+export async function getStoredSeenState(
+  namespace: string,
+  email?: string | null,
+) {
+  return (
+    (await readStoredSeenState(getSeenStateStorageKey(namespace, email))) ?? {
+      ids: [],
+      initialized: false,
+    }
+  );
+}
+
 export async function getStoredSeenIds(
   namespace: string,
   email?: string | null,
 ) {
-  const storedState = await readStoredSeenState(
-    getSeenStateStorageKey(namespace, email),
-  );
+  const storedState = await getStoredSeenState(namespace, email);
   return storedState?.ids || [];
 }
 
@@ -72,10 +90,13 @@ export async function markSeenIds(
   }
 
   const storageKey = getSeenStateStorageKey(namespace, email);
-  const existingIds = await getStoredSeenIds(namespace, email);
-  const nextIds = normalizeSeenIds([...existingIds, ...normalizedIds]);
+  const existingState = await getStoredSeenState(namespace, email);
+  const nextIds = normalizeSeenIds([...existingState.ids, ...normalizedIds]);
 
-  if (nextIds.length === existingIds.length) {
+  if (
+    nextIds.length === existingState.ids.length &&
+    existingState.initialized
+  ) {
     return nextIds;
   }
 
@@ -83,6 +104,38 @@ export async function markSeenIds(
     storageKey,
     JSON.stringify({
       ids: nextIds,
+      initialized: true,
+    } satisfies StoredSeenState),
+  );
+
+  return nextIds;
+}
+
+export async function removeSeenIds(
+  namespace: string,
+  ids: Iterable<string | number>,
+  email?: string | null,
+) {
+  const idsToRemove = new Set(
+    Array.from(ids, (id) => id.toString()).filter((id) => id.length > 0),
+  );
+
+  const storageKey = getSeenStateStorageKey(namespace, email);
+  const existingState = await getStoredSeenState(namespace, email);
+  const nextIds = existingState.ids.filter((id) => !idsToRemove.has(id));
+
+  if (
+    nextIds.length === existingState.ids.length &&
+    existingState.initialized
+  ) {
+    return nextIds;
+  }
+
+  await AsyncStorage.setItem(
+    storageKey,
+    JSON.stringify({
+      ids: nextIds,
+      initialized: true,
     } satisfies StoredSeenState),
   );
 

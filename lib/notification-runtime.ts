@@ -3,6 +3,7 @@ import { Platform } from "react-native";
 
 import * as BackgroundTask from "expo-background-task";
 import * as Notifications from "expo-notifications";
+import { PermissionStatus } from "expo-modules-core";
 import * as TaskManager from "expo-task-manager";
 import { useRouter } from "expo-router";
 
@@ -17,9 +18,14 @@ import {
 } from "@/lib/notification-sync";
 import type { Session } from "@/lib/session";
 import { getStoredSession } from "@/lib/session";
-import { getStoredSeenIds, markSeenIds } from "@/lib/seen-state";
+import {
+  getStoredSeenState,
+  markSeenIds,
+  removeSeenIds,
+} from "@/lib/seen-state";
 
-const announcementsBackgroundTaskName = "cdsf-announcements-background-sync";
+export const announcementsBackgroundTaskName =
+  "cdsf-announcements-background-sync";
 const announcementsNotificationChannelId = "cdsf-announcements";
 const announcementsBackgroundIntervalMinutes = 15;
 const isWeb = Platform.OS === "web";
@@ -31,6 +37,16 @@ type AnnouncementNotificationData = {
 type NotificationPermissions = Awaited<
   ReturnType<typeof Notifications.getPermissionsAsync>
 >;
+export type AnnouncementsNotificationDebugSnapshot = {
+  backgroundStatusLabel: string;
+  canAskAgain: boolean;
+  notificationsAllowed: boolean;
+  permissionStatusLabel: string;
+  platform: typeof Platform.OS;
+  seenCount: number;
+  taskManagerAvailable: boolean;
+  taskRegistered: boolean;
+};
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -48,6 +64,48 @@ function allowsNotifications(permissions: NotificationPermissions) {
       Notifications.IosAuthorizationStatus.PROVISIONAL ||
     permissions.ios?.status === Notifications.IosAuthorizationStatus.EPHEMERAL
   );
+}
+
+function getBackgroundTaskStatusLabel(
+  status: BackgroundTask.BackgroundTaskStatus | null,
+) {
+  if (status === BackgroundTask.BackgroundTaskStatus.Available) {
+    return "Dostupné";
+  }
+
+  if (status === BackgroundTask.BackgroundTaskStatus.Restricted) {
+    return "Omezené";
+  }
+
+  return "Neznámé";
+}
+
+function getPermissionStatusLabel(permissions: NotificationPermissions) {
+  if (permissions.granted) {
+    return "Povoleno";
+  }
+
+  if (
+    permissions.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL
+  ) {
+    return "Prozatímně povoleno";
+  }
+
+  if (
+    permissions.ios?.status === Notifications.IosAuthorizationStatus.EPHEMERAL
+  ) {
+    return "Dočasně povoleno";
+  }
+
+  if (permissions.status === PermissionStatus.DENIED) {
+    return "Zakázáno";
+  }
+
+  if (permissions.status === PermissionStatus.UNDETERMINED) {
+    return "Neurčeno";
+  }
+
+  return "Nepovoleno";
 }
 
 async function markNotificationsSeenForSession(
@@ -105,10 +163,18 @@ async function ensureAnnouncementsNotificationChannelAsync() {
       lightColor: "#2f67ce",
       lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
       showBadge: true,
-      sound: "default",
       vibrationPattern: [0, 250, 150, 250],
     },
   );
+}
+
+export async function requestAnnouncementsNotificationPermissionsAsync() {
+  if (isWeb) {
+    return false;
+  }
+
+  await ensureAnnouncementsNotificationChannelAsync();
+  return areAnnouncementsNotificationsAllowedAsync(true);
 }
 
 function buildAnnouncementsNotificationContent(
@@ -144,7 +210,6 @@ async function scheduleAnnouncementsNotificationAsync(
   await Notifications.scheduleNotificationAsync({
     content: {
       ...buildAnnouncementsNotificationContent(unseenNotifications),
-      sound: "default",
     },
     trigger:
       Platform.OS === "android"
@@ -155,6 +220,80 @@ async function scheduleAnnouncementsNotificationAsync(
   });
 }
 
+export async function scheduleSampleAnnouncementsNotificationAsync() {
+  if (isWeb) {
+    return false;
+  }
+
+  await ensureAnnouncementsNotificationChannelAsync();
+
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      body: "Otevřením přejdete do části Aktuality.",
+      data: {
+        href: announcementsHref,
+      } satisfies AnnouncementNotificationData,
+      title: "Testovací oznámení",
+    },
+    trigger:
+      Platform.OS === "android"
+        ? {
+            channelId: announcementsNotificationChannelId,
+          }
+        : null,
+  });
+
+  return true;
+}
+
+export async function triggerAnnouncementsBackgroundTaskForTestingAsync() {
+  if (isWeb) {
+    return false;
+  }
+
+  return BackgroundTask.triggerTaskWorkerForTestingAsync();
+}
+
+export async function replayLatestAnnouncementThroughBackgroundTaskForTestingAsync() {
+  if (isWeb) {
+    return false;
+  }
+
+  const session = await getStoredSession();
+
+  if (!session) {
+    return false;
+  }
+
+  const [preferences, seenState] = await Promise.all([
+    getStoredNotificationPreferences(session.email),
+    getStoredSeenState(notificationsSeenNamespace, session.email),
+  ]);
+  const syncResult = await syncNotifications({
+    authHeaders: { Authorization: session.token },
+    email: session.email,
+    maxPages: 3,
+    persistToCache: false,
+    preferences,
+    seenIds: seenState.ids,
+    stopWhen: ({ nextPage, visibleNotifications }) =>
+      visibleNotifications.length > 0 || nextPage === undefined,
+  });
+  const latestVisibleNotification = syncResult.visibleNotifications[0];
+
+  if (!latestVisibleNotification) {
+    return false;
+  }
+
+  await removeSeenIds(
+    notificationsSeenNamespace,
+    [getNotificationSeenId(latestVisibleNotification)],
+    session.email,
+  );
+
+  return triggerAnnouncementsBackgroundTaskForTestingAsync();
+}
+
 async function runAnnouncementsSync(allowLocalNotifications: boolean) {
   const session = await getStoredSession();
 
@@ -162,10 +301,11 @@ async function runAnnouncementsSync(allowLocalNotifications: boolean) {
     return;
   }
 
-  const [seenIds, preferences] = await Promise.all([
-    getStoredSeenIds(notificationsSeenNamespace, session.email),
+  const [seenState, preferences] = await Promise.all([
+    getStoredSeenState(notificationsSeenNamespace, session.email),
     getStoredNotificationPreferences(session.email),
   ]);
+  const seenIds = seenState.ids;
   const syncResult = await syncNotifications({
     authHeaders: { Authorization: session.token },
     email: session.email,
@@ -175,7 +315,7 @@ async function runAnnouncementsSync(allowLocalNotifications: boolean) {
       unseenNotifications.length > 0 || nextPage === undefined,
   });
 
-  if (seenIds.length === 0) {
+  if (!seenState.initialized) {
     await markNotificationsSeenForSession(
       session,
       syncResult.visibleNotifications,
@@ -260,6 +400,62 @@ async function unregisterAnnouncementsBackgroundTaskAsync() {
   }
 
   await BackgroundTask.unregisterTaskAsync(announcementsBackgroundTaskName);
+}
+
+export async function getAnnouncementsNotificationDebugSnapshotAsync(
+  email?: string | null,
+): Promise<AnnouncementsNotificationDebugSnapshot> {
+  const seenState = email
+    ? await getStoredSeenState(notificationsSeenNamespace, email)
+    : { ids: [], initialized: false };
+  const seenIds = seenState.ids;
+
+  if (isWeb) {
+    return {
+      backgroundStatusLabel: "Web",
+      canAskAgain: false,
+      notificationsAllowed: false,
+      permissionStatusLabel: "Nepodporováno",
+      platform: Platform.OS,
+      seenCount: seenIds.length,
+      taskManagerAvailable: false,
+      taskRegistered: false,
+    };
+  }
+
+  const permissions = await Notifications.getPermissionsAsync();
+  let taskManagerAvailable = false;
+  let taskRegistered = false;
+  let backgroundStatusLabel = "Neznámé";
+
+  try {
+    const [isAvailable, backgroundTaskStatus] = await Promise.all([
+      TaskManager.isAvailableAsync(),
+      BackgroundTask.getStatusAsync(),
+    ]);
+
+    taskManagerAvailable = isAvailable;
+    backgroundStatusLabel = getBackgroundTaskStatusLabel(backgroundTaskStatus);
+
+    if (isAvailable) {
+      taskRegistered = await TaskManager.isTaskRegisteredAsync(
+        announcementsBackgroundTaskName,
+      );
+    }
+  } catch {
+    backgroundStatusLabel = "Nedostupné";
+  }
+
+  return {
+    backgroundStatusLabel,
+    canAskAgain: permissions.canAskAgain,
+    notificationsAllowed: allowsNotifications(permissions),
+    permissionStatusLabel: getPermissionStatusLabel(permissions),
+    platform: Platform.OS,
+    seenCount: seenIds.length,
+    taskManagerAvailable,
+    taskRegistered,
+  };
 }
 
 async function bootstrapAnnouncementsNotificationRuntimeAsync(
