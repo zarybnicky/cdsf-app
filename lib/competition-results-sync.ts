@@ -2,10 +2,6 @@ import type { InfiniteData, QueryClient } from "@tanstack/react-query";
 
 import type { components, paths } from "@/CDSF";
 import { fetchClient, isPagingProps, openapiClient } from "@/lib/cdsf-client";
-import {
-  filterNotifications,
-  type NotificationPreferences,
-} from "@/lib/notification-preferences";
 import { queryClient, restoreCache, saveCache } from "@/lib/react-query";
 import { getSeenState } from "@/lib/seen-state";
 
@@ -14,33 +10,40 @@ type AuthHeaders = {
 };
 
 type Page =
-  paths["/notifications"]["get"]["responses"][200]["content"]["application/json"];
-
-export type Notification = components["schemas"]["Notification"];
+  paths["/athletes/current/competitions/results"]["get"]["responses"][200]["content"]["application/json"];
 type CachedPages = InfiniteData<Page, number>;
 
-export type SyncProgress = {
-  pages: Page[];
-  pageParams: number[];
-  notifications: Notification[];
-  visible: Notification[];
-  unseen: Notification[];
-  nextPage: number | undefined;
+export type CompetitionResultEvent = components["schemas"]["EventRegistration"];
+export type CompetitionResultCompetition =
+  components["schemas"]["CompetitionRegistration"];
+export type PublishedCompetitionResult = {
+  id: string;
+  competition: CompetitionResultCompetition;
+  event: CompetitionResultEvent;
 };
+
+export type SyncProgress = {
+  events: CompetitionResultEvent[];
+  nextPage: number | undefined;
+  pageParams: number[];
+  pages: Page[];
+  results: PublishedCompetitionResult[];
+  unseen: PublishedCompetitionResult[];
+};
+
 export type SyncInput = {
   authHeaders?: AuthHeaders;
   email?: string | null;
   maxPages?: number;
   pageSize?: number;
   persistToCache?: boolean;
-  preferences: NotificationPreferences;
   reactQueryClient?: QueryClient;
   seenIds?: ReadonlySet<string>;
   stopWhen?: (progress: SyncProgress) => boolean;
 };
 
-export const seenNs = "notifications";
-export const pageSize = 10;
+export const seenNs = "competition-results";
+export const pageSize = 100;
 const defaultMaxPages = 3;
 
 export function queryInit(authHeaders?: AuthHeaders, size = pageSize) {
@@ -52,6 +55,50 @@ export function queryInit(authHeaders?: AuthHeaders, size = pageSize) {
       },
     },
   };
+}
+
+export function flattenPages(pages: readonly Page[]) {
+  return pages.flatMap((page) => page.collection || []);
+}
+
+export function getCompetitionResultSeenId(
+  eventId?: number | null,
+  competitionId?: number | null,
+) {
+  if (typeof eventId !== "number" || typeof competitionId !== "number") {
+    return undefined;
+  }
+
+  return `${eventId}:${competitionId}`;
+}
+
+export function flattenPublishedCompetitionResults(
+  events: readonly CompetitionResultEvent[],
+) {
+  const results: PublishedCompetitionResult[] = [];
+  const seenResultIds = new Set<string>();
+
+  events.forEach((event) => {
+    event.competitions.forEach((competition) => {
+      const id = getCompetitionResultSeenId(
+        event.eventId,
+        competition.competitionId,
+      );
+
+      if (!id || seenResultIds.has(id)) {
+        return;
+      }
+
+      seenResultIds.add(id);
+      results.push({
+        id,
+        competition,
+        event,
+      });
+    });
+  });
+
+  return results;
 }
 
 function mergeData(fetched: CachedPages, existing: CachedPages | undefined) {
@@ -90,46 +137,48 @@ async function fetchPage({
   page: number;
   pageSize: number;
 }) {
-  const response = await fetchClient.GET("/notifications", {
-    headers: authHeaders,
-    params: {
-      query: {
-        page,
-        pageSize: size,
+  const response = await fetchClient.GET(
+    "/athletes/current/competitions/results",
+    {
+      headers: authHeaders,
+      params: {
+        query: {
+          page,
+          pageSize: size,
+        },
       },
     },
-  });
+  );
 
   if (response.error) {
     throw response.error;
   }
 
   if (!response.data) {
-    throw new Error("Notifications response did not include data.");
+    throw new Error("Competition results response did not include data.");
   }
 
   return response.data;
 }
 
-export async function syncNotifications({
+export async function syncCompetitionResults({
   authHeaders,
   email,
   maxPages = defaultMaxPages,
   pageSize: size = pageSize,
   persistToCache = true,
-  preferences,
   reactQueryClient = queryClient,
   seenIds,
   stopWhen,
 }: SyncInput): Promise<SyncProgress> {
   if (!authHeaders) {
     return {
+      events: [],
+      nextPage: undefined,
       pageParams: [],
       pages: [],
-      notifications: [],
-      visible: [],
+      results: [],
       unseen: [],
-      nextPage: undefined,
     };
   }
 
@@ -150,18 +199,16 @@ export async function syncNotifications({
     pageParams.push(pageParam);
     pages.push(page);
     nextPage = isPagingProps.getNextPageParam(page);
-    const notifications = pages.flatMap((page) => page.collection || []);
-    const visible = filterNotifications(notifications, preferences);
-    const unseen = visible.filter(
-      (notification) => !seen.has(notification.id.toString()),
-    );
+    const events = flattenPages(pages);
+    const results = flattenPublishedCompetitionResults(events);
+    const unseen = results.filter((result) => !seen.has(result.id));
     const progress = {
+      events,
+      nextPage,
       pageParams,
       pages,
-      notifications,
-      visible,
+      results,
       unseen,
-      nextPage,
     } satisfies SyncProgress;
 
     if (stopWhen?.(progress)) {
@@ -169,18 +216,16 @@ export async function syncNotifications({
     }
   }
 
-  const notifications = pages.flatMap((page) => page.collection || []);
-  const visible = filterNotifications(notifications, preferences);
-  const unseen = visible.filter(
-    (notification) => !seen.has(notification.id.toString()),
-  );
+  const events = flattenPages(pages);
+  const results = flattenPublishedCompetitionResults(events);
+  const unseen = results.filter((result) => !seen.has(result.id));
   const progress = {
+    events,
+    nextPage,
     pageParams,
     pages,
-    notifications,
-    visible,
+    results,
     unseen,
-    nextPage,
   } satisfies SyncProgress;
 
   if (persistToCache) {
@@ -188,7 +233,7 @@ export async function syncNotifications({
 
     const key = openapiClient.queryOptions(
       "get",
-      "/notifications",
+      "/athletes/current/competitions/results",
       queryInit(authHeaders, size),
     ).queryKey;
     const existing = reactQueryClient.getQueryData<CachedPages>(key);

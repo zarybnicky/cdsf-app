@@ -6,35 +6,43 @@ import * as Notifications from "expo-notifications";
 import { PermissionStatus } from "expo-modules-core";
 import * as TaskManager from "expo-task-manager";
 import { useRouter } from "expo-router";
-
-import { announcementsHref } from "@/lib/app-routes";
+import {
+  type PublishedCompetitionResult,
+  seenNs as competitionResultsSeenNs,
+  syncCompetitionResults,
+} from "@/lib/competition-results-sync";
+import { getAgeLabel } from "@/lib/cdsf";
 import { stripMarkdown } from "@/lib/markdown";
 import { loadPreferences } from "@/lib/notification-preferences";
 import {
-  seenNs,
-  syncNotifications,
   type Notification,
+  seenNs as announcementsSeenNs,
+  syncNotifications,
 } from "@/lib/notification-sync";
 import { getSession, type Session } from "@/lib/session";
 import { addSeenIds, dropSeenIds, getSeenState } from "@/lib/seen-state";
 
 const bgTaskName = "cdsf-announcements-background-sync";
-const channelId = "cdsf-announcements";
+const announcementsChannelId = "cdsf-announcements";
+const resultsChannelId = "cdsf-results";
 const bgIntervalMins = 15;
 const notifColor = "#2457b3";
 const previewMaxLen = 140;
 const isWeb = Platform.OS === "web";
 
+type NotificationTarget = "announcements" | "competition-results";
+
 type NotificationPermissions = Awaited<
   ReturnType<typeof Notifications.getPermissionsAsync>
 >;
 export type DebugSnapshot = {
+  announcementsSeenCount: number;
   bgStatus: string;
   canAskAgain: boolean;
   allowed: boolean;
   permissionStatus: string;
   platform: typeof Platform.OS;
-  seenCount: number;
+  resultsSeenCount: number;
   taskManager: boolean;
   registered: boolean;
 };
@@ -57,9 +65,7 @@ function hasPermission(permissions: NotificationPermissions) {
   );
 }
 
-function bgStatusLabel(
-  status: BackgroundTask.BackgroundTaskStatus | null,
-) {
+function bgStatusLabel(status: BackgroundTask.BackgroundTaskStatus | null) {
   if (status === BackgroundTask.BackgroundTaskStatus.Available) {
     return "Dostupné";
   }
@@ -125,14 +131,32 @@ async function requestNotificationsPermission() {
   return hasPermission(next);
 }
 
-async function ensureChannel() {
+async function ensureAnnouncementsChannel() {
   if (Platform.OS !== "android") {
     return;
   }
 
-  await Notifications.setNotificationChannelAsync(channelId, {
+  await Notifications.setNotificationChannelAsync(announcementsChannelId, {
     name: "Aktuality",
     description: "Upozornění na nová sdělení v části Aktuality.",
+    enableLights: true,
+    enableVibrate: true,
+    importance: Notifications.AndroidImportance.HIGH,
+    lightColor: notifColor,
+    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+    showBadge: true,
+    vibrationPattern: [0, 250, 150, 250],
+  });
+}
+
+async function ensureResultsChannel() {
+  if (Platform.OS !== "android") {
+    return;
+  }
+
+  await Notifications.setNotificationChannelAsync(resultsChannelId, {
+    name: "Výsledky",
+    description: "Upozornění na nově zveřejněné výsledky soutěží.",
     enableLights: true,
     enableVibrate: true,
     importance: Notifications.AndroidImportance.HIGH,
@@ -176,30 +200,145 @@ function getContent(unseen: readonly Notification[]) {
   const preview = previewBody(latest);
 
   return {
-    body: single
-      ? preview
-      : `${preview} · +${count - 1} další`,
+    body: single ? preview : `${preview} · +${count - 1} další`,
     color: notifColor,
-    subtitle: single
-      ? "Aktuality ČSTS"
-      : latestTitle,
-    title: single
-      ? latestTitle
-      : `Nové aktuality ČSTS (${count})`,
+    subtitle: single ? "Aktuality ČSTS" : latestTitle,
+    title: single ? latestTitle : `Nové aktuality ČSTS (${count})`,
   };
 }
 
-async function scheduleNotification(unseen: readonly Notification[]) {
+async function scheduleAnnouncementsNotification(
+  unseen: readonly Notification[],
+) {
   if (unseen.length === 0) {
     return;
   }
-  await ensureChannel();
+  await ensureAnnouncementsChannel();
   await Notifications.scheduleNotificationAsync({
-    content: getContent(unseen),
+    content: {
+      ...getContent(unseen),
+      data: {
+        target: "announcements" satisfies NotificationTarget,
+      },
+    },
     trigger:
       Platform.OS === "android"
         ? {
-            channelId,
+            channelId: announcementsChannelId,
+          }
+        : null,
+  });
+}
+
+function formatCompetitionClass(result: PublishedCompetitionResult) {
+  const classLabel = result.competition.class;
+
+  if (
+    !classLabel ||
+    classLabel === "Open" ||
+    classLabel ===
+      ("Unknown" as PublishedCompetitionResult["competition"]["class"])
+  ) {
+    return undefined;
+  }
+
+  return classLabel;
+}
+
+function formatCompetitionGrade(result: PublishedCompetitionResult) {
+  switch (result.competition.grade) {
+    case "Championship":
+      return "MČR";
+    case "League":
+      return "TL";
+    case "SuperLeague":
+      return "STL";
+    default:
+      return undefined;
+  }
+}
+
+function formatCompetitionDiscipline(result: PublishedCompetitionResult) {
+  switch (result.competition.discipline) {
+    case "Standard":
+      return "STT";
+    case "Latin":
+      return "LAT";
+    case "TenDances":
+      return "10T";
+    case "Standard+Latin":
+      return "STT + LAT";
+    case "SingleOfTenDances":
+      return "Single 10T";
+    case "FreeStyle":
+      return "Freestyle";
+    default:
+      return result.competition.discipline;
+  }
+}
+
+function formatCompetitionPlacement(result: PublishedCompetitionResult) {
+  const { ranking, rankingTo } = result.competition;
+
+  if (typeof ranking !== "number") {
+    return "Výsledek byl zveřejněn.";
+  }
+
+  if (typeof rankingTo === "number" && rankingTo > ranking) {
+    return `${ranking}.-${rankingTo}. místo`;
+  }
+
+  return `${ranking}. místo`;
+}
+
+function formatCompetitionLabel(result: PublishedCompetitionResult) {
+  const label = [
+    formatCompetitionGrade(result),
+    getAgeLabel(result.competition.age),
+    formatCompetitionClass(result),
+    formatCompetitionDiscipline(result),
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return label || "Výsledek soutěže";
+}
+
+function getResultsContent(unseen: readonly PublishedCompetitionResult[]) {
+  const [latest] = unseen;
+  const count = unseen.length;
+  const single = count === 1;
+  const resultSummary = `${formatCompetitionLabel(latest)} · ${formatCompetitionPlacement(
+    latest,
+  )}`;
+
+  return {
+    body: single ? resultSummary : `${resultSummary} · +${count - 1} další`,
+    color: notifColor,
+    subtitle: single ? "Výsledky soutěží" : latest.event.eventName,
+    title: single ? latest.event.eventName : `Nové výsledky soutěží (${count})`,
+  };
+}
+
+async function scheduleResultsNotification(
+  unseen: readonly PublishedCompetitionResult[],
+) {
+  if (unseen.length === 0) {
+    return;
+  }
+
+  await ensureResultsChannel();
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      ...getResultsContent(unseen),
+      data: {
+        target: "competition-results" satisfies NotificationTarget,
+      },
+    },
+    trigger:
+      Platform.OS === "android"
+        ? {
+            channelId: resultsChannelId,
           }
         : null,
   });
@@ -225,7 +364,7 @@ export async function replayLatestForTest() {
 
   const [preferences, seen] = await Promise.all([
     loadPreferences(session.email),
-    getSeenState(seenNs, session.email),
+    getSeenState(announcementsSeenNs, session.email),
   ]);
   const result = await syncNotifications({
     authHeaders: { Authorization: session.token },
@@ -243,20 +382,20 @@ export async function replayLatestForTest() {
     return false;
   }
 
-  await dropSeenIds(seenNs, [latest.id.toString()], session.email);
+  await dropSeenIds(announcementsSeenNs, [latest.id.toString()], session.email);
 
   await runBgTask();
   return true;
 }
 
-async function runSync(allowLocalNotifications: boolean) {
+async function runAnnouncementsSync(allowLocalNotifications: boolean) {
   const session = await getSession();
   if (!session) {
     return;
   }
 
   const [seen, preferences] = await Promise.all([
-    getSeenState(seenNs, session.email),
+    getSeenState(announcementsSeenNs, session.email),
     loadPreferences(session.email),
   ]);
   const result = await syncNotifications({
@@ -270,6 +409,10 @@ async function runSync(allowLocalNotifications: boolean) {
   const toMarkSeen = seen.initialized ? result.unseen : result.visible;
 
   if (toMarkSeen.length === 0) {
+    if (!seen.initialized) {
+      await dropSeenIds(announcementsSeenNs, [], session.email);
+    }
+
     return;
   }
 
@@ -278,18 +421,82 @@ async function runSync(allowLocalNotifications: boolean) {
       return;
     }
 
-    await scheduleNotification(toMarkSeen);
+    await scheduleAnnouncementsNotification(toMarkSeen);
   }
 
   await addSeenIds(
-    seenNs,
+    announcementsSeenNs,
     toMarkSeen.map((notification) => notification.id.toString()),
     session.email,
   );
 }
 
+async function runCompetitionResultsSync(allowLocalNotifications: boolean) {
+  const session = await getSession();
+  if (!session) {
+    return;
+  }
+
+  const seen = await getSeenState(competitionResultsSeenNs, session.email);
+  const result = await syncCompetitionResults({
+    authHeaders: { Authorization: session.token },
+    email: session.email,
+    maxPages: seen.initialized ? 3 : Number.POSITIVE_INFINITY,
+    persistToCache: seen.initialized,
+    seenIds: seen.ids,
+    stopWhen: seen.initialized
+      ? ({ nextPage, unseen }) => unseen.length > 0 || nextPage === undefined
+      : ({ nextPage }) => nextPage === undefined,
+  });
+  const toMarkSeen = seen.initialized ? result.unseen : result.results;
+
+  if (toMarkSeen.length === 0) {
+    if (!seen.initialized) {
+      await dropSeenIds(competitionResultsSeenNs, [], session.email);
+    }
+
+    return;
+  }
+
+  if (seen.initialized) {
+    if (!allowLocalNotifications) {
+      return;
+    }
+
+    await scheduleResultsNotification(toMarkSeen);
+  }
+
+  await addSeenIds(
+    competitionResultsSeenNs,
+    toMarkSeen.map((result) => result.id),
+    session.email,
+  );
+}
+
+async function runAllSyncs(allowLocalNotifications: boolean) {
+  const errors: unknown[] = [];
+
+  try {
+    await runAnnouncementsSync(allowLocalNotifications);
+  } catch (error) {
+    console.error("Announcements sync failed.", error);
+    errors.push(error);
+  }
+
+  try {
+    await runCompetitionResultsSync(allowLocalNotifications);
+  } catch (error) {
+    console.error("Competition results sync failed.", error);
+    errors.push(error);
+  }
+
+  if (errors.length > 0) {
+    throw errors[0];
+  }
+}
+
 async function runBgTask() {
-  await runSync(
+  await runAllSyncs(
     isWeb ? false : hasPermission(await Notifications.getPermissionsAsync()),
   );
 }
@@ -300,7 +507,7 @@ if (!TaskManager.isTaskDefined(bgTaskName)) {
       await runBgTask();
       return BackgroundTask.BackgroundTaskResult.Success;
     } catch (error) {
-      console.error("Announcements background task failed.", error);
+      console.error("Notifications background task failed.", error);
       return BackgroundTask.BackgroundTaskResult.Failed;
     }
   });
@@ -317,7 +524,9 @@ async function isBgTaskAvailable() {
       BackgroundTask.getStatusAsync(),
     ]);
 
-    return taskManager && status === BackgroundTask.BackgroundTaskStatus.Available;
+    return (
+      taskManager && status === BackgroundTask.BackgroundTaskStatus.Available
+    );
   } catch {
     return false;
   }
@@ -352,18 +561,25 @@ async function unregisterBgTask() {
 export async function getDebugSnapshot(
   email?: string | null,
 ): Promise<DebugSnapshot> {
-  const seen = email
-    ? await getSeenState(seenNs, email)
-    : { ids: new Set<string>(), initialized: false };
+  const [announcementsSeen, resultsSeen] = email
+    ? await Promise.all([
+        getSeenState(announcementsSeenNs, email),
+        getSeenState(competitionResultsSeenNs, email),
+      ])
+    : [
+        { ids: new Set<string>(), initialized: false },
+        { ids: new Set<string>(), initialized: false },
+      ];
 
   if (isWeb) {
     return {
+      announcementsSeenCount: announcementsSeen.ids.size,
       bgStatus: "Web",
       canAskAgain: false,
       allowed: false,
       permissionStatus: "Nepodporováno",
       platform: Platform.OS,
-      seenCount: seen.ids.size,
+      resultsSeenCount: resultsSeen.ids.size,
       taskManager: false,
       registered: false,
     };
@@ -391,12 +607,13 @@ export async function getDebugSnapshot(
   }
 
   return {
+    announcementsSeenCount: announcementsSeen.ids.size,
     bgStatus,
     canAskAgain: permissions.canAskAgain,
     allowed: hasPermission(permissions),
     permissionStatus: permissionLabel(permissions),
     platform: Platform.OS,
-    seenCount: seen.ids.size,
+    resultsSeenCount: resultsSeen.ids.size,
     taskManager,
     registered,
   };
@@ -407,14 +624,14 @@ async function bootstrapRuntime(requestPermissions: boolean) {
     return;
   }
 
-  await ensureChannel();
+  await Promise.all([ensureAnnouncementsChannel(), ensureResultsChannel()]);
 
   if (requestPermissions) {
     await requestNotificationsPermission();
   }
 
   await registerBgTask();
-  await runSync(false);
+  await runAllSyncs(false);
 }
 
 export function useNotificationRuntime(session: Session | null) {
@@ -435,7 +652,26 @@ export function useNotificationRuntime(session: Session | null) {
       }
 
       lastHandledIdRef.current = id;
-      router.push(announcementsHref);
+      const target = (() => {
+        const data = response.notification.request.content.data;
+
+        if (
+          data &&
+          typeof data === "object" &&
+          "target" in data &&
+          data.target === "competition-results"
+        ) {
+          return "competition-results" as const;
+        }
+
+        return "announcements" as const;
+      })();
+
+      router.push(
+        target === "competition-results"
+          ? "/competitions?tab=results"
+          : "/announcements",
+      );
       Notifications.clearLastNotificationResponse();
     };
 
@@ -445,9 +681,8 @@ export function useNotificationRuntime(session: Session | null) {
       handleResponse(lastResponse);
     }
 
-    const subscription = Notifications.addNotificationResponseReceivedListener(
-      handleResponse,
-    );
+    const subscription =
+      Notifications.addNotificationResponseReceivedListener(handleResponse);
 
     return () => {
       subscription.remove();
@@ -466,7 +701,7 @@ export function useNotificationRuntime(session: Session | null) {
       lastHandledIdRef.current = null;
       void unregisterBgTask().catch((error) => {
         console.error(
-          "Unable to unregister announcements background task.",
+          "Unable to unregister notifications background task.",
           error,
         );
       });
@@ -476,10 +711,7 @@ export function useNotificationRuntime(session: Session | null) {
     const requestPermissions = prevSession?.email !== session.email;
 
     void bootstrapRuntime(requestPermissions).catch((error) => {
-      console.error(
-        "Unable to bootstrap announcements notification runtime.",
-        error,
-      );
+      console.error("Unable to bootstrap notifications runtime.", error);
     });
   }, [session]);
 }

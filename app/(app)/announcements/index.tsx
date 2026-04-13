@@ -7,24 +7,17 @@ import AnnouncementCard, {
 import ListTopShadow from "@/components/ListTopShadow";
 import ScreenStateCard from "@/components/ScreenStateCard";
 import { Text } from "@/components/Themed";
-import { openapiClient, isPagingProps } from "@/lib/cdsf-client";
+import { isPagingProps, openapiClient } from "@/lib/cdsf-client";
 import { filterNotifications } from "@/lib/notification-preferences";
 import { useNotificationPreferences } from "@/lib/notification-preferences-provider";
-import {
-  flattenPages,
-  pageSize,
-  queryInit,
-  seenNs,
-} from "@/lib/notification-sync";
+import { pageSize, queryInit, seenNs } from "@/lib/notification-sync";
 import { useSession } from "@/lib/session";
 import { addSeenIds } from "@/lib/seen-state";
 
 export default function AnnouncementsScreen() {
   const { authHeaders, session } = useSession();
-  const {
-    isLoading: arePreferencesLoading,
-    preferences,
-  } = useNotificationPreferences();
+  const { isLoading: arePreferencesLoading, preferences } =
+    useNotificationPreferences();
 
   const query = openapiClient.useInfiniteQuery(
     "get",
@@ -39,7 +32,9 @@ export default function AnnouncementsScreen() {
     query;
   const isRefreshing = query.isRefetching && !isLoading;
 
-  const notifications = flattenPages(query.data?.pages ?? []);
+  const notifications = (query.data?.pages ?? []).flatMap(
+    (page) => page.collection || [],
+  );
   const visible = filterNotifications(notifications, preferences);
   const visibleIds = visible.map((notification) => notification.id.toString());
   const hiddenCount = notifications.length - visible.length;

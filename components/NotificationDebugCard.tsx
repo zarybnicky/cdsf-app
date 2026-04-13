@@ -17,12 +17,13 @@ import {
 import { useSession } from "@/lib/session";
 
 const emptySnapshot: DebugSnapshot = {
+  announcementsSeenCount: 0,
   bgStatus: "Načítám",
   canAskAgain: false,
   allowed: false,
   permissionStatus: "Načítám",
   platform: Platform.OS,
-  seenCount: 0,
+  resultsSeenCount: 0,
   taskManager: false,
   registered: false,
 };
@@ -161,7 +162,14 @@ export default function NotificationDebugCard() {
           label="Úloha registrována"
           value={snapshot.registered ? "Ano" : "Ne"}
         />
-        <StatusRow label="Seen ID" value={snapshot.seenCount.toString()} />
+        <StatusRow
+          label="Seen aktuality"
+          value={snapshot.announcementsSeenCount.toString()}
+        />
+        <StatusRow
+          label="Seen výsledky"
+          value={snapshot.resultsSeenCount.toString()}
+        />
       </View>
 
       <View style={styles.actions}>
@@ -169,10 +177,7 @@ export default function NotificationDebugCard() {
           actionState={actionState}
           label="Spustit worker"
           onPress={() => {
-            void runAction(
-              runWorkerForTest,
-              "Worker byl spuštěn.",
-            );
+            void runAction(runWorkerForTest, "Worker byl spuštěn.");
           }}
         />
         <DebugActionButton

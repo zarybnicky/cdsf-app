@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Stack } from "expo-router";
+import { useEffect, useRef, useState } from "react";
+import { Stack, useLocalSearchParams } from "expo-router";
 import {
   ActivityIndicator,
   FlatList,
@@ -39,6 +39,18 @@ const competitionTabs: Record<CompetitionTab, CompetitionTabDefinition> = {
 };
 const competitionTabOrder: CompetitionTab[] = ["registered", "results"];
 const competitionPageSize = 100;
+
+function getRequestedCompetitionTab(
+  value: string | string[] | undefined,
+): CompetitionTab | undefined {
+  const normalizedValue = Array.isArray(value) ? value[0] : value;
+
+  if (normalizedValue === "registered" || normalizedValue === "results") {
+    return normalizedValue;
+  }
+
+  return undefined;
+}
 
 function sortCompetitionEvents(events: CompetitionEvent[]) {
   return [...events].sort((left, right) => {
@@ -109,7 +121,12 @@ function CompetitionTabButton({
 }
 
 export default function CompetitionsScreen() {
-  const [activeTab, setActiveTab] = useState<CompetitionTab>("registered");
+  const { tab } = useLocalSearchParams<{ tab?: string | string[] }>();
+  const requestedTab = getRequestedCompetitionTab(tab);
+  const handledRequestedTabRef = useRef<CompetitionTab | null>(null);
+  const [activeTab, setActiveTab] = useState<CompetitionTab>(
+    () => requestedTab ?? "registered",
+  );
   const { authHeaders } = useSession();
 
   const registrationsQuery = openapiClient.useInfiniteQuery(
@@ -154,7 +171,8 @@ export default function CompetitionsScreen() {
   const allEvents =
     currentQuery.data?.pages.flatMap((page) => page?.collection || []) || [];
   const newestFetchedEventTimestamp = allEvents.reduce(
-    (newestTimestamp, event) => Math.max(newestTimestamp, getDateMs(event.date)),
+    (newestTimestamp, event) =>
+      Math.max(newestTimestamp, getDateMs(event.date)),
     Number.NEGATIVE_INFINITY,
   );
   const isSeekingCurrentRegistrations =
@@ -193,6 +211,23 @@ export default function CompetitionsScreen() {
     : currentQuery.isError
       ? "Zkuste načtení zopakovat."
       : currentTab.emptyBody;
+
+  useEffect(() => {
+    if (!requestedTab) {
+      handledRequestedTabRef.current = null;
+      return;
+    }
+
+    if (handledRequestedTabRef.current === requestedTab) {
+      return;
+    }
+
+    handledRequestedTabRef.current = requestedTab;
+
+    if (requestedTab !== activeTab) {
+      setActiveTab(requestedTab);
+    }
+  }, [activeTab, requestedTab]);
 
   useEffect(() => {
     if (
