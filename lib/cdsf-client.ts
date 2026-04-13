@@ -4,10 +4,9 @@ import createQueryClient from "openapi-react-query";
 import type { components, paths } from "@/CDSF";
 
 export const cdsfAppPurpose = "Mobilní aplikace ČSTS 2.0";
-const cdsfBaseUrl = "https://www.csts.cz/api/1";
 
 export const fetchClient = createClient<paths>({
-  baseUrl: cdsfBaseUrl,
+  baseUrl: "https://www.csts.cz/api/1",
 });
 
 export const openapiClient = createQueryClient<paths>(fetchClient);

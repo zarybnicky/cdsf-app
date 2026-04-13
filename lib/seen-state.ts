@@ -7,10 +7,7 @@ type StoredSeenState = {
   initialized: boolean;
 };
 
-export function seenKey(
-  namespace: string,
-  email?: string | null,
-) {
+export function seenKey(namespace: string, email?: string | null) {
   const normalizedNamespace = namespace.trim().toLowerCase();
   const normalizedEmail = email?.trim().toLowerCase();
 
@@ -40,11 +37,7 @@ export async function getSeenState(namespace: string, email?: string | null) {
       };
     }
 
-    const ids = new Set(
-      parsed.ids.filter(
-        (id): id is string => typeof id === "string" && id.length > 0,
-      ),
-    );
+    const ids = new Set(parsed.ids.filter((id) => id.length > 0));
     const initialized =
       typeof parsed.initialized === "boolean"
         ? parsed.initialized

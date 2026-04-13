@@ -10,7 +10,7 @@ import { Text } from "@/components/Themed";
 import { isPagingProps, openapiClient } from "@/lib/cdsf-client";
 import { filterNotifications } from "@/lib/notification-preferences";
 import { useNotificationPreferences } from "@/lib/notification-preferences-provider";
-import { pageSize, queryInit, seenNs } from "@/lib/notification-sync";
+import { queryInit, seenNs } from "@/lib/notification-sync";
 import { useSession } from "@/lib/session";
 import { addSeenIds } from "@/lib/seen-state";
 
@@ -22,7 +22,7 @@ export default function AnnouncementsScreen() {
   const query = openapiClient.useInfiniteQuery(
     "get",
     "/notifications",
-    queryInit(authHeaders, pageSize),
+    queryInit(authHeaders),
     {
       enabled: !!authHeaders,
       ...isPagingProps,

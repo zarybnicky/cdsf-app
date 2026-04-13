@@ -62,12 +62,8 @@ function parseSession(value: string | null): Session | null {
 
   try {
     const parsed = JSON.parse(value) as Partial<Session>;
-
     if (typeof parsed.email === "string" && typeof parsed.token === "string") {
-      return {
-        email: parsed.email,
-        token: parsed.token,
-      };
+      return { email: parsed.email, token: parsed.token };
     }
   } catch {
     // Ignore invalid persisted payloads and treat them as signed out.
@@ -100,7 +96,10 @@ async function loadSession() {
   return SecureStore.getItemAsync(storageKey);
 }
 
-function useStoredSession(): [StoredState, (value: StoredSession) => Promise<void>] {
+function useStoredSession(): [
+  StoredState,
+  (value: StoredSession) => Promise<void>,
+] {
   const [state, setState] = useState<StoredState>([true, null]);
 
   useEffect(() => {
@@ -205,12 +204,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
       throw new Error(signInError(response.response.status));
     }
 
-    await setStoredSession(
-      JSON.stringify({
-        email,
-        token: `Bearer ${token}`,
-      }),
-    );
+    await setStoredSession(JSON.stringify({ email, token: `Bearer ${token}` }));
   }
 
   async function signOut() {
