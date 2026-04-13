@@ -6,6 +6,7 @@ import * as Notifications from "expo-notifications";
 import { PermissionStatus } from "expo-modules-core";
 import * as TaskManager from "expo-task-manager";
 import { useRouter } from "expo-router";
+import { useAtomValue } from "jotai";
 import { appStore } from "@/lib/app-store";
 import {
   type PublishedCompetitionResult,
@@ -15,7 +16,7 @@ import { getAgeLabel } from "@/lib/cdsf";
 import { stripMarkdown } from "@/lib/markdown";
 import { notificationPreferencesAtom } from "@/lib/notification-preferences";
 import { type Notification, syncNotifications } from "@/lib/notification-sync";
-import { getSession, type Session } from "@/lib/session";
+import { sessionAtom, sessionValueAtom, type Session } from "@/lib/session";
 import {
   addSeenIds,
   announcementsSeenStateAtom,
@@ -359,7 +360,7 @@ export async function replayLatestForTest() {
     return false;
   }
 
-  const session = await getSession();
+  const session = await appStore.get(sessionAtom);
   if (!session) {
     return false;
   }
@@ -371,7 +372,6 @@ export async function replayLatestForTest() {
   const result = await syncNotifications({
     authHeaders: { Authorization: session.token },
     maxPages: 3,
-    persistToCache: false,
     preferences,
     seenIds,
     stopWhen: ({ nextPage, visible }) =>
@@ -393,7 +393,7 @@ export async function replayLatestForTest() {
 }
 
 async function runAnnouncementsSync(allowLocalNotifications: boolean) {
-  const session = await getSession();
+  const session = await appStore.get(sessionAtom);
   if (!session) {
     return;
   }
@@ -434,7 +434,7 @@ async function runAnnouncementsSync(allowLocalNotifications: boolean) {
 }
 
 async function runCompetitionResultsSync(allowLocalNotifications: boolean) {
-  const session = await getSession();
+  const session = await appStore.get(sessionAtom);
   if (!session) {
     return;
   }
@@ -443,7 +443,6 @@ async function runCompetitionResultsSync(allowLocalNotifications: boolean) {
   const result = await syncCompetitionResults({
     authHeaders: { Authorization: session.token },
     maxPages: seen.initialized ? 3 : Number.POSITIVE_INFINITY,
-    persistToCache: seen.initialized,
     seenIds: seen.ids,
     stopWhen: seen.initialized
       ? ({ nextPage, unseen }) => unseen.length > 0 || nextPage === undefined
@@ -630,13 +629,14 @@ async function bootstrapRuntime(requestPermissions: boolean) {
   await runAllSyncs(false);
 }
 
-export function useNotificationRuntime(session: Session | null) {
+export function useNotificationRuntime(enabled: boolean) {
   const router = useRouter();
+  const session = useAtomValue(sessionValueAtom);
   const lastHandledIdRef = useRef<string | null>(null);
   const prevSessionRef = useRef<Session | null | undefined>(undefined);
 
   useEffect(() => {
-    if (isWeb || !session) {
+    if (!enabled || isWeb || !session) {
       return;
     }
 
@@ -683,10 +683,10 @@ export function useNotificationRuntime(session: Session | null) {
     return () => {
       subscription.remove();
     };
-  }, [router, session]);
+  }, [enabled, router, session]);
 
   useEffect(() => {
-    if (isWeb) {
+    if (!enabled || isWeb) {
       return;
     }
 
@@ -709,5 +709,5 @@ export function useNotificationRuntime(session: Session | null) {
     void bootstrapRuntime(requestPermissions).catch((error) => {
       console.error("Unable to bootstrap notifications runtime.", error);
     });
-  }, [session]);
+  }, [enabled, session]);
 }

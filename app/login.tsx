@@ -1,3 +1,4 @@
+import { useSetAtom } from "jotai";
 import { useState } from "react";
 import {
   KeyboardAvoidingView,
@@ -10,10 +11,10 @@ import {
 
 import BrandBanner from "@/components/BrandBanner";
 import { Text, View } from "@/components/Themed";
-import { useSession } from "@/lib/session";
+import { signInAtom } from "@/lib/session";
 
 export default function LoginScreen() {
-  const { signIn } = useSession();
+  const signIn = useSetAtom(signInAtom);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);

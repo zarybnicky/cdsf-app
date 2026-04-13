@@ -1,11 +1,12 @@
+import { useAtomValue } from "jotai";
 import { Link, Stack } from "expo-router";
 import { StyleSheet } from "react-native";
 
 import { Text, View } from "@/components/Themed";
-import { useSession } from "@/lib/session";
+import { sessionValueAtom } from "@/lib/session";
 
 export default function NotFoundScreen() {
-  const { session } = useSession();
+  const session = useAtomValue(sessionValueAtom);
 
   return (
     <>

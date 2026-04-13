@@ -8,17 +8,15 @@ import AnnouncementCard, {
 import ListTopShadow from "@/components/ListTopShadow";
 import ScreenStateCard from "@/components/ScreenStateCard";
 import { Text } from "@/components/Themed";
-import { isPagingProps, openapiClient } from "@/lib/cdsf-client";
 import {
   defaultPreferences,
   notificationPreferencesLoadableAtom,
 } from "@/lib/notification-preferences";
-import { queryInit } from "@/lib/notification-sync";
-import { useSession } from "@/lib/session";
+import { announcementsInfiniteQueryAtom } from "@/lib/notification-sync";
 import { addSeenIds, announcementsSeenStateAtom } from "@/lib/seen-state";
 
 export default function AnnouncementsScreen() {
-  const { authHeaders } = useSession();
+  const query = useAtomValue(announcementsInfiniteQueryAtom);
   const preferencesState = useAtomValue(notificationPreferencesLoadableAtom);
   const setAnnouncementsSeenState = useSetAtom(announcementsSeenStateAtom);
   const arePreferencesLoading = preferencesState.state === "loading";
@@ -26,16 +24,6 @@ export default function AnnouncementsScreen() {
     preferencesState.state === "hasData"
       ? preferencesState.data
       : defaultPreferences;
-
-  const query = openapiClient.useInfiniteQuery(
-    "get",
-    "/notifications",
-    queryInit(authHeaders),
-    {
-      enabled: !!authHeaders,
-      ...isPagingProps,
-    },
-  );
   const { fetchNextPage, hasNextPage, isError, isFetchingNextPage, isLoading } =
     query;
   const isRefreshing = query.isRefetching && !isLoading;

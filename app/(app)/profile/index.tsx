@@ -1,3 +1,4 @@
+import { useAtomValue, useSetAtom } from "jotai";
 import { SymbolView } from "expo-symbols";
 import { Stack } from "expo-router";
 import { useState } from "react";
@@ -7,24 +8,15 @@ import ListTopShadow from "@/components/ListTopShadow";
 import ProfileAthleteCard from "@/components/ProfileAthleteCard";
 import ScreenStateCard from "@/components/ScreenStateCard";
 import { Text, View } from "@/components/Themed";
-import { openapiClient } from "@/lib/cdsf-client";
-import { useSession } from "@/lib/session";
+import { profileQueryAtom } from "@/lib/profile-query";
+import { sessionValueAtom, signOutAtom } from "@/lib/session";
 
 export default function ProfileScreen() {
-  const { authHeaders, session, signOut } = useSession();
+  const athletesQuery = useAtomValue(profileQueryAtom);
+  const session = useAtomValue(sessionValueAtom);
+  const signOut = useSetAtom(signOutAtom);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const athletesQuery = openapiClient.useQuery(
-    "get",
-    "/athletes/current",
-    {
-      headers: authHeaders,
-    },
-    {
-      enabled: !!authHeaders,
-    },
-  );
 
   const athletes = athletesQuery.data?.collection || [];
   const isRefreshing = athletesQuery.isRefetching && !athletesQuery.isLoading;

@@ -1,12 +1,12 @@
 import type { components, paths } from "@/CDSF";
-import { appStore } from "@/lib/app-store";
-import { fetchClient, isPagingProps, openapiClient } from "@/lib/cdsf-client";
-import { fetchInfiniteProgress } from "@/lib/infinite-query-sync";
-import { competitionResultsSeenStateAtom } from "@/lib/seen-state";
+import type { InfiniteData } from "@tanstack/react-query";
+import { atomWithInfiniteQuery } from "jotai-tanstack-query";
 
-type AuthHeaders = {
-  Authorization: string;
-};
+import { appStore } from "@/lib/app-store";
+import { fetchClient, isPagingProps } from "@/lib/cdsf-client";
+import { queryClient, restoreCache, saveCache } from "@/lib/react-query";
+import { sessionValueAtom } from "@/lib/session";
+import { competitionResultsSeenStateAtom } from "@/lib/seen-state";
 
 type Page =
   paths["/athletes/current/competitions/results"]["get"]["responses"][200]["content"]["application/json"];
@@ -30,27 +30,16 @@ export type SyncProgress = {
 };
 
 export type SyncInput = {
-  authHeaders?: AuthHeaders;
+  authHeaders?: {
+    Authorization: string;
+  };
   maxPages?: number;
-  pageSize?: number;
-  persistToCache?: boolean;
   seenIds?: ReadonlySet<string>;
   stopWhen?: (progress: SyncProgress) => boolean;
 };
 
 const pageSize = 100;
 const defaultMaxPages = 3;
-
-export function queryInit(authHeaders?: AuthHeaders) {
-  return {
-    ...(authHeaders ? { headers: authHeaders } : {}),
-    params: {
-      query: {
-        pageSize,
-      },
-    },
-  };
-}
 
 export function flattenPublishedCompetitionResults(
   events: readonly CompetitionResultEvent[],
@@ -74,14 +63,16 @@ export function flattenPublishedCompetitionResults(
   return results;
 }
 
-async function fetchPage({
+async function fetchCompetitionResultsPage({
   authHeaders,
   pageParam,
   signal,
 }: {
-  authHeaders: AuthHeaders;
+  authHeaders: {
+    Authorization: string;
+  };
   pageParam: number;
-  signal: AbortSignal;
+  signal?: AbortSignal;
 }) {
   const response = await fetchClient.GET(
     "/athletes/current/competitions/results",
@@ -105,10 +96,71 @@ async function fetchPage({
   return response.data;
 }
 
+export const competitionResultsInfiniteQueryAtom =
+  atomWithInfiniteQuery<
+    Page,
+    Error,
+    InfiniteData<Page, number>,
+    readonly ["competition-results"],
+    number
+  >(
+    (get) => {
+      const session = get(sessionValueAtom);
+
+      return {
+        enabled: !!session,
+        getNextPageParam(lastPage) {
+          return isPagingProps.getNextPageParam(lastPage);
+        },
+        initialPageParam: 1,
+        queryKey: ["competition-results"] as const,
+        queryFn: async ({ pageParam, signal }) => {
+          if (!session) {
+            throw new Error("Session is not available.");
+          }
+
+          return fetchCompetitionResultsPage({
+            authHeaders: {
+              Authorization: session.token,
+            },
+            pageParam,
+            signal,
+          });
+        },
+      };
+    },
+  );
+
+function normalizeMaxPages(maxPages: number) {
+  if (!Number.isFinite(maxPages)) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  return Math.max(1, Math.floor(maxPages));
+}
+
+function buildSyncProgress(
+  pages: Page[],
+  pageParams: number[],
+  seen: ReadonlySet<string>,
+) {
+  const events = pages.flatMap((page) => page.collection || []);
+  const results = flattenPublishedCompetitionResults(events);
+  const latestPage = pages.at(-1);
+
+  return {
+    events,
+    nextPage: latestPage ? isPagingProps.getNextPageParam(latestPage) : undefined,
+    pageParams,
+    pages,
+    results,
+    unseen: results.filter((result) => !seen.has(result.id)),
+  } satisfies SyncProgress;
+}
+
 export async function syncCompetitionResults({
   authHeaders,
   maxPages = defaultMaxPages,
-  persistToCache = true,
   seenIds,
   stopWhen,
 }: SyncInput): Promise<SyncProgress> {
@@ -125,45 +177,41 @@ export async function syncCompetitionResults({
 
   const seen =
     seenIds ?? (await appStore.get(competitionResultsSeenStateAtom)).ids;
-  const queryKey = openapiClient.queryOptions(
-    "get",
-    "/athletes/current/competitions/results",
-    queryInit(authHeaders),
-  ).queryKey;
+  await restoreCache();
 
-  return fetchInfiniteProgress<Page, number, SyncProgress>({
-    buildProgress({ pages, pageParams }) {
-      const events = pages.flatMap((page) => page.collection || []);
-      const results = flattenPublishedCompetitionResults(events);
-      const latestPage = pages.at(-1);
+  const existing = queryClient.getQueryData<InfiniteData<Page, number>>([
+    "competition-results",
+  ]);
+  const minimumPageCount = existing?.pages.length ?? 0;
+  const data = await queryClient.fetchInfiniteQuery<
+    Page,
+    Error,
+    Page,
+    readonly ["competition-results"],
+    number
+  >({
+    getNextPageParam(lastPage, allPages, _lastPageParam, allPageParams) {
+      if (
+        allPageParams.length >= minimumPageCount &&
+        stopWhen?.(buildSyncProgress(allPages, allPageParams, seen))
+      ) {
+        return undefined;
+      }
 
-      return {
-        events,
-        nextPage: latestPage
-          ? isPagingProps.getNextPageParam(latestPage)
-          : undefined,
-        pageParams,
-        pages,
-        results,
-        unseen: results.filter((result) => !seen.has(result.id)),
-      } satisfies SyncProgress;
+      return isPagingProps.getNextPageParam(lastPage);
     },
-    fetchPage: ({ pageParam, signal }) =>
-      fetchPage({
+    initialPageParam: 1,
+    pages: Math.max(minimumPageCount, normalizeMaxPages(maxPages)),
+    queryFn: ({ pageParam, signal }) =>
+      fetchCompetitionResultsPage({
         authHeaders,
         pageParam,
         signal,
       }),
-    getNextPageParam({ pages }) {
-      const latestPage = pages.at(-1);
-      return latestPage
-        ? isPagingProps.getNextPageParam(latestPage)
-        : undefined;
-    },
-    initialPageParam: 1,
-    maxPages,
-    persistToCache,
-    queryKey,
-    stopWhen,
+    queryKey: ["competition-results"] as const,
   });
+
+  await saveCache();
+
+  return buildSyncProgress(data.pages, data.pageParams, seen);
 }

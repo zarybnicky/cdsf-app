@@ -1,5 +1,4 @@
 import createClient from "openapi-fetch";
-import createQueryClient from "openapi-react-query";
 
 import type { components, paths } from "@/CDSF";
 
@@ -8,8 +7,6 @@ export const cdsfAppPurpose = "Mobilní aplikace ČSTS 2.0";
 export const fetchClient = createClient<paths>({
   baseUrl: "https://www.csts.cz/api/1",
 });
-
-export const openapiClient = createQueryClient<paths>(fetchClient);
 
 export const isPagingProps = {
   pageParamName: "page",

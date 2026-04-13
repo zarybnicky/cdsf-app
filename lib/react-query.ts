@@ -5,6 +5,9 @@ import {
   persistQueryClientSave,
 } from "@tanstack/react-query-persist-client";
 import { QueryClient } from "@tanstack/react-query";
+import { queryClientAtom } from "jotai-tanstack-query";
+
+import { appStore } from "@/lib/app-store";
 
 const ONE_DAY_IN_MS = 1000 * 60 * 60 * 24;
 
@@ -17,6 +20,7 @@ export const queryClient = new QueryClient({
     },
   },
 });
+appStore.set(queryClientAtom, queryClient);
 
 export const queryPersister = createAsyncStoragePersister({
   storage: AsyncStorage,
@@ -24,6 +28,10 @@ export const queryPersister = createAsyncStoragePersister({
 });
 
 let restorePromise: Promise<void> | null = null;
+
+export function markCacheRestoreHandled() {
+  restorePromise ??= Promise.resolve();
+}
 
 export function restoreCache() {
   if (!restorePromise) {

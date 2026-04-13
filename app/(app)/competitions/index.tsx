@@ -1,3 +1,4 @@
+import { useAtomValue } from "jotai";
 import { useEffect, useRef, useState } from "react";
 import { Stack, useLocalSearchParams } from "expo-router";
 import {
@@ -13,9 +14,9 @@ import CompetitionListItem from "@/components/CompetitionListItem";
 import ListTopShadow from "@/components/ListTopShadow";
 import ScreenStateCard from "@/components/ScreenStateCard";
 import { Text } from "@/components/Themed";
-import { openapiClient, isPagingProps } from "@/lib/cdsf-client";
+import { competitionRegistrationsInfiniteQueryAtom } from "@/lib/competition-registrations-query";
+import { competitionResultsInfiniteQueryAtom } from "@/lib/competition-results-sync";
 import { getDateMs } from "@/lib/cdsf";
-import { useSession } from "@/lib/session";
 
 type CompetitionTab = "registered" | "results";
 type CompetitionEvent = components["schemas"]["EventRegistration"];
@@ -38,7 +39,6 @@ const competitionTabs: Record<CompetitionTab, CompetitionTabDefinition> = {
   },
 };
 const competitionTabOrder: CompetitionTab[] = ["registered", "results"];
-const competitionPageSize = 100;
 
 function getRequestedCompetitionTab(
   value: string | string[] | undefined,
@@ -127,46 +127,23 @@ export default function CompetitionsScreen() {
   const [activeTab, setActiveTab] = useState<CompetitionTab>(
     () => requestedTab ?? "registered",
   );
-  const { authHeaders } = useSession();
-
-  const registrationsQuery = openapiClient.useInfiniteQuery(
-    "get",
-    "/athletes/current/competitions/registrations",
-    {
-      headers: authHeaders,
-      params: {
-        query: {
-          pageSize: competitionPageSize,
-        },
-      },
-    },
-    {
-      enabled: !!authHeaders && activeTab === "registered",
-      ...isPagingProps,
-    },
+  const currentQuery = useAtomValue(
+    activeTab === "registered"
+      ? competitionRegistrationsInfiniteQueryAtom
+      : competitionResultsInfiniteQueryAtom,
   );
-
-  const resultsQuery = openapiClient.useInfiniteQuery(
-    "get",
-    "/athletes/current/competitions/results",
-    {
-      headers: authHeaders,
-      params: {
-        query: {
-          pageSize: competitionPageSize,
-        },
-      },
-    },
-    {
-      enabled: !!authHeaders && activeTab === "results",
-      ...isPagingProps,
-    },
-  );
+  const {
+    fetchNextPage,
+    hasNextPage,
+    isError,
+    isFetchingNextPage,
+    isLoading,
+    isRefetching,
+    refetch,
+  } = currentQuery;
 
   const currentTab = competitionTabs[activeTab];
-  const currentQuery =
-    activeTab === "registered" ? registrationsQuery : resultsQuery;
-  const isRefreshing = currentQuery.isRefetching && !currentQuery.isLoading;
+  const isRefreshing = isRefetching && !isLoading;
   const registrationsStartTimestamp = getRegistrationsStartTimestamp();
   const allEvents =
     currentQuery.data?.pages.flatMap((page) => page?.collection || []) || [];
@@ -177,17 +154,17 @@ export default function CompetitionsScreen() {
   );
   const isSeekingCurrentRegistrations =
     activeTab === "registered" &&
-    !!currentQuery.hasNextPage &&
-    !currentQuery.isLoading &&
-    !currentQuery.isFetchingNextPage &&
-    !currentQuery.isError &&
+    !!hasNextPage &&
+    !isLoading &&
+    !isFetchingNextPage &&
+    !isError &&
     newestFetchedEventTimestamp < registrationsStartTimestamp;
   const hasReachedRegistrationsWindow =
     activeTab !== "registered" ||
     newestFetchedEventTimestamp >= registrationsStartTimestamp ||
-    !currentQuery.hasNextPage;
+    !hasNextPage;
   const isLoadingState =
-    currentQuery.isLoading ||
+    isLoading ||
     (activeTab === "registered" && !hasReachedRegistrationsWindow);
   const visibleEvents =
     activeTab === "registered"
@@ -201,14 +178,14 @@ export default function CompetitionsScreen() {
     ? activeTab === "registered" && isSeekingCurrentRegistrations
       ? "Načítám aktuální přihlášky"
       : "Načítám přehled soutěží"
-    : currentQuery.isError
+    : isError
       ? "Nepodařilo se načíst přehled soutěží"
       : currentTab.emptyTitle;
   const emptyStateBody = isLoadingState
     ? activeTab === "registered" && isSeekingCurrentRegistrations
       ? "Vyhledávám nejnovější přihlášky."
       : "Přehled soutěží se načítá."
-    : currentQuery.isError
+    : isError
       ? "Zkuste načtení zopakovat."
       : currentTab.emptyBody;
 
@@ -232,19 +209,19 @@ export default function CompetitionsScreen() {
   useEffect(() => {
     if (
       activeTab !== "registered" ||
-      !currentQuery.hasNextPage ||
-      currentQuery.isLoading ||
-      currentQuery.isFetchingNextPage ||
-      currentQuery.isError
+      !hasNextPage ||
+      isLoading ||
+      isFetchingNextPage ||
+      isError
     ) {
       return;
     }
 
-    void currentQuery.fetchNextPage();
-  }, [activeTab, currentQuery]);
+    void fetchNextPage();
+  }, [activeTab, fetchNextPage, hasNextPage, isError, isFetchingNextPage, isLoading]);
 
   function refreshCurrentTab() {
-    void currentQuery.refetch();
+    void refetch();
   }
 
   return (
@@ -280,24 +257,20 @@ export default function CompetitionsScreen() {
             <ScreenStateCard
               body={emptyStateBody}
               isLoading={isLoadingState}
-              onRetry={currentQuery.isError ? refreshCurrentTab : undefined}
+              onRetry={isError ? refreshCurrentTab : undefined}
               style={styles.stateCard}
               title={emptyStateTitle}
             />
           }
           ListFooterComponent={
-            currentQuery.isFetchingNextPage ? (
+            isFetchingNextPage ? (
               <View style={styles.footer}>
                 <ActivityIndicator color="#2f67ce" />
               </View>
             ) : null
           }
           onRefresh={refreshCurrentTab}
-          onEndReached={
-            currentQuery.hasNextPage
-              ? () => void currentQuery.fetchNextPage()
-              : undefined
-          }
+          onEndReached={hasNextPage ? () => void fetchNextPage() : undefined}
           onEndReachedThreshold={0.4}
           renderItem={({ item }) => (
             <CompetitionListItem event={item} variant={activeTab} />

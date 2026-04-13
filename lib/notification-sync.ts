@@ -1,13 +1,13 @@
 import type { components, paths } from "@/CDSF";
-import { fetchClient, isPagingProps, openapiClient } from "@/lib/cdsf-client";
-import { appStore } from "@/lib/app-store";
-import { fetchInfiniteProgress } from "@/lib/infinite-query-sync";
-import { type NotificationPreferences } from "@/lib/notification-preferences";
-import { announcementsSeenStateAtom } from "@/lib/seen-state";
+import type { InfiniteData } from "@tanstack/react-query";
+import { atomWithInfiniteQuery } from "jotai-tanstack-query";
 
-type AuthHeaders = {
-  Authorization: string;
-};
+import { appStore } from "@/lib/app-store";
+import { fetchClient, isPagingProps } from "@/lib/cdsf-client";
+import { type NotificationPreferences } from "@/lib/notification-preferences";
+import { queryClient, restoreCache, saveCache } from "@/lib/react-query";
+import { sessionValueAtom } from "@/lib/session";
+import { announcementsSeenStateAtom } from "@/lib/seen-state";
 
 type Page =
   paths["/notifications"]["get"]["responses"][200]["content"]["application/json"];
@@ -24,10 +24,11 @@ export type SyncProgress = {
 };
 
 export type SyncInput = {
-  authHeaders?: AuthHeaders;
+  authHeaders?: {
+    Authorization: string;
+  };
   maxPages?: number;
   pageSize?: number;
-  persistToCache?: boolean;
   preferences: NotificationPreferences;
   seenIds?: ReadonlySet<string>;
   stopWhen?: (progress: SyncProgress) => boolean;
@@ -36,27 +37,18 @@ export type SyncInput = {
 const pageSize = 10;
 const defaultMaxPages = 3;
 
-export function queryInit(authHeaders?: AuthHeaders) {
-  return {
-    ...(authHeaders ? { headers: authHeaders } : {}),
-    params: {
-      query: {
-        pageSize,
-      },
-    },
-  };
-}
-
-async function fetchPage({
+async function fetchNotificationsPage({
   authHeaders,
   pageParam,
   pageSize: size,
   signal,
 }: {
-  authHeaders: AuthHeaders;
+  authHeaders: {
+    Authorization: string;
+  };
   pageParam: number;
   pageSize: number;
-  signal: AbortSignal;
+  signal?: AbortSignal;
 }) {
   const response = await fetchClient.GET("/notifications", {
     headers: authHeaders,
@@ -80,11 +72,76 @@ async function fetchPage({
   return response.data;
 }
 
+export const announcementsInfiniteQueryAtom =
+  atomWithInfiniteQuery<
+    Page,
+    Error,
+    InfiniteData<Page, number>,
+    readonly ["announcements"],
+    number
+  >(
+    (get) => {
+      const session = get(sessionValueAtom);
+
+      return {
+        enabled: !!session,
+        getNextPageParam(lastPage) {
+          return isPagingProps.getNextPageParam(lastPage);
+        },
+        initialPageParam: 1,
+        queryKey: ["announcements"] as const,
+        queryFn: async ({ pageParam, signal }) => {
+          if (!session) {
+            throw new Error("Session is not available.");
+          }
+
+          return fetchNotificationsPage({
+            authHeaders: {
+              Authorization: session.token,
+            },
+            pageParam,
+            pageSize,
+            signal,
+          });
+        },
+      };
+    },
+  );
+
+function normalizeMaxPages(maxPages: number) {
+  if (!Number.isFinite(maxPages)) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  return Math.max(1, Math.floor(maxPages));
+}
+
+function buildSyncProgress(
+  pages: Page[],
+  pageParams: number[],
+  preferences: NotificationPreferences,
+  seen: ReadonlySet<string>,
+) {
+  const notifications = pages.flatMap((page) => page.collection || []);
+  const visible = notifications.filter((notification) =>
+    notification.overrideMuting ? true : preferences[notification.type],
+  );
+  const latestPage = pages.at(-1);
+
+  return {
+    pageParams,
+    pages,
+    notifications,
+    visible,
+    unseen: visible.filter((notification) => !seen.has(notification.id.toString())),
+    nextPage: latestPage ? isPagingProps.getNextPageParam(latestPage) : undefined,
+  } satisfies SyncProgress;
+}
+
 export async function syncNotifications({
   authHeaders,
   maxPages = defaultMaxPages,
   pageSize: size = pageSize,
-  persistToCache = true,
   preferences,
   seenIds,
   stopWhen,
@@ -101,51 +158,41 @@ export async function syncNotifications({
   }
 
   const seen = seenIds ?? (await appStore.get(announcementsSeenStateAtom)).ids;
-  const queryKey = openapiClient.queryOptions(
-    "get",
-    "/notifications",
-    queryInit(authHeaders),
-  ).queryKey;
+  await restoreCache();
 
-  return fetchInfiniteProgress<Page, number, SyncProgress>({
-    buildProgress({ pages, pageParams }) {
-      const notifications = pages.flatMap((page) => page.collection || []);
-      const visible = notifications.filter((notification) =>
-        notification.overrideMuting ? true : preferences[notification.type],
-      );
-      const unseen = visible.filter(
-        (notification) => !seen.has(notification.id.toString()),
-      );
-      const latestPage = pages.at(-1);
+  const existing =
+    queryClient.getQueryData<InfiniteData<Page, number>>(["announcements"]);
+  const minimumPageCount = existing?.pages.length ?? 0;
+  const data = await queryClient.fetchInfiniteQuery<
+    Page,
+    Error,
+    Page,
+    readonly ["announcements"],
+    number
+  >({
+    getNextPageParam(lastPage, allPages, _lastPageParam, allPageParams) {
+      if (
+        allPageParams.length >= minimumPageCount &&
+        stopWhen?.(buildSyncProgress(allPages, allPageParams, preferences, seen))
+      ) {
+        return undefined;
+      }
 
-      return {
-        pageParams,
-        pages,
-        notifications,
-        visible,
-        unseen,
-        nextPage: latestPage
-          ? isPagingProps.getNextPageParam(latestPage)
-          : undefined,
-      } satisfies SyncProgress;
+      return isPagingProps.getNextPageParam(lastPage);
     },
-    fetchPage: ({ pageParam, signal }) =>
-      fetchPage({
+    initialPageParam: 1,
+    pages: Math.max(minimumPageCount, normalizeMaxPages(maxPages)),
+    queryFn: ({ pageParam, signal }) =>
+      fetchNotificationsPage({
         authHeaders,
         pageParam,
         pageSize: size,
         signal,
       }),
-    getNextPageParam({ pages }) {
-      const latestPage = pages.at(-1);
-      return latestPage
-        ? isPagingProps.getNextPageParam(latestPage)
-        : undefined;
-    },
-    initialPageParam: 1,
-    maxPages,
-    persistToCache,
-    queryKey,
-    stopWhen,
+    queryKey: ["announcements"] as const,
   });
+
+  await saveCache();
+
+  return buildSyncProgress(data.pages, data.pageParams, preferences, seen);
 }

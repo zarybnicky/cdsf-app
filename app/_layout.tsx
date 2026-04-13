@@ -4,18 +4,22 @@ import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import { Provider as JotaiProvider } from "jotai";
+import { Provider as JotaiProvider, useAtomValue } from "jotai";
 import { useEffect, useState } from "react";
 import "react-native-reanimated";
 
 import { appStore } from "@/lib/app-store";
 import { useNotificationRuntime } from "@/lib/notification-runtime";
 import {
+  markCacheRestoreHandled,
   queryCacheMaxAge,
   queryClient,
   queryPersister,
 } from "@/lib/react-query";
-import { SessionProvider, useSession } from "@/lib/session";
+import {
+  ensureSessionMiddleware,
+  sessionLoadableAtom,
+} from "@/lib/session";
 
 export { ErrorBoundary } from "expo-router";
 
@@ -30,14 +34,13 @@ type RootNavigatorProps = {
   cacheReady: boolean;
 };
 
-function RootNavigator({
-  fontsLoaded,
-  cacheReady,
-}: RootNavigatorProps) {
-  const { isLoading, session } = useSession();
-  const isAppReady = fontsLoaded && cacheReady && !isLoading;
+function RootNavigator({ fontsLoaded, cacheReady }: RootNavigatorProps) {
+  const sessionState = useAtomValue(sessionLoadableAtom);
+  const isSessionLoading = sessionState.state === "loading";
+  const session = sessionState.state === "hasData" ? sessionState.data : null;
+  const isAppReady = fontsLoaded && cacheReady && !isSessionLoading;
 
-  useNotificationRuntime(isAppReady ? session : null);
+  useNotificationRuntime(isAppReady);
 
   useEffect(() => {
     if (isAppReady) {
@@ -70,7 +73,12 @@ export default function RootLayout() {
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
   const [cacheReady, setCacheReady] = useState(false);
-  const onCacheReady = () => setCacheReady(true);
+  const onCacheReady = () => {
+    markCacheRestoreHandled();
+    setCacheReady(true);
+  };
+
+  ensureSessionMiddleware();
 
   if (error) {
     throw error;
@@ -84,12 +92,10 @@ export default function RootLayout() {
       onError={onCacheReady}
     >
       <JotaiProvider store={appStore}>
-        <SessionProvider>
-          <RootNavigator
-            fontsLoaded={fontsLoaded}
-            cacheReady={cacheReady}
-          />
-        </SessionProvider>
+        <RootNavigator
+          fontsLoaded={fontsLoaded}
+          cacheReady={cacheReady}
+        />
       </JotaiProvider>
     </PersistQueryClientProvider>
   );
