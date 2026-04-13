@@ -1,4 +1,4 @@
-import { useAtomValue } from "jotai";
+import { useAtomValue, useSetAtom } from "jotai";
 import { useEffect, useRef, useState } from "react";
 import { Stack, useLocalSearchParams } from "expo-router";
 import {
@@ -15,8 +15,12 @@ import ListTopShadow from "@/components/ListTopShadow";
 import ScreenStateCard from "@/components/ScreenStateCard";
 import { Text } from "@/components/Themed";
 import { competitionRegistrationsInfiniteQueryAtom } from "@/lib/competition-registrations-query";
-import { competitionResultsInfiniteQueryAtom } from "@/lib/competition-results-sync";
+import {
+  competitionResultsInfiniteQueryAtom,
+  flattenPublishedCompetitionResults,
+} from "@/lib/competition-results-sync";
 import { getDateMs } from "@/lib/cdsf";
+import { addSeenIds, competitionResultsSeenStateAtom } from "@/lib/seen-state";
 
 type CompetitionTab = "registered" | "results";
 type CompetitionEvent = components["schemas"]["EventRegistration"];
@@ -124,6 +128,9 @@ export default function CompetitionsScreen() {
   const { tab } = useLocalSearchParams<{ tab?: string | string[] }>();
   const requestedTab = getRequestedCompetitionTab(tab);
   const handledRequestedTabRef = useRef<CompetitionTab | null>(null);
+  const setCompetitionResultsSeenState = useSetAtom(
+    competitionResultsSeenStateAtom,
+  );
   const [activeTab, setActiveTab] = useState<CompetitionTab>(
     () => requestedTab ?? "registered",
   );
@@ -219,6 +226,28 @@ export default function CompetitionsScreen() {
 
     void fetchNextPage();
   }, [activeTab, fetchNextPage, hasNextPage, isError, isFetchingNextPage, isLoading]);
+
+  useEffect(() => {
+    if (activeTab !== "results" || isLoadingState || isError) {
+      return;
+    }
+
+    const visibleResultIds = flattenPublishedCompetitionResults(
+      visibleEvents,
+    ).map((result) => result.id);
+
+    if (visibleResultIds.length === 0) {
+      return;
+    }
+
+    void setCompetitionResultsSeenState(addSeenIds(visibleResultIds));
+  }, [
+    activeTab,
+    isError,
+    isLoadingState,
+    setCompetitionResultsSeenState,
+    visibleEvents,
+  ]);
 
   function refreshCurrentTab() {
     void refetch();
