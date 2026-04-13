@@ -8,7 +8,6 @@ import ProfileAthleteCard from "@/components/ProfileAthleteCard";
 import ScreenStateCard from "@/components/ScreenStateCard";
 import { Text, View } from "@/components/Themed";
 import { openapiClient } from "@/lib/cdsf-client";
-import { clearCache } from "@/lib/react-query";
 import { useSession } from "@/lib/session";
 
 export default function ProfileScreen() {
@@ -49,7 +48,6 @@ export default function ProfileScreen() {
     setIsSubmitting(true);
 
     try {
-      await clearCache();
       await signOut();
     } finally {
       setIsSubmitting(false);

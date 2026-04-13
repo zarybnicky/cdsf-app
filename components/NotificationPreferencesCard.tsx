@@ -6,14 +6,17 @@ import {
   type StyleProp,
   type ViewStyle,
 } from "react-native";
+import { useAtomValue, useSetAtom } from "jotai";
 
 import { Text } from "@/components/Themed";
 import {
+  defaultPreferences,
+  notificationPreferencesLoadableAtom,
   preferenceMetadata,
   preferenceOrder,
+  setNotificationPreferenceAtom,
   type NotificationType,
 } from "@/lib/notification-preferences";
-import { useNotificationPreferences } from "@/lib/notification-preferences-provider";
 
 type NotificationPreferenceRowProps = {
   type: NotificationType;
@@ -59,11 +62,13 @@ function NotificationPreferenceRow({
 export default function NotificationPreferencesCard({
   style,
 }: NotificationPreferencesCardProps) {
-  const {
-    isLoading: isPreferencesLoading,
-    preferences,
-    setPreference,
-  } = useNotificationPreferences();
+  const preferencesState = useAtomValue(notificationPreferencesLoadableAtom);
+  const setPreference = useSetAtom(setNotificationPreferenceAtom);
+  const isPreferencesLoading = preferencesState.state === "loading";
+  const preferences =
+    preferencesState.state === "hasData"
+      ? preferencesState.data
+      : defaultPreferences;
 
   return (
     <View style={[styles.card, style]}>
@@ -79,7 +84,7 @@ export default function NotificationPreferencesCard({
             enabled={preferences[type]}
             isLastRow={index === preferenceOrder.length - 1}
             onValueChange={(value) => {
-              setPreference(type, value);
+              void setPreference({ enabled: value, type });
             }}
             type={type}
           />

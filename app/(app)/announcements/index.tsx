@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { ActivityIndicator, FlatList, StyleSheet, View } from "react-native";
+import { useAtomValue, useSetAtom } from "jotai";
 
 import AnnouncementCard, {
   announcementFromNotification,
@@ -8,16 +9,23 @@ import ListTopShadow from "@/components/ListTopShadow";
 import ScreenStateCard from "@/components/ScreenStateCard";
 import { Text } from "@/components/Themed";
 import { isPagingProps, openapiClient } from "@/lib/cdsf-client";
-import { filterNotifications } from "@/lib/notification-preferences";
-import { useNotificationPreferences } from "@/lib/notification-preferences-provider";
-import { queryInit, seenNs } from "@/lib/notification-sync";
+import {
+  defaultPreferences,
+  notificationPreferencesLoadableAtom,
+} from "@/lib/notification-preferences";
+import { queryInit } from "@/lib/notification-sync";
 import { useSession } from "@/lib/session";
-import { addSeenIds } from "@/lib/seen-state";
+import { addSeenIds, announcementsSeenStateAtom } from "@/lib/seen-state";
 
 export default function AnnouncementsScreen() {
-  const { authHeaders, session } = useSession();
-  const { isLoading: arePreferencesLoading, preferences } =
-    useNotificationPreferences();
+  const { authHeaders } = useSession();
+  const preferencesState = useAtomValue(notificationPreferencesLoadableAtom);
+  const setAnnouncementsSeenState = useSetAtom(announcementsSeenStateAtom);
+  const arePreferencesLoading = preferencesState.state === "loading";
+  const preferences =
+    preferencesState.state === "hasData"
+      ? preferencesState.data
+      : defaultPreferences;
 
   const query = openapiClient.useInfiniteQuery(
     "get",
@@ -35,7 +43,9 @@ export default function AnnouncementsScreen() {
   const notifications = (query.data?.pages ?? []).flatMap(
     (page) => page.collection || [],
   );
-  const visible = filterNotifications(notifications, preferences);
+  const visible = notifications.filter((notification) =>
+    notification.overrideMuting ? true : preferences[notification.type],
+  );
   const visibleIds = visible.map((notification) => notification.id.toString());
   const hiddenCount = notifications.length - visible.length;
   const isLoadingState =
@@ -89,8 +99,8 @@ export default function AnnouncementsScreen() {
       return;
     }
 
-    void addSeenIds(seenNs, visibleIds, session?.email);
-  }, [isError, isLoadingState, session?.email, visibleIds]);
+    void setAnnouncementsSeenState(addSeenIds(visibleIds));
+  }, [isError, isLoadingState, setAnnouncementsSeenState, visibleIds]);
 
   function refresh() {
     void query.refetch();

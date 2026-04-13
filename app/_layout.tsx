@@ -4,10 +4,11 @@ import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
+import { Provider as JotaiProvider } from "jotai";
 import { useEffect, useState } from "react";
 import "react-native-reanimated";
 
-import { NotificationPreferencesProvider } from "@/lib/notification-preferences-provider";
+import { appStore } from "@/lib/app-store";
 import { useNotificationRuntime } from "@/lib/notification-runtime";
 import {
   queryCacheMaxAge,
@@ -82,14 +83,14 @@ export default function RootLayout() {
       onSuccess={onCacheReady}
       onError={onCacheReady}
     >
-      <SessionProvider>
-        <NotificationPreferencesProvider>
+      <JotaiProvider store={appStore}>
+        <SessionProvider>
           <RootNavigator
             fontsLoaded={fontsLoaded}
             cacheReady={cacheReady}
           />
-        </NotificationPreferencesProvider>
-      </SessionProvider>
+        </SessionProvider>
+      </JotaiProvider>
     </PersistQueryClientProvider>
   );
 }

@@ -6,21 +6,23 @@ import * as Notifications from "expo-notifications";
 import { PermissionStatus } from "expo-modules-core";
 import * as TaskManager from "expo-task-manager";
 import { useRouter } from "expo-router";
+import { appStore } from "@/lib/app-store";
 import {
   type PublishedCompetitionResult,
-  seenNs as competitionResultsSeenNs,
   syncCompetitionResults,
 } from "@/lib/competition-results-sync";
 import { getAgeLabel } from "@/lib/cdsf";
 import { stripMarkdown } from "@/lib/markdown";
-import { loadPreferences } from "@/lib/notification-preferences";
-import {
-  type Notification,
-  seenNs as announcementsSeenNs,
-  syncNotifications,
-} from "@/lib/notification-sync";
+import { notificationPreferencesAtom } from "@/lib/notification-preferences";
+import { type Notification, syncNotifications } from "@/lib/notification-sync";
 import { getSession, type Session } from "@/lib/session";
-import { addSeenIds, dropSeenIds, getSeenState } from "@/lib/seen-state";
+import {
+  addSeenIds,
+  announcementsSeenStateAtom,
+  competitionResultsSeenStateAtom,
+  dropSeenIds,
+  initializeSeenState,
+} from "@/lib/seen-state";
 
 const bgTaskName = "cdsf-announcements-background-sync";
 const announcementsChannelId = "cdsf-announcements";
@@ -362,17 +364,16 @@ export async function replayLatestForTest() {
     return false;
   }
 
-  const [preferences, seen] = await Promise.all([
-    loadPreferences(session.email),
-    getSeenState(announcementsSeenNs, session.email),
+  const [preferences, { ids: seenIds }] = await Promise.all([
+    appStore.get(notificationPreferencesAtom),
+    appStore.get(announcementsSeenStateAtom),
   ]);
   const result = await syncNotifications({
     authHeaders: { Authorization: session.token },
-    email: session.email,
     maxPages: 3,
     persistToCache: false,
     preferences,
-    seenIds: seen.ids,
+    seenIds,
     stopWhen: ({ nextPage, visible }) =>
       visible.length > 0 || nextPage === undefined,
   });
@@ -382,7 +383,10 @@ export async function replayLatestForTest() {
     return false;
   }
 
-  await dropSeenIds(announcementsSeenNs, [latest.id.toString()], session.email);
+  await appStore.set(
+    announcementsSeenStateAtom,
+    dropSeenIds([latest.id.toString()]),
+  );
 
   await runBgTask();
   return true;
@@ -395,12 +399,11 @@ async function runAnnouncementsSync(allowLocalNotifications: boolean) {
   }
 
   const [seen, preferences] = await Promise.all([
-    getSeenState(announcementsSeenNs, session.email),
-    loadPreferences(session.email),
+    appStore.get(announcementsSeenStateAtom),
+    appStore.get(notificationPreferencesAtom),
   ]);
   const result = await syncNotifications({
     authHeaders: { Authorization: session.token },
-    email: session.email,
     preferences,
     seenIds: seen.ids,
     stopWhen: ({ nextPage, unseen }) =>
@@ -410,7 +413,7 @@ async function runAnnouncementsSync(allowLocalNotifications: boolean) {
 
   if (toMarkSeen.length === 0) {
     if (!seen.initialized) {
-      await dropSeenIds(announcementsSeenNs, [], session.email);
+      await appStore.set(announcementsSeenStateAtom, initializeSeenState());
     }
 
     return;
@@ -424,10 +427,9 @@ async function runAnnouncementsSync(allowLocalNotifications: boolean) {
     await scheduleAnnouncementsNotification(toMarkSeen);
   }
 
-  await addSeenIds(
-    announcementsSeenNs,
-    toMarkSeen.map((notification) => notification.id.toString()),
-    session.email,
+  await appStore.set(
+    announcementsSeenStateAtom,
+    addSeenIds(toMarkSeen.map((notification) => notification.id.toString())),
   );
 }
 
@@ -437,10 +439,9 @@ async function runCompetitionResultsSync(allowLocalNotifications: boolean) {
     return;
   }
 
-  const seen = await getSeenState(competitionResultsSeenNs, session.email);
+  const seen = await appStore.get(competitionResultsSeenStateAtom);
   const result = await syncCompetitionResults({
     authHeaders: { Authorization: session.token },
-    email: session.email,
     maxPages: seen.initialized ? 3 : Number.POSITIVE_INFINITY,
     persistToCache: seen.initialized,
     seenIds: seen.ids,
@@ -452,7 +453,10 @@ async function runCompetitionResultsSync(allowLocalNotifications: boolean) {
 
   if (toMarkSeen.length === 0) {
     if (!seen.initialized) {
-      await dropSeenIds(competitionResultsSeenNs, [], session.email);
+      await appStore.set(
+        competitionResultsSeenStateAtom,
+        initializeSeenState(),
+      );
     }
 
     return;
@@ -466,10 +470,9 @@ async function runCompetitionResultsSync(allowLocalNotifications: boolean) {
     await scheduleResultsNotification(toMarkSeen);
   }
 
-  await addSeenIds(
-    competitionResultsSeenNs,
-    toMarkSeen.map((result) => result.id),
-    session.email,
+  await appStore.set(
+    competitionResultsSeenStateAtom,
+    addSeenIds(toMarkSeen.map((result) => result.id)),
   );
 }
 
@@ -558,18 +561,11 @@ async function unregisterBgTask() {
   await BackgroundTask.unregisterTaskAsync(bgTaskName);
 }
 
-export async function getDebugSnapshot(
-  email?: string | null,
-): Promise<DebugSnapshot> {
-  const [announcementsSeen, resultsSeen] = email
-    ? await Promise.all([
-        getSeenState(announcementsSeenNs, email),
-        getSeenState(competitionResultsSeenNs, email),
-      ])
-    : [
-        { ids: new Set<string>(), initialized: false },
-        { ids: new Set<string>(), initialized: false },
-      ];
+export async function getDebugSnapshot(): Promise<DebugSnapshot> {
+  const [announcementsSeen, resultsSeen] = await Promise.all([
+    appStore.get(announcementsSeenStateAtom),
+    appStore.get(competitionResultsSeenStateAtom),
+  ]);
 
   if (isWeb) {
     return {

@@ -1,7 +1,8 @@
 import type { components, paths } from "@/CDSF";
+import { appStore } from "@/lib/app-store";
 import { fetchClient, isPagingProps, openapiClient } from "@/lib/cdsf-client";
 import { fetchInfiniteProgress } from "@/lib/infinite-query-sync";
-import { getSeenState } from "@/lib/seen-state";
+import { competitionResultsSeenStateAtom } from "@/lib/seen-state";
 
 type AuthHeaders = {
   Authorization: string;
@@ -30,7 +31,6 @@ export type SyncProgress = {
 
 export type SyncInput = {
   authHeaders?: AuthHeaders;
-  email?: string | null;
   maxPages?: number;
   pageSize?: number;
   persistToCache?: boolean;
@@ -38,7 +38,6 @@ export type SyncInput = {
   stopWhen?: (progress: SyncProgress) => boolean;
 };
 
-export const seenNs = "competition-results";
 const pageSize = 100;
 const defaultMaxPages = 3;
 
@@ -108,7 +107,6 @@ async function fetchPage({
 
 export async function syncCompetitionResults({
   authHeaders,
-  email,
   maxPages = defaultMaxPages,
   persistToCache = true,
   seenIds,
@@ -125,7 +123,8 @@ export async function syncCompetitionResults({
     };
   }
 
-  const seen = seenIds ?? (await getSeenState(seenNs, email)).ids;
+  const seen =
+    seenIds ?? (await appStore.get(competitionResultsSeenStateAtom)).ids;
   const queryKey = openapiClient.queryOptions(
     "get",
     "/athletes/current/competitions/results",

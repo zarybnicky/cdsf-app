@@ -1,124 +1,141 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { atom } from "jotai";
+import { atomWithStorage, createJSONStorage, RESET } from "jotai/utils";
 
-const storagePrefix = "seen-state";
+import { appStore } from "@/lib/app-store";
 
+export type SeenState = {
+  ids: Set<string>;
+  initialized: boolean;
+};
 type StoredSeenState = {
   ids: string[];
   initialized: boolean;
 };
 
-export function seenKey(namespace: string, email?: string | null) {
-  const normalizedNamespace = namespace.trim().toLowerCase();
-  const normalizedEmail = email?.trim().toLowerCase();
+const seenStorage = createJSONStorage<StoredSeenState>(() => AsyncStorage);
 
-  return normalizedEmail
-    ? `${storagePrefix}:${normalizedNamespace}:${normalizedEmail}`
-    : `${storagePrefix}:${normalizedNamespace}`;
+function createSeenStateAtom(storageKey: string) {
+  const storageAtom = atomWithStorage(
+    storageKey,
+    {
+      ids: [],
+      initialized: false,
+    },
+    seenStorage,
+    {
+      getOnInit: true,
+    },
+  );
+
+  const stateAtom = atom(
+    async (get): Promise<SeenState> => {
+      const value = await get(storageAtom);
+
+      return {
+        ids: new Set(value.ids),
+        initialized: value.initialized,
+      };
+    },
+    async (get, set, update: SeenState | ((prev: SeenState) => SeenState)) => {
+      const value = await get(storageAtom);
+      const prev = {
+        ids: new Set(value.ids),
+        initialized: value.initialized,
+      };
+      const next = typeof update === "function" ? update(prev) : update;
+      await set(storageAtom, {
+        ids: [...next.ids],
+        initialized: next.initialized,
+      });
+    },
+  );
+
+  return {
+    stateAtom,
+    storageAtom,
+  };
 }
 
-export async function getSeenState(namespace: string, email?: string | null) {
-  const key = seenKey(namespace, email);
-  const storedValue = await AsyncStorage.getItem(key);
+const {
+  stateAtom: announcementsSeenStateAtom,
+  storageAtom: announcementsSeenStorageAtom,
+} = createSeenStateAtom(`seen-state:announcements`);
+const {
+  stateAtom: competitionResultsSeenStateAtom,
+  storageAtom: competitionResultsSeenStorageAtom,
+} = createSeenStateAtom(`seen-state:competition-results`);
 
-  if (!storedValue) {
-    return {
-      ids: new Set<string>(),
-      initialized: false,
-    };
-  }
+export { announcementsSeenStateAtom, competitionResultsSeenStateAtom };
 
-  try {
-    const parsed = JSON.parse(storedValue) as Partial<StoredSeenState>;
+function normalizeIds(ids: Iterable<string | number>) {
+  return new Set(Array.from(ids, String));
+}
 
-    if (!Array.isArray(parsed.ids)) {
-      return {
-        ids: new Set<string>(),
-        initialized: false,
-      };
+export function addSeenIds(ids: Iterable<string | number>) {
+  const idsToAdd = normalizeIds(ids);
+
+  return (prev: SeenState) => {
+    if (idsToAdd.size === 0) {
+      return prev;
     }
 
-    const ids = new Set(parsed.ids.filter((id) => id.length > 0));
-    const initialized =
-      typeof parsed.initialized === "boolean"
-        ? parsed.initialized
-        : ids.size > 0;
+    const nextIds = new Set(prev.ids);
+    idsToAdd.forEach((id) => {
+      nextIds.add(id);
+    });
+
+    if (nextIds.size === prev.ids.size && prev.initialized) {
+      return prev;
+    }
 
     return {
-      ids,
-      initialized,
+      ids: nextIds,
+      initialized: true,
     };
-  } catch {
+  };
+}
+
+export function dropSeenIds(ids: Iterable<string | number>) {
+  const idsToRemove = normalizeIds(ids);
+
+  return (prev: SeenState) => {
+    if (idsToRemove.size === 0) {
+      return prev;
+    }
+
+    const nextIds = new Set(prev.ids);
+    idsToRemove.forEach((id) => {
+      nextIds.delete(id);
+    });
+
+    if (nextIds.size === prev.ids.size && prev.initialized) {
+      return prev;
+    }
+
     return {
-      ids: new Set<string>(),
-      initialized: false,
+      ids: nextIds,
+      initialized: true,
     };
-  }
+  };
 }
 
-export async function addSeenIds(
-  namespace: string,
-  ids: Iterable<string | number>,
-  email?: string | null,
-) {
-  const nextIdsToAdd = new Set(
-    Array.from(ids, (id) => id.toString()).filter((id) => id.length > 0),
-  );
+export function initializeSeenState() {
+  return (prev: SeenState) => {
+    if (prev.initialized) {
+      return prev;
+    }
 
-  if (nextIdsToAdd.size === 0) {
-    return nextIdsToAdd;
-  }
-
-  const key = seenKey(namespace, email);
-  const current = await getSeenState(namespace, email);
-  const nextIds = new Set(current.ids);
-
-  nextIdsToAdd.forEach((id) => {
-    nextIds.add(id);
-  });
-
-  if (nextIds.size === current.ids.size && current.initialized) {
-    return nextIds;
-  }
-
-  await AsyncStorage.setItem(
-    key,
-    JSON.stringify({
-      ids: [...nextIds],
+    return {
+      ids: prev.ids,
       initialized: true,
-    } satisfies StoredSeenState),
-  );
-
-  return nextIds;
+    };
+  };
 }
 
-export async function dropSeenIds(
-  namespace: string,
-  ids: Iterable<string | number>,
-  email?: string | null,
-) {
-  const idsToRemove = new Set(
-    Array.from(ids, (id) => id.toString()).filter((id) => id.length > 0),
-  );
-
-  const key = seenKey(namespace, email);
-  const current = await getSeenState(namespace, email);
-  const nextIds = new Set(current.ids);
-
-  idsToRemove.forEach((id) => {
-    nextIds.delete(id);
-  });
-
-  if (nextIds.size === current.ids.size && current.initialized) {
-    return nextIds;
-  }
-
-  await AsyncStorage.setItem(
-    key,
-    JSON.stringify({
-      ids: [...nextIds],
-      initialized: true,
-    } satisfies StoredSeenState),
-  );
-
-  return nextIds;
+export async function clearSeenState() {
+  await Promise.all([
+    appStore.set(announcementsSeenStorageAtom, RESET),
+    appStore.set(competitionResultsSeenStorageAtom, RESET),
+  ]);
 }

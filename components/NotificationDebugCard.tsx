@@ -14,7 +14,6 @@ import {
   runWorkerForTest,
   type DebugSnapshot,
 } from "@/lib/notification-runtime";
-import { useSession } from "@/lib/session";
 
 const emptySnapshot: DebugSnapshot = {
   announcementsSeenCount: 0,
@@ -75,7 +74,6 @@ function StatusRow({ label, value }: StatusRowProps) {
 }
 
 export default function NotificationDebugCard() {
-  const { session } = useSession();
   const [snapshot, setSnapshot] = useState<DebugSnapshot>(emptySnapshot);
   const [actionState, setActionState] = useState<ActionState>("idle");
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -84,7 +82,7 @@ export default function NotificationDebugCard() {
     let isCancelled = false;
 
     async function loadSnapshot() {
-      const nextSnapshot = await getDebugSnapshot(session?.email);
+      const nextSnapshot = await getDebugSnapshot();
 
       if (!isCancelled) {
         setSnapshot(nextSnapshot);
@@ -96,10 +94,10 @@ export default function NotificationDebugCard() {
     return () => {
       isCancelled = true;
     };
-  }, [session?.email]);
+  }, []);
 
   async function refreshSnapshot() {
-    setSnapshot(await getDebugSnapshot(session?.email));
+    setSnapshot(await getDebugSnapshot());
   }
 
   async function runAction(

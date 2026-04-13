@@ -10,8 +10,8 @@ import {
 } from "react";
 import { Platform } from "react-native";
 
+import { clearAuthenticatedAppState } from "@/lib/app-state";
 import { cdsfAppPurpose, fetchClient } from "@/lib/cdsf-client";
-import { clearCache } from "@/lib/react-query";
 
 export type Session = {
   email: string;
@@ -171,10 +171,13 @@ export function SessionProvider({ children }: PropsWithChildren) {
         isClearingInvalidSessionRef.current = true;
 
         try {
-          await clearCache();
-          await setStoredSessionRef.current(null);
+          await clearAuthenticatedAppState();
         } finally {
-          isClearingInvalidSessionRef.current = false;
+          try {
+            await setStoredSessionRef.current(null);
+          } finally {
+            isClearingInvalidSessionRef.current = false;
+          }
         }
       },
     };
@@ -210,7 +213,11 @@ export function SessionProvider({ children }: PropsWithChildren) {
   async function signOut() {
     const currentSession = session;
 
-    await setStoredSession(null);
+    try {
+      await clearAuthenticatedAppState();
+    } finally {
+      await setStoredSession(null);
+    }
 
     if (!currentSession) {
       return;

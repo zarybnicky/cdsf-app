@@ -1,11 +1,9 @@
 import type { components, paths } from "@/CDSF";
 import { fetchClient, isPagingProps, openapiClient } from "@/lib/cdsf-client";
+import { appStore } from "@/lib/app-store";
 import { fetchInfiniteProgress } from "@/lib/infinite-query-sync";
-import {
-  filterNotifications,
-  type NotificationPreferences,
-} from "@/lib/notification-preferences";
-import { getSeenState } from "@/lib/seen-state";
+import { type NotificationPreferences } from "@/lib/notification-preferences";
+import { announcementsSeenStateAtom } from "@/lib/seen-state";
 
 type AuthHeaders = {
   Authorization: string;
@@ -27,7 +25,6 @@ export type SyncProgress = {
 
 export type SyncInput = {
   authHeaders?: AuthHeaders;
-  email?: string | null;
   maxPages?: number;
   pageSize?: number;
   persistToCache?: boolean;
@@ -36,7 +33,6 @@ export type SyncInput = {
   stopWhen?: (progress: SyncProgress) => boolean;
 };
 
-export const seenNs = "notifications";
 const pageSize = 10;
 const defaultMaxPages = 3;
 
@@ -86,7 +82,6 @@ async function fetchPage({
 
 export async function syncNotifications({
   authHeaders,
-  email,
   maxPages = defaultMaxPages,
   pageSize: size = pageSize,
   persistToCache = true,
@@ -105,7 +100,7 @@ export async function syncNotifications({
     };
   }
 
-  const seen = seenIds ?? (await getSeenState(seenNs, email)).ids;
+  const seen = seenIds ?? (await appStore.get(announcementsSeenStateAtom)).ids;
   const queryKey = openapiClient.queryOptions(
     "get",
     "/notifications",
@@ -115,7 +110,9 @@ export async function syncNotifications({
   return fetchInfiniteProgress<Page, number, SyncProgress>({
     buildProgress({ pages, pageParams }) {
       const notifications = pages.flatMap((page) => page.collection || []);
-      const visible = filterNotifications(notifications, preferences);
+      const visible = notifications.filter((notification) =>
+        notification.overrideMuting ? true : preferences[notification.type],
+      );
       const unseen = visible.filter(
         (notification) => !seen.has(notification.id.toString()),
       );
