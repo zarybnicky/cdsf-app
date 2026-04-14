@@ -379,11 +379,11 @@ paths:
         "404":
           description: Required competition does not exist.
           ## $ref: "#/components/responses/RateLimitInfo"
-        "200":
-          description: Result for the competition have been replaced.
-          ## $ref: "#/components/responses/RateLimitInfo"
         "201":
           description: Result for the competition have been created.
+          ## $ref: "#/components/responses/RateLimitInfo"
+        "200":
+          description: Result for the competition have been updated.
           ## $ref: "#/components/responses/RateLimitInfo"
     delete:
       tags:
@@ -405,7 +405,7 @@ paths:
         "404":
           description: Required competition does not exist.
           ## $ref: "#/components/responses/RateLimitInfo"
-        "200":
+        "204":
           description: Result for the competition have been deleted.
           ## $ref: "#/components/responses/RateLimitInfo"
   /competitions/{competitionId}/dances:
@@ -694,6 +694,206 @@ paths:
                 required:
                   - collection
           ## $ref: "#/components/responses/RateLimitInfo"
+  /competition_events/{eventId}/check_in_ends:
+    get:
+      tags:
+        - general
+      operationId: loadCompetitionsRegistrationEnds
+      summary: Allows to load all competitions check-in end times at once.
+      description: |
+        Anonymous clients:
+
+        * Rate limiting is applied. Rate limit is shared between all API endpoints.
+
+        Authorized clients:
+
+        * Rate limiting is loose or none.
+      parameters:
+        - in: path
+          name: eventId
+          description: Id of the event of which the report is requested.
+          required: true
+          schema:
+            $ref: "#/components/schemas/Id.Event"
+      responses:
+        "500":
+          $ref: "#/components/responses/ServerFailure"
+        "429":
+          $ref: "#/components/responses/RateLimitAchieved"
+        "400":
+          description: Bad input parameter, e.g. eventId is not an integer number, or event does not belong to allowed date range.
+          ## $ref: "#/components/responses/RateLimitInfo"
+        "404":
+          description: Required event does not exist.
+          ## $ref: "#/components/responses/RateLimitInfo"
+        "200":
+          description: The report has been found and is returned.
+          ## $ref: "#/components/responses/RateLimitInfo"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  collection:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CompetitionCheckInEnd"
+    put:
+      tags:
+        - scrutineer
+      security:
+        - BearerAuth: []
+      operationId: storeCompetitionsRegistrationEnds
+      summary: Allows to store/change competitions check-in end times at once.
+      description: Only present data is stored. If some competition is missing, nothing is changed for the competition.
+      parameters:
+        - in: path
+          name: eventId
+          description: Id of the event of which the report is requested.
+          required: true
+          schema:
+            $ref: "#/components/schemas/Id.Event"
+      requestBody:
+        description: Array of check-in end times.
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                collection:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/CompetitionCheckInEnd"
+      responses:
+        "500":
+          $ref: "#/components/responses/ServerFailure"
+        "400":
+          description: Bad input parameter, e.g. eventId is not an integer number, or event does not belong to allowed date range.
+          ## $ref: "#/components/responses/RateLimitInfo"
+        "404":
+          description: Required event does not exist.
+          ## $ref: "#/components/responses/RateLimitInfo"
+        "204":
+          description: The report has been replaced.
+          ## $ref: "#/components/responses/RateLimitInfo"
+        "200":
+          description: Check-in end times have been stored.
+          ## $ref: "#/components/responses/RateLimitInfo"
+  /competition_events/{eventId}/report:
+    get:
+      tags:
+        - general
+      operationId: loadEventInvigilatorReport
+      summary: Allows to load invigilator report.
+      description: |
+        The invigilator report is created during event, therefore
+        endpoint separate to events planning API is needed.
+
+        Anonymous clients:
+
+        * Rate limiting is applied. Rate limit is shared between all API endpoints.
+
+        Authorized clients:
+
+        * Rate limiting is loose or none.
+      parameters:
+        - in: path
+          name: eventId
+          description: Id of the event of which the report is requested.
+          required: true
+          schema:
+            $ref: "#/components/schemas/Id.Event"
+      responses:
+        "500":
+          $ref: "#/components/responses/ServerFailure"
+        "429":
+          $ref: "#/components/responses/RateLimitAchieved"
+        "400":
+          description: Bad input parameter, e.g. eventId is not an integer number, or event does not belong to allowed date range.
+          ## $ref: "#/components/responses/RateLimitInfo"
+        "404":
+          description: Required event does not exist.
+          ## $ref: "#/components/responses/RateLimitInfo"
+        "200":
+          description: The report has been found and is returned.
+          ## $ref: "#/components/responses/RateLimitInfo"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entity:
+                    $ref: "#/components/schemas/InvigilatorReport"
+    put:
+      tags:
+        - scrutineer
+      security:
+        - BearerAuth: []
+      operationId: storeEventInvigilatorReport
+      summary: Allows to store/change invigilator report.
+      description: |
+        The invigilator report is the only field of the event,
+        that can be written. Therefore it is extracted to the
+        separate endpoints.
+      parameters:
+        - in: path
+          name: eventId
+          description: Id of the event of which the report is requested.
+          required: true
+          schema:
+            $ref: "#/components/schemas/Id.Event"
+      requestBody:
+        description: Invigilator report.
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                entity:
+                  $ref: "#/components/schemas/InvigilatorReport"
+      responses:
+        "500":
+          $ref: "#/components/responses/ServerFailure"
+        "400":
+          description: Bad input parameter, e.g. eventId is not an integer number, or event does not belong to allowed date range.
+          ## $ref: "#/components/responses/RateLimitInfo"
+        "404":
+          description: Required event does not exist.
+          ## $ref: "#/components/responses/RateLimitInfo"
+        "204":
+          description: The report has been replaced.
+          ## $ref: "#/components/responses/RateLimitInfo"
+        "200":
+          description: The report has been stored.
+          ## $ref: "#/components/responses/RateLimitInfo"
+    delete:
+      tags:
+        - scrutineer
+      security:
+        - BearerAuth: []
+      operationId: deleteEventInvigilatorRerpot
+      summary: Deletes invigilator report.
+      parameters:
+        - in: path
+          name: eventId
+          description: Id of the event of which the report is to be deleted.
+          required: true
+          schema:
+            $ref: "#/components/schemas/Id.Event"
+      responses:
+        "500":
+          $ref: "#/components/responses/ServerFailure"
+        "400":
+          description: Bad input parameter, e.g. eventId is not an integer number, or event does not belong to allowed date range.
+          ## $ref: "#/components/responses/RateLimitInfo"
+        "404":
+          description: Required competition does not exist.
+          ## $ref: "#/components/responses/RateLimitInfo"
+        "204":
+          description: Result for the competition have been deleted.
+          ## $ref: "#/components/responses/RateLimitInfo"
   /notifications:
     get:
       tags:
@@ -926,6 +1126,8 @@ components:
           type: integer
         age:
           $ref: "#/components/schemas/Age"
+        sex:
+          type: string
         medicalCheckupExpiration:
           type: string
           format: "#/components/schemas/Date"
@@ -961,12 +1163,24 @@ components:
         - $ref: "#/components/schemas/CompetitorRankingPoints"
         - type: object
           properties:
+            rankingPointsAge:
+              allOf:
+                - $ref: "#/components/schemas/Age"
+                - deprecated: true
             partner:
               type: string
               description: Formatted name
-            idt:
+            partner2:
+              type: string
+              description: Formatted name
+            partnerIdt:
               type: integer
-            avatar:
+            partner2Idt:
+              type: integer
+            partnerAvatar:
+              type: string
+              format: URI
+            partner2Avatar:
               type: string
               format: URI
             medicalCheckupExpiration:
@@ -981,6 +1195,8 @@ components:
               type: integer
             personalForeignFinaleCount:
               type: integer
+            personalApproved:
+              type: boolean
             ranklistRanking:
               type: integer
             ranklistPoints:
@@ -993,6 +1209,12 @@ components:
         - competitors
     BearerToken:
       type: string
+    Captain:
+      type: string
+      description: Name of the captain, optional, typical for formation or team competitions.
+    CheckInEnd:
+      type: string
+      format: "#/components/schemas/DateTime"
     Club:
       type: string
       example: "Neznámý z Nejdedál"
@@ -1028,13 +1250,12 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/DanceDiscipline"
-        registrationEnd:
-          type: string
-          format: "#/components/schemas/DateTime"
         registrationFee:
           type: number
           example: 250.0
           description: Starting fee per competitor, e.g. for a whole couple or formation.
+        checkInEnd:
+          $ref: "#/components/schemas/CheckInEnd"
         registered:
           type: integer
           example: 13
@@ -1056,16 +1277,26 @@ components:
       example: "Ranking"
     CompetitionSeries:
       type: string
-      enum: [DanceForAll, DanceSport]
+      enum: [DanceForAll, DanceSport, Caribbean, Professional]
       example: "DanceSport"
     CompetitionCompetitors:
       type: string
-      enum: [Couple, SoloDancer, Duo, Group, ProAm, Team, Formation]
+      enum:
+        [
+          Couple,
+          SoloDancer,
+          Duo,
+          Group,
+          SmallTeam,
+          BigTeam,
+          ProAm,
+          Team,
+          Formation,
+        ]
       example: "Couple"
     CompetitionOfficial:
       type: object
       allOf:
-        - $ref: "#/components/schemas/OfficialId"
         - type: object
           properties:
             type:
@@ -1083,6 +1314,15 @@ components:
             - type
         - $ref: "#/components/schemas/Official"
       description: id/Official is generally required. Only in case when the judge is added on venue, it can be ommited.
+    CompetitionCheckInEnd:
+      type: object
+      properties:
+        competitionId:
+          $ref: "#/components/schemas/Id.Competition"
+        checkInEnd:
+          $ref: "#/components/schemas/CheckInEnd"
+      required:
+        - competitionId
     CompetitionResult:
       type: object
       properties:
@@ -1109,9 +1349,6 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/DancedRound"
-        invigilatorReport:
-          type: string
-          description: Markdown supported.
       required:
         - competitionId
         - completedAt
@@ -1121,28 +1358,21 @@ components:
         - type
     CompetitionStartListCompetitor:
       type: object
-      properties:
-        competitorId:
-          $ref: "#/components/schemas/Id.Competitor"
-        type:
-          $ref: "#/components/schemas/CompetitionCompetitors"
-        name:
-          allOf:
-            - type: string
-            - description: identification of competitor that is not couple nor individual, e.g. formation, team or group.
-        captain:
-          type: string
-        club:
-          $ref: "#/components/schemas/Club"
-        country:
-          $ref: "#/components/schemas/Country"
-        persons:
-          $ref: "#/components/schemas/CompetitorPersons"
-        coupleOrDuos:
-          $ref: "#/components/schemas/CompetitorCoupleOrDuos"
+      allOf:
+        - allOf:
+            - $ref: "#/components/schemas/Competitor"
+            - description: "rankingPoints are restricted according to competition"
+        - type: object
+          properties:
+            presence:
+              $ref: "#/components/schemas/Presence"
+            startsWithRound:
+              type: integer
+              minimum: 1
       required:
         - competitorId
         - persons or couplesOrDuos or name
+        - presence
     CompetitionRegistration:
       type: object
       properties:
@@ -1162,6 +1392,12 @@ components:
           $ref: "#/components/schemas/CompetitionCompetitors"
         class:
           $ref: "#/components/schemas/RankingClass"
+        fromClass:
+          allOf:
+            - $ref: "#/components/schemas/RankingClass"
+            - deprecated: true
+        toClass:
+          $ref: "#/components/schemas/RankingClass"
         discipline:
           $ref: "#/components/schemas/Discipline"
         age:
@@ -1174,9 +1410,22 @@ components:
           type: integer
         rankingTo:
           type: integer
-        registrationEnd:
+        points:
+          type: number
+        final:
+          type: boolean
+        competitorsCount:
+          type: integer
+        completedAt:
           type: string
-          format: "#/components/schemas/DateTime"
+          format: datetime
+          example: "2025-06-14T12:47:40.273+00:00"
+        checkInEnd:
+          $ref: "#/components/schemas/CheckInEnd"
+        registrationEnd:
+          allOf:
+            - $ref: "#/components/schemas/CheckInEnd"
+            - deprecated: true
       required:
         - competitionId
         - class
@@ -1187,7 +1436,7 @@ components:
       items:
         type: object
         properties:
-          id:
+          competitorId:
             $ref: "#/components/schemas/Id.Competitor"
           idt1:
             $ref: "#/components/schemas/Id.Person"
@@ -1210,7 +1459,7 @@ components:
           backup:
             type: boolean
         required:
-          - id
+          - competitorId
           - idt1
           - surname1
           - idt2
@@ -1220,7 +1469,7 @@ components:
       items:
         type: object
         properties:
-          id:
+          competitorId:
             $ref: "#/components/schemas/Id.Competitor"
           idt:
             $ref: "#/components/schemas/Id.Person"
@@ -1235,37 +1484,42 @@ components:
           backup:
             type: boolean
         required:
-          - id
+          - competitorId
           - idt
           - surname
     Competitor:
       type: object
       properties:
-        id:
+        competitorId:
           $ref: "#/components/schemas/Id.Competitor"
         type:
           $ref: "#/components/schemas/CompetitionCompetitors"
         name:
-          type: string
+          allOf:
+            - type: string
+            - description: identification of competitor that is not couple nor individual, e.g. formation, team or group.
+        captain:
+          $ref: "#/components/schemas/Captain"
+        club:
+          $ref: "#/components/schemas/Club"
         country:
           $ref: "#/components/schemas/Country"
-        club:
-          type: string
-          description: club or city or both
-        shortLoanRequired:
-          type: boolean
         persons:
           $ref: "#/components/schemas/CompetitorPersons"
-        coupleOrDuos:
+        couplesOrDuos:
           $ref: "#/components/schemas/CompetitorCoupleOrDuos"
+        shortLoanRequired:
+          type: boolean
         rankingPoints:
           type: array
           items:
-            $ref: "#/components/schemas/CompetitorRankingPoints"
+            allOf:
+              - $ref: "#/components/schemas/CompetitorRankingPoints"
+              - description: "If competitor is returned in context of startlist then items are reduced to include only related records."
       required:
-        - id
+        - competitorId
         - type
-        - name or persons or coupleOrDuos
+        - name or persons or couplesOrDuos
     CompetitorResult:
       type: object
       properties:
@@ -1287,6 +1541,10 @@ components:
           type: integer
           minimum: 1
           example: 8
+        points:
+          type: number
+        final:
+          type: boolean
         rounds:
           type: array
           items:
@@ -1337,7 +1595,7 @@ components:
           $ref: "#/components/schemas/CompetitionSeries"
         discipline:
           $ref: "#/components/schemas/Discipline"
-        rankingPointsAge:
+        rankingAge:
           $ref: "#/components/schemas/Age"
         competitors:
           $ref: "#/components/schemas/CompetitionCompetitors"
@@ -1351,12 +1609,16 @@ components:
           type: integer
         approved:
           type: boolean
+        time:
+          type: string
+          format: datetime
+          example: "2025-06-14T12:47:40.273+00:00"
       required:
         - id
         - competitorId
         - series
         - discipline
-        - rankingPointsAge
+        - rankingAge
         - competitors
     Completion:
       type: object
@@ -1421,6 +1683,7 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/RoundJudge"
+          description: if empty Competition.Officials applies
       required:
         - round
         - dances
@@ -1439,12 +1702,22 @@ components:
       enum:
         [
           Standard,
+          ShowdanceStandard,
           Latin,
+          ShowdanceLatin,
           TenDances,
           "Standard+Latin",
           SingleOfTenDances,
           FreeStyle,
-          Breaking,
+          Caribbean,
+          Salsa,
+          ShowdanceSalsa,
+          Bachata,
+          ShowdanceBachata,
+          Merengue,
+          ShowdanceMerengue,
+          ChoreographicStandard,
+          ChoreographicLatin,
           Other,
         ]
       example: Latin
@@ -1459,7 +1732,7 @@ components:
             organizer:
               type: string
               example: "CDSF"
-            executor:
+            promoter:
               type: string
               example: "ACME corp."
             officials:
@@ -1476,11 +1749,16 @@ components:
               allOf:
                 - $ref: "#/components/schemas/DateTime"
                 - description: DateTime in format as in example in UTC.
+            invigilatorReport:
+              type: string
+              description: Markdown supported.
+            invigilatorReportPublicationApproved:
+              type: boolean
           required:
             - dateFrom
             - eventTitle
             - location
-            - executor
+            - promoter
             - officials
             - competitions
     EventInfo:
@@ -1539,14 +1817,8 @@ components:
           properties:
             competitionId:
               $ref: "#/components/schemas/Id.Competition"
-            presence:
-              $ref: "#/components/schemas/Presence"
-            startsWithRound:
-              type: integer
-              minimum: 1
           required:
             - competitionId
-            - presence
     Id.Competition:
       type: integer
       minimum: 1
@@ -1581,6 +1853,16 @@ components:
       minimum: 1
       example: 45567
       description: Id of competitor points/discipline info. See @AthleteRankingPoints, @CompetitorRankingPoints.
+    InvigilatorReport:
+      type: object
+      properties:
+        report:
+          type: string
+          description: Markdown is supported.
+        publicationApproved:
+          type: boolean
+      required:
+        - report
     Marks:
       type: string
       example: x|-|x|-|x|x|x|-|-|x|x|-|x|-|x|-|x|x|-|x|x|x|-|x|x
@@ -1648,7 +1930,15 @@ components:
             firstName:
               type: string
               example: Květoslav
+              deprecated: true
+            name:
+              type: string
+              example: Květoslav
             familyName:
+              type: string
+              example: Zřídkaveselý
+              deprecated: true
+            surname:
               type: string
               example: Zřídkaveselý
             club:
@@ -1659,8 +1949,11 @@ components:
               type: array
               items:
                 $ref: "#/components/schemas/OfficialLicence"
+              description: Unused when delivering reults.
           required:
             - id
+            - name
+            - surname
             - firstName
             - familyName
     OfficialLicence:
@@ -1752,7 +2045,6 @@ components:
     RoundJudge:
       type: object
       allOf:
-        - $ref: "#/components/schemas/OfficialId"
         - type: object
           properties:
             index:
@@ -1766,3 +2058,4 @@ components:
               description: Label is informational.
           required:
             - index
+        - $ref: "#/components/schemas/Official"
