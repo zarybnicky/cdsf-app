@@ -17,10 +17,7 @@ export type AnnouncementSeen = {
   latestIds: string[];
 };
 
-type ResultsSeen = {
-  ids: string[];
-  initialized: boolean;
-};
+type ResultsSeen = { ids: string[]; initialized: boolean };
 type Update<T> = T | ((prev: T) => T);
 
 const emptyAnnouncementsSeen: AnnouncementSeen = {
@@ -28,46 +25,43 @@ const emptyAnnouncementsSeen: AnnouncementSeen = {
   latestCreatedMs: null,
   latestIds: [],
 };
-const emptyResultsSeen: ResultsSeen = {
-  ids: [],
-  initialized: false,
-};
+const emptyResultsSeen: ResultsSeen = { ids: [], initialized: false };
 
-const announcementsBaseAtom = atomWithStorage<AnnouncementSeen>(
-  "seen-state:announcements",
-  emptyAnnouncementsSeen,
-  createJSONStorage<AnnouncementSeen>(() => AsyncStorage),
-  { getOnInit: true },
-);
+function storedAtom<T>(key: string, initialValue: T) {
+  const baseAtom = atomWithStorage<T>(
+    key,
+    initialValue,
+    createJSONStorage<T>(() => AsyncStorage),
+    { getOnInit: true },
+  );
 
-const resultsBaseAtom = atomWithStorage<ResultsSeen>(
-  "seen-state:competition-results",
-  emptyResultsSeen,
-  createJSONStorage<ResultsSeen>(() => AsyncStorage),
-  { getOnInit: true },
-);
+  return [
+    baseAtom,
+    atom(
+      async (get) => get(baseAtom),
+      async (get, set, update: Update<T>) => {
+        const prev = await get(baseAtom);
+        const next =
+          typeof update === "function"
+            ? (update as (prev: T) => T)(prev)
+            : update;
 
-export const announcementsSeenAtom = atom(
-  async (get) => get(announcementsBaseAtom),
-  async (get, set, update: Update<AnnouncementSeen>) => {
-    const prev = await get(announcementsBaseAtom);
-    const next = typeof update === "function" ? update(prev) : update;
-    if (next !== prev) {
-      await set(announcementsBaseAtom, next);
-    }
-  },
-);
+        if (next !== prev) {
+          await set(baseAtom, next);
+        }
+      },
+    ),
+  ] as const;
+}
 
-export const resultsSeenAtom = atom(
-  async (get) => get(resultsBaseAtom),
-  async (get, set, update: Update<ResultsSeen>) => {
-    const prev = await get(resultsBaseAtom);
-    const next = typeof update === "function" ? update(prev) : update;
-    if (next !== prev) {
-      await set(resultsBaseAtom, next);
-    }
-  },
-);
+function uniqueStrings(values: Iterable<string | number>) {
+  return [...new Set(Array.from(values, String))];
+}
+
+const [announcementsBaseAtom, announcementsSeenAtom] = storedAtom("seen-state:announcements", emptyAnnouncementsSeen);
+const [resultsBaseAtom, resultsSeenAtom] = storedAtom("seen-state:competition-results", emptyResultsSeen);
+
+export { announcementsSeenAtom, resultsSeenAtom };
 
 export function getAnnouncementCreatedMs({
   created,
@@ -96,10 +90,7 @@ export function getLatestHead(notifications: Iterable<AnnouncementRecord>) {
     }
   }
 
-  return {
-    latestCreatedMs,
-    latestIds: [...latestIds],
-  };
+  return { latestCreatedMs, latestIds: [...latestIds] };
 }
 
 export function hasAnnouncementsBefore(
@@ -126,14 +117,14 @@ export function isAnnouncementSeen(
   if (!state.initialized || state.latestCreatedMs === null) {
     return false;
   }
-  const createdMs = getAnnouncementCreatedMs(notification);
-  const id = notification.id.toString();
 
-  return createdMs < state.latestCreatedMs
-    ? true
-    : createdMs > state.latestCreatedMs
-      ? false
-      : state.latestIds.includes(id);
+  const createdMs = getAnnouncementCreatedMs(notification);
+
+  if (createdMs !== state.latestCreatedMs) {
+    return createdMs < state.latestCreatedMs;
+  }
+
+  return state.latestIds.includes(notification.id.toString());
 }
 
 export const syncAnnouncementsAtom = atom(
@@ -163,7 +154,7 @@ export const syncAnnouncementsAtom = atom(
         return initialized;
       }
 
-      const latestIds = [...new Set([...prev.latestIds, ...latest.latestIds])];
+      const latestIds = uniqueStrings([...prev.latestIds, ...latest.latestIds]);
 
       if (prev.initialized && latestIds.length === prev.latestIds.length) {
         return prev;
@@ -181,7 +172,7 @@ export const syncAnnouncementsAtom = atom(
 export const unseeAnnouncementsAtom = atom(
   null,
   async (_get, set, ids: Iterable<string | number>) => {
-    const idsToRemove = new Set(Array.from(ids, String));
+    const idsToRemove = new Set(uniqueStrings(ids));
 
     await set(announcementsSeenAtom, (prev) => {
       if (
@@ -210,7 +201,7 @@ export const unseeAnnouncementsAtom = atom(
 export const markResultsSeenAtom = atom(
   null,
   async (_get, set, ids: Iterable<string | number>) => {
-    const idsToAdd = [...new Set(Array.from(ids, String))];
+    const idsToAdd = uniqueStrings(ids);
 
     await set(resultsSeenAtom, (prev) => {
       const initialized = prev.initialized ? prev : { ...prev, initialized: true };
@@ -219,7 +210,8 @@ export const markResultsSeenAtom = atom(
         return initialized;
       }
 
-      const nextIds = [...new Set([...prev.ids, ...idsToAdd])];
+      const nextIds = uniqueStrings([...prev.ids, ...idsToAdd]);
+
       if (prev.initialized && nextIds.length === prev.ids.length) {
         return prev;
       }

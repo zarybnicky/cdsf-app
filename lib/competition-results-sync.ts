@@ -28,12 +28,10 @@ export type SyncProgress = {
 };
 
 export type SyncInput = {
-  authHeaders?: {
-    Authorization: string;
-  };
   maxPages?: number;
   seenIds?: Iterable<string>;
   stopWhen?: (progress: SyncProgress) => boolean;
+  token?: string;
 };
 
 const pageSize = 100;
@@ -65,22 +63,22 @@ export function flattenResults(events: readonly CompetitionResultEvent[]) {
 }
 
 async function fetchCompetitionResultsPage({
-  authHeaders,
-  pageParam,
+  page,
   signal,
+  token,
 }: {
-  authHeaders: {
-    Authorization: string;
-  };
-  pageParam: number;
+  page: number;
   signal?: AbortSignal;
+  token: string;
 }) {
   return getData(
     await fetchClient.GET("/athletes/current/competitions/results", {
-      headers: authHeaders,
+      headers: {
+        Authorization: token,
+      },
       params: {
         query: {
-          page: pageParam,
+          page,
           pageSize,
         },
       },
@@ -110,11 +108,9 @@ export const competitionResultsAtom = atomWithInfiniteQuery((get) => {
       }
 
       return fetchCompetitionResultsPage({
-        authHeaders: {
-          Authorization: session.token,
-        },
-        pageParam,
+        page: pageParam,
         signal,
+        token: session.token,
       });
     },
   };
@@ -133,12 +129,12 @@ function buildProgress(pages: Page[], seen: ReadonlySet<string>) {
 }
 
 export async function syncCompetitionResults({
-  authHeaders,
   maxPages = defaultPages,
   seenIds,
   stopWhen,
+  token,
 }: SyncInput): Promise<SyncProgress> {
-  if (!authHeaders) {
+  if (!token) {
     return {
       events: [],
       nextPage: undefined,
@@ -173,9 +169,9 @@ export async function syncCompetitionResults({
     pages: Math.max(minimumPageCount, pageCount(maxPages)),
     queryFn: ({ pageParam, signal }) =>
       fetchCompetitionResultsPage({
-        authHeaders,
-        pageParam,
+        page: pageParam,
         signal,
+        token,
       }),
     queryKey: key,
   });

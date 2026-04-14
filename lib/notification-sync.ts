@@ -32,13 +32,11 @@ type BuiltSyncProgress = SyncProgress & {
 };
 
 export type SyncInput = {
-  authHeaders?: {
-    Authorization: string;
-  };
   maxPages?: number;
   pageSize?: number;
   preferences: NotificationPreferences;
   seenState?: AnnouncementSeen;
+  token?: string;
 };
 
 const pageSize = 10;
@@ -46,24 +44,24 @@ const defaultPages = 3;
 const key = ["announcements"] as const;
 
 async function fetchNotificationsPage({
-  authHeaders,
-  pageParam,
+  page,
   pageSize: size,
   signal,
+  token,
 }: {
-  authHeaders: {
-    Authorization: string;
-  };
-  pageParam: number;
+  page: number;
   pageSize: number;
   signal?: AbortSignal;
+  token: string;
 }) {
   return getData(
     await fetchClient.GET("/notifications", {
-      headers: authHeaders,
+      headers: {
+        Authorization: token,
+      },
       params: {
         query: {
-          page: pageParam,
+          page,
           pageSize: size,
         },
       },
@@ -93,12 +91,10 @@ export const announcementsAtom = atomWithInfiniteQuery((get) => {
       }
 
       return fetchNotificationsPage({
-        authHeaders: {
-          Authorization: session.token,
-        },
-        pageParam,
+        page: pageParam,
         pageSize,
         signal,
+        token: session.token,
       });
     },
   };
@@ -138,13 +134,13 @@ function hasBoundary(progress: BuiltSyncProgress, seenState: AnnouncementSeen) {
 }
 
 export async function syncNotifications({
-  authHeaders,
   maxPages = defaultPages,
   pageSize: size = pageSize,
   preferences,
   seenState,
+  token,
 }: SyncInput): Promise<SyncProgress> {
-  if (!authHeaders) {
+  if (!token) {
     return {
       notifications: [],
       visible: [],
@@ -181,10 +177,10 @@ export async function syncNotifications({
     pages: Math.max(minimumPageCount, pageCount(maxPages)),
     queryFn: ({ pageParam, signal }) =>
       fetchNotificationsPage({
-        authHeaders,
-        pageParam,
+        page: pageParam,
         pageSize: size,
         signal,
+        token,
       }),
     queryKey: key,
   });

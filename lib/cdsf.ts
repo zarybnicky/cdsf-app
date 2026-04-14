@@ -51,6 +51,23 @@ export function formatSimpleDate(input?: string) {
   return `${date.getDate()}. ${date.getMonth() + 1}. ${date.getFullYear()}`;
 }
 
+export function formatSimpleDateTime(input?: string) {
+  if (!input) {
+    return undefined;
+  }
+
+  const date = parseCdsfDate(input);
+
+  if (!date) {
+    return input;
+  }
+
+  const hours = date.getHours().toString().padStart(2, "0");
+  const minutes = date.getMinutes().toString().padStart(2, "0");
+
+  return `${date.getDate()}. ${date.getMonth() + 1}. ${date.getFullYear()} ${hours}:${minutes}`;
+}
+
 export function getAgeLabel(age: Athlete["age"]) {
   return translatedAgeLabels[age] ?? age;
 }

@@ -28,52 +28,6 @@ const emptySnapshot: DebugSnapshot = {
   registered: false,
 };
 
-type ActionState = "idle" | "loading";
-
-type DebugActionButtonProps = {
-  actionState: ActionState;
-  label: string;
-  onPress: () => void;
-};
-
-function DebugActionButton({
-  actionState,
-  label,
-  onPress,
-}: DebugActionButtonProps) {
-  return (
-    <Pressable
-      disabled={actionState === "loading"}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.actionButton,
-        pressed ? styles.actionButtonPressed : null,
-        actionState === "loading" ? styles.actionButtonDisabled : null,
-      ]}
-    >
-      {actionState === "loading" ? (
-        <ActivityIndicator color="#2457b3" size="small" />
-      ) : (
-        <Text style={styles.actionButtonText}>{label}</Text>
-      )}
-    </Pressable>
-  );
-}
-
-type StatusRowProps = {
-  label: string;
-  value: string;
-};
-
-function StatusRow({ label, value }: StatusRowProps) {
-  return (
-    <View style={styles.statusRow}>
-      <Text style={styles.statusLabel}>{label}</Text>
-      <Text style={styles.statusValue}>{value}</Text>
-    </View>
-  );
-}
-
 function formatAnnouncementHead(createdMs: number | null) {
   if (createdMs === null) {
     return "Žádný";
@@ -86,7 +40,7 @@ function formatAnnouncementHead(createdMs: number | null) {
 
 export default function NotificationDebugCard() {
   const [snapshot, setSnapshot] = useState<DebugSnapshot>(emptySnapshot);
-  const [actionState, setActionState] = useState<ActionState>("idle");
+  const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const rows = [
     ["Platforma", snapshot.platform],
@@ -100,22 +54,35 @@ export default function NotificationDebugCard() {
     ["ID v headu", snapshot.announcementLatestIds.toString()],
     ["Seen výsledky", snapshot.resultsSeenCount.toString()],
   ] as const;
+  const actions = [
+    {
+      label: "Spustit worker",
+      onPress: () => {
+        void runAction(runWorkerForTest, "Worker byl spuštěn.");
+      },
+    },
+    {
+      label: "Znovu oznámit poslední",
+      onPress: () => {
+        void runAction(
+          replayLatestForTest,
+          "Poslední oznámení bylo znovu připraveno a worker byl spuštěn.",
+        );
+      },
+    },
+  ] as const;
 
   useEffect(() => {
-    let isCancelled = false;
+    let active = true;
 
-    async function loadSnapshot() {
-      const nextSnapshot = await getDebugSnapshot();
-
-      if (!isCancelled) {
+    void getDebugSnapshot().then((nextSnapshot) => {
+      if (active) {
         setSnapshot(nextSnapshot);
       }
-    }
-
-    void loadSnapshot();
+    });
 
     return () => {
-      isCancelled = true;
+      active = false;
     };
   }, []);
 
@@ -127,7 +94,7 @@ export default function NotificationDebugCard() {
     action: () => Promise<boolean>,
     successMessage: string,
   ) {
-    setActionState("loading");
+    setLoading(true);
     setFeedback(null);
 
     try {
@@ -138,7 +105,7 @@ export default function NotificationDebugCard() {
         error instanceof Error ? error.message : "Akci se nepodařilo dokončit.",
       );
     } finally {
-      setActionState("idle");
+      setLoading(false);
       await refreshSnapshot();
     }
   }
@@ -162,29 +129,39 @@ export default function NotificationDebugCard() {
       </View>
 
       <View style={styles.statusCard}>
-        {rows.map(([label, value]) => (
-          <StatusRow key={label} label={label} value={value} />
+        {rows.map(([label, value], index) => (
+          <View
+            key={label}
+            style={[
+              styles.statusRow,
+              index < rows.length - 1 ? styles.statusRowBorder : null,
+            ]}
+          >
+            <Text style={styles.statusLabel}>{label}</Text>
+            <Text style={styles.statusValue}>{value}</Text>
+          </View>
         ))}
       </View>
 
       <View style={styles.actions}>
-        <DebugActionButton
-          actionState={actionState}
-          label="Spustit worker"
-          onPress={() => {
-            void runAction(runWorkerForTest, "Worker byl spuštěn.");
-          }}
-        />
-        <DebugActionButton
-          actionState={actionState}
-          label="Znovu oznámit poslední"
-          onPress={() => {
-            void runAction(
-              replayLatestForTest,
-              "Poslední oznámení bylo znovu připraveno a worker byl spuštěn.",
-            );
-          }}
-        />
+        {actions.map(({ label, onPress }) => (
+          <Pressable
+            key={label}
+            onPress={onPress}
+            disabled={loading}
+            style={({ pressed }) => [
+              styles.actionButton,
+              pressed ? styles.actionButtonPressed : null,
+              loading ? styles.actionButtonDisabled : null,
+            ]}
+          >
+            {loading ? (
+              <ActivityIndicator color="#2457b3" size="small" />
+            ) : (
+              <Text style={styles.actionButtonText}>{label}</Text>
+            )}
+          </Pressable>
+        ))}
       </View>
 
       {feedback ? <Text style={styles.feedback}>{feedback}</Text> : null}
@@ -244,6 +221,8 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingHorizontal: 12,
     paddingVertical: 9,
+  },
+  statusRowBorder: {
     borderBottomWidth: 1,
     borderBottomColor: "#edf1f6",
   },
