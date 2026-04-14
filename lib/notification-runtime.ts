@@ -16,18 +16,17 @@ import { getAgeLabel } from "@/lib/cdsf";
 import { stripMarkdown } from "@/lib/markdown";
 import { notificationPreferencesAtom } from "@/lib/notification-preferences";
 import { type Notification, syncNotifications } from "@/lib/notification-sync";
-import { sessionAtom, sessionValueAtom, type Session } from "@/lib/session";
+import { currentSessionAtom, sessionAtom, type Session } from "@/lib/session";
 import {
-  addSeenIds,
-  announcementsSeenStateAtom,
-  competitionResultsSeenStateAtom,
-  dropSeenIds,
-  initializeSeenState,
+  announcementsSeenAtom,
+  getAnnouncementCreatedMs,
+  markResultsSeenAtom,
+  resultsSeenAtom,
+  syncAnnouncementsAtom,
+  unseeAnnouncementsAtom,
 } from "@/lib/seen-state";
 
 const bgTaskName = "cdsf-announcements-background-sync";
-const announcementsChannelId = "cdsf-announcements";
-const resultsChannelId = "cdsf-results";
 const bgIntervalMins = 15;
 const notifColor = "#2457b3";
 const previewMaxLen = 140;
@@ -38,8 +37,20 @@ type NotificationTarget = "announcements" | "competition-results";
 type NotificationPermissions = Awaited<
   ReturnType<typeof Notifications.getPermissionsAsync>
 >;
+type Channel = {
+  id: string;
+  name: string;
+  description: string;
+};
+
+type NotificationContent = Pick<
+  Notifications.NotificationContentInput,
+  "body" | "color" | "subtitle" | "title"
+>;
+
 export type DebugSnapshot = {
-  announcementsSeenCount: number;
+  announcementLatestMs: number | null;
+  announcementLatestIds: number;
   bgStatus: string;
   canAskAgain: boolean;
   allowed: boolean;
@@ -58,6 +69,52 @@ Notifications.setNotificationHandler({
     shouldShowList: true,
   }),
 });
+
+const announcementsChannel: Channel = {
+  id: "cdsf-announcements",
+  name: "Aktuality",
+  description: "Upozornění na nová sdělení v části Aktuality.",
+};
+
+const resultsChannel: Channel = {
+  id: "cdsf-results",
+  name: "Výsledky",
+  description: "Upozornění na nově zveřejněné výsledky soutěží.",
+};
+const targetRoutes = {
+  announcements: "/announcements",
+  "competition-results": "/competitions?tab=results",
+} as const satisfies Record<NotificationTarget, string>;
+const gradeLabels: Partial<
+  Record<NonNullable<PublishedCompetitionResult["competition"]["grade"]>, string>
+> = {
+  Championship: "MČR",
+  League: "TL",
+  SuperLeague: "STL",
+};
+const disciplineLabels: Partial<
+  Record<
+    NonNullable<PublishedCompetitionResult["competition"]["discipline"]>,
+    string
+  >
+> = {
+  Standard: "STT",
+  Latin: "LAT",
+  TenDances: "10T",
+  "Standard+Latin": "STT + LAT",
+  SingleOfTenDances: "Single 10T",
+  FreeStyle: "Freestyle",
+};
+
+const androidChannel = {
+  enableLights: true,
+  enableVibrate: true,
+  importance: Notifications.AndroidImportance.HIGH,
+  lightColor: notifColor,
+  lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+  showBadge: true,
+  vibrationPattern: [0, 250, 150, 250],
+};
 
 function hasPermission(permissions: NotificationPermissions) {
   return (
@@ -134,39 +191,15 @@ async function requestNotificationsPermission() {
   return hasPermission(next);
 }
 
-async function ensureAnnouncementsChannel() {
+async function ensureChannel(channel: Channel) {
   if (Platform.OS !== "android") {
     return;
   }
 
-  await Notifications.setNotificationChannelAsync(announcementsChannelId, {
-    name: "Aktuality",
-    description: "Upozornění na nová sdělení v části Aktuality.",
-    enableLights: true,
-    enableVibrate: true,
-    importance: Notifications.AndroidImportance.HIGH,
-    lightColor: notifColor,
-    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
-    showBadge: true,
-    vibrationPattern: [0, 250, 150, 250],
-  });
-}
-
-async function ensureResultsChannel() {
-  if (Platform.OS !== "android") {
-    return;
-  }
-
-  await Notifications.setNotificationChannelAsync(resultsChannelId, {
-    name: "Výsledky",
-    description: "Upozornění na nově zveřejněné výsledky soutěží.",
-    enableLights: true,
-    enableVibrate: true,
-    importance: Notifications.AndroidImportance.HIGH,
-    lightColor: notifColor,
-    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
-    showBadge: true,
-    vibrationPattern: [0, 250, 150, 250],
+  await Notifications.setNotificationChannelAsync(channel.id, {
+    ...androidChannel,
+    name: channel.name,
+    description: channel.description,
   });
 }
 
@@ -195,7 +228,7 @@ function previewBody(notification: Notification) {
   return "Otevřete aplikaci pro detail aktuality.";
 }
 
-function getContent(unseen: readonly Notification[]) {
+function getAnnouncementsContent(unseen: readonly Notification[]) {
   const [latest] = unseen;
   const latestTitle = stripMarkdown(latest.caption);
   const count = unseen.length;
@@ -210,74 +243,29 @@ function getContent(unseen: readonly Notification[]) {
   };
 }
 
-async function scheduleAnnouncementsNotification(
-  unseen: readonly Notification[],
-) {
-  if (unseen.length === 0) {
-    return;
-  }
-  await ensureAnnouncementsChannel();
-  await Notifications.scheduleNotificationAsync({
-    content: {
-      ...getContent(unseen),
-      data: {
-        target: "announcements" satisfies NotificationTarget,
-      },
-    },
-    trigger:
-      Platform.OS === "android"
-        ? {
-            channelId: announcementsChannelId,
-          }
-        : null,
-  });
-}
-
 function formatCompetitionClass(result: PublishedCompetitionResult) {
   const classLabel = result.competition.class;
 
-  if (
-    !classLabel ||
+  return !classLabel ||
     classLabel === "Open" ||
     classLabel ===
       ("Unknown" as PublishedCompetitionResult["competition"]["class"])
-  ) {
-    return undefined;
-  }
-
-  return classLabel;
+    ? undefined
+    : classLabel;
 }
 
 function formatCompetitionGrade(result: PublishedCompetitionResult) {
-  switch (result.competition.grade) {
-    case "Championship":
-      return "MČR";
-    case "League":
-      return "TL";
-    case "SuperLeague":
-      return "STL";
-    default:
-      return undefined;
-  }
+  const grade = result.competition.grade;
+
+  return grade ? gradeLabels[grade] : undefined;
 }
 
 function formatCompetitionDiscipline(result: PublishedCompetitionResult) {
-  switch (result.competition.discipline) {
-    case "Standard":
-      return "STT";
-    case "Latin":
-      return "LAT";
-    case "TenDances":
-      return "10T";
-    case "Standard+Latin":
-      return "STT + LAT";
-    case "SingleOfTenDances":
-      return "Single 10T";
-    case "FreeStyle":
-      return "Freestyle";
-    default:
-      return result.competition.discipline;
-  }
+  const discipline = result.competition.discipline;
+
+  return (
+    (discipline ? disciplineLabels[discipline] : undefined) ?? discipline
+  );
 }
 
 function formatCompetitionPlacement(result: PublishedCompetitionResult) {
@@ -323,25 +311,23 @@ function getResultsContent(unseen: readonly PublishedCompetitionResult[]) {
   };
 }
 
-async function scheduleResultsNotification(
-  unseen: readonly PublishedCompetitionResult[],
+async function scheduleNotification(
+  channel: Channel,
+  target: NotificationTarget,
+  content: NotificationContent,
 ) {
-  if (unseen.length === 0) {
-    return;
-  }
-
-  await ensureResultsChannel();
+  await ensureChannel(channel);
   await Notifications.scheduleNotificationAsync({
     content: {
-      ...getResultsContent(unseen),
+      ...content,
       data: {
-        target: "competition-results" satisfies NotificationTarget,
+        target,
       },
     },
     trigger:
       Platform.OS === "android"
         ? {
-            channelId: resultsChannelId,
+            channelId: channel.id,
           }
         : null,
   });
@@ -365,128 +351,127 @@ export async function replayLatestForTest() {
     return false;
   }
 
-  const [preferences, { ids: seenIds }] = await Promise.all([
+  const [preferences, seenState] = await Promise.all([
     appStore.get(notificationPreferencesAtom),
-    appStore.get(announcementsSeenStateAtom),
+    appStore.get(announcementsSeenAtom),
   ]);
+
+  if (seenState.latestCreatedMs === null) {
+    return false;
+  }
+
   const result = await syncNotifications({
     authHeaders: { Authorization: session.token },
     maxPages: 3,
     preferences,
-    seenIds,
-    stopWhen: ({ nextPage, visible }) =>
-      visible.length > 0 || nextPage === undefined,
+    seenState,
   });
-  const latest = result.visible[0];
+  const latest = result.visible.find(
+    (notification) =>
+      getAnnouncementCreatedMs(notification) === seenState.latestCreatedMs &&
+      seenState.latestIds.includes(notification.id.toString()),
+  );
 
   if (!latest) {
     return false;
   }
 
-  await appStore.set(
-    announcementsSeenStateAtom,
-    dropSeenIds([latest.id.toString()]),
-  );
+  await appStore.set(unseeAnnouncementsAtom, [latest.id.toString()]);
 
   await runBgTask();
   return true;
 }
 
-async function runAnnouncementsSync(allowLocalNotifications: boolean) {
+async function runAnnouncementsSync(allowLocal: boolean) {
   const session = await appStore.get(sessionAtom);
   if (!session) {
     return;
   }
 
   const [seen, preferences] = await Promise.all([
-    appStore.get(announcementsSeenStateAtom),
+    appStore.get(announcementsSeenAtom),
     appStore.get(notificationPreferencesAtom),
   ]);
   const result = await syncNotifications({
     authHeaders: { Authorization: session.token },
     preferences,
-    seenIds: seen.ids,
-    stopWhen: ({ nextPage, unseen }) =>
-      unseen.length > 0 || nextPage === undefined,
+    seenState: seen,
   });
-  const toMarkSeen = seen.initialized ? result.unseen : result.visible;
 
-  if (toMarkSeen.length === 0) {
-    if (!seen.initialized) {
-      await appStore.set(announcementsSeenStateAtom, initializeSeenState());
-    }
-
+  if (!seen.initialized) {
+    await appStore.set(syncAnnouncementsAtom, result.notifications);
     return;
   }
 
-  if (seen.initialized) {
-    if (!allowLocalNotifications) {
-      return;
-    }
-
-    await scheduleAnnouncementsNotification(toMarkSeen);
+  if (result.unseen.length && !allowLocal) {
+    return;
   }
 
-  await appStore.set(
-    announcementsSeenStateAtom,
-    addSeenIds(toMarkSeen.map((notification) => notification.id.toString())),
-  );
+  if (result.unseen.length) {
+    await scheduleNotification(
+      announcementsChannel,
+      "announcements",
+      getAnnouncementsContent(result.unseen),
+    );
+  }
+
+  if (result.notifications.length) {
+    await appStore.set(syncAnnouncementsAtom, result.notifications);
+  }
 }
 
-async function runCompetitionResultsSync(allowLocalNotifications: boolean) {
+async function runCompetitionResultsSync(allowLocal: boolean) {
   const session = await appStore.get(sessionAtom);
   if (!session) {
     return;
   }
 
-  const seen = await appStore.get(competitionResultsSeenStateAtom);
+  const seen = await appStore.get(resultsSeenAtom);
+  const initialized = seen.initialized;
   const result = await syncCompetitionResults({
     authHeaders: { Authorization: session.token },
-    maxPages: seen.initialized ? 3 : Number.POSITIVE_INFINITY,
+    maxPages: initialized ? 3 : Number.POSITIVE_INFINITY,
     seenIds: seen.ids,
-    stopWhen: seen.initialized
-      ? ({ nextPage, unseen }) => unseen.length > 0 || nextPage === undefined
-      : ({ nextPage }) => nextPage === undefined,
+    stopWhen: ({ nextPage, unseen }) =>
+      nextPage === undefined || (initialized && unseen.length > 0),
   });
-  const toMarkSeen = seen.initialized ? result.unseen : result.results;
+  const results = initialized ? result.unseen : result.results;
 
-  if (toMarkSeen.length === 0) {
-    if (!seen.initialized) {
-      await appStore.set(
-        competitionResultsSeenStateAtom,
-        initializeSeenState(),
-      );
+  if (!results.length) {
+    if (!initialized) {
+      await appStore.set(markResultsSeenAtom, []);
     }
 
     return;
   }
 
-  if (seen.initialized) {
-    if (!allowLocalNotifications) {
-      return;
-    }
-
-    await scheduleResultsNotification(toMarkSeen);
+  if (initialized && !allowLocal) {
+    return;
   }
 
-  await appStore.set(
-    competitionResultsSeenStateAtom,
-    addSeenIds(toMarkSeen.map((result) => result.id)),
-  );
+  if (initialized) {
+    await scheduleNotification(
+      resultsChannel,
+      "competition-results",
+      getResultsContent(results),
+    );
+  }
+
+  await appStore.set(markResultsSeenAtom, results.map(({ id }) => id));
 }
 
-async function runAllSyncs(allowLocalNotifications: boolean) {
+async function runAllSyncs(allowLocal: boolean) {
   const errors: unknown[] = [];
 
   try {
-    await runAnnouncementsSync(allowLocalNotifications);
+    await runAnnouncementsSync(allowLocal);
   } catch (error) {
     console.error("Announcements sync failed.", error);
     errors.push(error);
   }
 
   try {
-    await runCompetitionResultsSync(allowLocalNotifications);
+    await runCompetitionResultsSync(allowLocal);
   } catch (error) {
     console.error("Competition results sync failed.", error);
     errors.push(error);
@@ -515,9 +500,9 @@ if (!TaskManager.isTaskDefined(bgTaskName)) {
   });
 }
 
-async function isBgTaskAvailable() {
+async function getBgTaskState() {
   if (isWeb) {
-    return false;
+    return null;
   }
 
   try {
@@ -526,20 +511,30 @@ async function isBgTaskAvailable() {
       BackgroundTask.getStatusAsync(),
     ]);
 
-    return (
-      taskManager && status === BackgroundTask.BackgroundTaskStatus.Available
-    );
+    return { status, taskManager };
   } catch {
-    return false;
+    return null;
   }
 }
 
-async function registerBgTask() {
-  if (!(await isBgTaskAvailable())) {
+async function setBgTaskRegistered(registered: boolean) {
+  const state = await getBgTaskState();
+
+  if (
+    !state?.taskManager ||
+    state.status !== BackgroundTask.BackgroundTaskStatus.Available
+  ) {
     return;
   }
 
-  if (await TaskManager.isTaskRegisteredAsync(bgTaskName)) {
+  const isRegistered = await TaskManager.isTaskRegisteredAsync(bgTaskName);
+
+  if (registered === isRegistered) {
+    return;
+  }
+
+  if (!registered) {
+    await BackgroundTask.unregisterTaskAsync(bgTaskName);
     return;
   }
 
@@ -548,67 +543,44 @@ async function registerBgTask() {
   });
 }
 
-async function unregisterBgTask() {
-  if (!(await isBgTaskAvailable())) {
-    return;
-  }
-
-  if (!(await TaskManager.isTaskRegisteredAsync(bgTaskName))) {
-    return;
-  }
-
-  await BackgroundTask.unregisterTaskAsync(bgTaskName);
-}
-
 export async function getDebugSnapshot(): Promise<DebugSnapshot> {
   const [announcementsSeen, resultsSeen] = await Promise.all([
-    appStore.get(announcementsSeenStateAtom),
-    appStore.get(competitionResultsSeenStateAtom),
+    appStore.get(announcementsSeenAtom),
+    appStore.get(resultsSeenAtom),
   ]);
+  const state = {
+    announcementLatestMs: announcementsSeen.latestCreatedMs,
+    announcementLatestIds: announcementsSeen.latestIds.length,
+    platform: Platform.OS,
+    resultsSeenCount: resultsSeen.ids.length,
+  };
 
   if (isWeb) {
     return {
-      announcementsSeenCount: announcementsSeen.ids.size,
+      ...state,
       bgStatus: "Web",
       canAskAgain: false,
       allowed: false,
       permissionStatus: "Nepodporováno",
-      platform: Platform.OS,
-      resultsSeenCount: resultsSeen.ids.size,
       taskManager: false,
       registered: false,
     };
   }
 
   const permissions = await Notifications.getPermissionsAsync();
-  let taskManager = false;
-  let registered = false;
-  let bgStatus = "Neznámé";
-
-  try {
-    const [isAvailable, status] = await Promise.all([
-      TaskManager.isAvailableAsync(),
-      BackgroundTask.getStatusAsync(),
-    ]);
-
-    taskManager = isAvailable;
-    bgStatus = bgStatusLabel(status);
-
-    if (isAvailable) {
-      registered = await TaskManager.isTaskRegisteredAsync(bgTaskName);
-    }
-  } catch {
-    bgStatus = "Nedostupné";
-  }
+  const bgTaskState = await getBgTaskState();
+  const taskManager = bgTaskState?.taskManager ?? false;
+  const bgStatus = bgTaskState ? bgStatusLabel(bgTaskState.status) : "Nedostupné";
+  const registered = taskManager
+    ? await TaskManager.isTaskRegisteredAsync(bgTaskName)
+    : false;
 
   return {
-    announcementsSeenCount: announcementsSeen.ids.size,
+    ...state,
     bgStatus,
     canAskAgain: permissions.canAskAgain,
     allowed: hasPermission(permissions),
     permissionStatus: permissionLabel(permissions),
-    platform: Platform.OS,
-    resultsSeenCount: resultsSeen.ids.size,
     taskManager,
     registered,
   };
@@ -619,19 +591,22 @@ async function bootstrapRuntime(requestPermissions: boolean) {
     return;
   }
 
-  await Promise.all([ensureAnnouncementsChannel(), ensureResultsChannel()]);
+  await Promise.all([
+    ensureChannel(announcementsChannel),
+    ensureChannel(resultsChannel),
+  ]);
 
   if (requestPermissions) {
     await requestNotificationsPermission();
   }
 
-  await registerBgTask();
+  await setBgTaskRegistered(true);
   await runAllSyncs(false);
 }
 
 export function useNotificationRuntime(enabled: boolean) {
   const router = useRouter();
-  const session = useAtomValue(sessionValueAtom);
+  const session = useAtomValue(currentSessionAtom);
   const lastHandledIdRef = useRef<string | null>(null);
   const prevSessionRef = useRef<Session | null | undefined>(undefined);
 
@@ -648,26 +623,16 @@ export function useNotificationRuntime(enabled: boolean) {
       }
 
       lastHandledIdRef.current = id;
-      const target = (() => {
-        const data = response.notification.request.content.data;
+      const { data } = response.notification.request.content;
+      const target =
+        data &&
+        typeof data === "object" &&
+        "target" in data &&
+        data.target === "competition-results"
+          ? "competition-results"
+          : "announcements";
 
-        if (
-          data &&
-          typeof data === "object" &&
-          "target" in data &&
-          data.target === "competition-results"
-        ) {
-          return "competition-results" as const;
-        }
-
-        return "announcements" as const;
-      })();
-
-      router.push(
-        target === "competition-results"
-          ? "/competitions?tab=results"
-          : "/announcements",
-      );
+      router.push(targetRoutes[target]);
       Notifications.clearLastNotificationResponse();
     };
 
@@ -695,7 +660,7 @@ export function useNotificationRuntime(enabled: boolean) {
 
     if (!session) {
       lastHandledIdRef.current = null;
-      void unregisterBgTask().catch((error) => {
+      void setBgTaskRegistered(false).catch((error) => {
         console.error(
           "Unable to unregister notifications background task.",
           error,

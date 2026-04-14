@@ -13,8 +13,6 @@ type PrefMeta = {
   description: string;
 };
 
-const preferencesStorageKey = "notification-preferences";
-
 export const preferenceOrder = [
   "CompetitionMessage",
   "CompetitionChange",
@@ -41,17 +39,17 @@ export const defaultPreferences: NotificationPreferences = {
   ExecutiveBoardMinutes: true,
 };
 
-const notificationPreferencesStorage =
-  createJSONStorage<NotificationPreferences>(() => AsyncStorage);
+const storage = createJSONStorage<NotificationPreferences>(() => AsyncStorage);
+
 export const notificationPreferencesAtom = atomWithStorage(
-  preferencesStorageKey,
+  "notification-preferences",
   defaultPreferences,
-  notificationPreferencesStorage,
+  storage,
   {
     getOnInit: true,
   },
 );
-export const notificationPreferencesLoadableAtom = loadable(
+export const notificationPreferencesStateAtom = loadable(
   notificationPreferencesAtom,
 );
 
@@ -100,12 +98,9 @@ export const preferenceMetadata: Record<NotificationType, PrefMeta> = {
 
 export const setNotificationPreferenceAtom = atom(
   null,
-  async (get, set, update: { enabled: boolean; type: NotificationType }) => {
-    const current = await get(notificationPreferencesAtom);
-
-    await set(notificationPreferencesAtom, {
+  (_get, set, { enabled, type }: { enabled: boolean; type: NotificationType }) =>
+    set(notificationPreferencesAtom, (current) => ({
       ...current,
-      [update.type]: update.enabled,
-    });
-  },
+      [type]: enabled,
+    })),
 );

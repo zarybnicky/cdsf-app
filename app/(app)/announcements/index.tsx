@@ -10,54 +10,60 @@ import ScreenStateCard from "@/components/ScreenStateCard";
 import { Text } from "@/components/Themed";
 import {
   defaultPreferences,
-  notificationPreferencesLoadableAtom,
+  notificationPreferencesStateAtom,
 } from "@/lib/notification-preferences";
-import { announcementsInfiniteQueryAtom } from "@/lib/notification-sync";
-import { addSeenIds, announcementsSeenStateAtom } from "@/lib/seen-state";
+import { announcementsAtom } from "@/lib/notification-sync";
+import { syncAnnouncementsAtom } from "@/lib/seen-state";
 
 export default function AnnouncementsScreen() {
-  const query = useAtomValue(announcementsInfiniteQueryAtom);
-  const preferencesState = useAtomValue(notificationPreferencesLoadableAtom);
-  const setAnnouncementsSeenState = useSetAtom(announcementsSeenStateAtom);
-  const arePreferencesLoading = preferencesState.state === "loading";
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isError,
+    isFetchingNextPage,
+    isLoading,
+    isRefetching,
+    refetch,
+  } = useAtomValue(announcementsAtom);
+  const preferencesState = useAtomValue(notificationPreferencesStateAtom);
+  const syncAnnouncements = useSetAtom(syncAnnouncementsAtom);
+  const prefsLoading = preferencesState.state === "loading";
   const preferences =
     preferencesState.state === "hasData"
       ? preferencesState.data
       : defaultPreferences;
-  const { fetchNextPage, hasNextPage, isError, isFetchingNextPage, isLoading } =
-    query;
-  const isRefreshing = query.isRefetching && !isLoading;
-
-  const notifications = (query.data?.pages ?? []).flatMap(
+  const isRefreshing = isRefetching && !isLoading;
+  const notifications = (data?.pages ?? []).flatMap(
     (page) => page.collection || [],
   );
-  const visible = notifications.filter((notification) =>
-    notification.overrideMuting ? true : preferences[notification.type],
+  const visible = notifications.filter(
+    (notification) =>
+      notification.overrideMuting || preferences[notification.type],
   );
-  const visibleIds = visible.map((notification) => notification.id.toString());
   const hiddenCount = notifications.length - visible.length;
   const isLoadingState =
     isLoading ||
-    arePreferencesLoading ||
+    prefsLoading ||
     (isFetchingNextPage && visible.length === 0);
   const announcements = isLoadingState
     ? []
     : visible.map(announcementFromNotification);
   const showFilterNotice = hiddenCount > 0 && !isLoadingState && !isError;
-  const emptyStateTitle = isLoadingState
-    ? "Načítám aktuality"
-    : isError
-      ? "Nepodařilo se načíst aktuality"
-      : hiddenCount > 0
-        ? "Podle zvoleného filtru zde nejsou žádné aktuality"
-        : "Zatím nejsou dostupné žádné aktuality";
-  const emptyStateBody = isLoadingState
-    ? "Aktuality se načítají."
-    : isError
-      ? "Zkuste načtení zopakovat."
-      : hiddenCount > 0
-        ? "V nastavení aktualit můžete upravit filtry a zobrazit další sdělení."
-        : "Jakmile budou zveřejněny nové informace, zobrazí se zde.";
+  let emptyStateTitle = "Zatím nejsou dostupné žádné aktuality";
+  let emptyStateBody = "Jakmile budou zveřejněny nové informace, zobrazí se zde.";
+
+  if (isLoadingState) {
+    emptyStateTitle = "Načítám aktuality";
+    emptyStateBody = "Aktuality se načítají.";
+  } else if (isError) {
+    emptyStateTitle = "Nepodařilo se načíst aktuality";
+    emptyStateBody = "Zkuste načtení zopakovat.";
+  } else if (hiddenCount > 0) {
+    emptyStateTitle = "Podle zvoleného filtru zde nejsou žádné aktuality";
+    emptyStateBody =
+      "V nastavení aktualit můžete upravit filtry a zobrazit další sdělení.";
+  }
 
   useEffect(() => {
     if (
@@ -75,23 +81,21 @@ export default function AnnouncementsScreen() {
     fetchNextPage,
     hasNextPage,
     isError,
-    isFetchingNextPage,
-    isLoading,
     isLoadingState,
     notifications.length,
     visible.length,
   ]);
 
   useEffect(() => {
-    if (isLoadingState || isError || visibleIds.length === 0) {
+    if (isLoadingState || isError) {
       return;
     }
 
-    void setAnnouncementsSeenState(addSeenIds(visibleIds));
-  }, [isError, isLoadingState, setAnnouncementsSeenState, visibleIds]);
+    void syncAnnouncements(notifications);
+  }, [isError, isLoadingState, notifications, syncAnnouncements]);
 
   function refresh() {
-    void query.refetch();
+    void refetch();
   }
 
   return (
@@ -100,7 +104,7 @@ export default function AnnouncementsScreen() {
       <FlatList
         contentContainerStyle={styles.listContent}
         data={announcements}
-        keyExtractor={(item) => item.id ?? `${item.title}-${item.publishedAt}`}
+        keyExtractor={(item) => item.id}
         ListHeaderComponent={
           showFilterNotice ? (
             <View style={styles.header}>

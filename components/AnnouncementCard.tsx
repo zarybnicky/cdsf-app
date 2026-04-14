@@ -9,7 +9,7 @@ import { stripMarkdown } from "@/lib/markdown";
 type Notification = components["schemas"]["Notification"];
 
 export type AnnouncementCardProps = {
-  id?: string;
+  id: string;
   title: string;
   publishedAt: string;
   markdown: string;

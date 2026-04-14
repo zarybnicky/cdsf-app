@@ -6,7 +6,7 @@ import { Platform } from "react-native";
 
 import { appStore } from "@/lib/app-store";
 import { clearAuthenticatedAppState } from "@/lib/app-state";
-import { cdsfAppPurpose, fetchClient } from "@/lib/cdsf-client";
+import { appPurpose, fetchClient } from "@/lib/cdsf-client";
 
 export type Session = {
   email: string;
@@ -18,38 +18,30 @@ type SignInInput = {
   password: string;
 };
 
-const storageKey = "session";
-const sessionStorage = createJSONStorage<Session | null>(() => ({
-  getItem(key) {
-    if (Platform.OS === "web") {
-      return Promise.resolve(localStorage.getItem(key));
-    }
+const rawStorage =
+  Platform.OS === "web"
+    ? {
+        getItem: async (key: string) => localStorage.getItem(key),
+        setItem: async (key: string, value: string) => {
+          localStorage.setItem(key, value);
+        },
+        removeItem: async (key: string) => {
+          localStorage.removeItem(key);
+        },
+      }
+    : {
+        getItem: SecureStore.getItemAsync,
+        setItem: SecureStore.setItemAsync,
+        removeItem: SecureStore.deleteItemAsync,
+      };
 
-    return SecureStore.getItemAsync(key);
-  },
-  setItem(key, value) {
-    if (Platform.OS === "web") {
-      localStorage.setItem(key, value);
-      return Promise.resolve();
-    }
+const storage = createJSONStorage<Session | null>(() => rawStorage);
 
-    return SecureStore.setItemAsync(key, value);
-  },
-  removeItem(key) {
-    if (Platform.OS === "web") {
-      localStorage.removeItem(key);
-      return Promise.resolve();
-    }
-
-    return SecureStore.deleteItemAsync(key);
-  },
-}));
-
-function isSessionRequest(schemaPath: string) {
+function isAuthPath(schemaPath: string) {
   return schemaPath === "/credentials" || schemaPath === "/credentials/current";
 }
 
-function signInError(status: number) {
+function getSignInError(status: number) {
   if (status === 401) {
     return "Zadaný e-mail nebo heslo nejsou správné.";
   }
@@ -62,18 +54,18 @@ function signInError(status: number) {
 }
 
 export const sessionAtom = atomWithStorage<Session | null>(
-  storageKey,
+  "session",
   null,
-  sessionStorage,
+  storage,
   {
     getOnInit: true,
   },
 );
-export const sessionLoadableAtom = loadable(sessionAtom);
-export const sessionValueAtom = atom((get) => {
-  const sessionState = get(sessionLoadableAtom);
+export const sessionStateAtom = loadable(sessionAtom);
+export const currentSessionAtom = atom((get) => {
+  const session = get(sessionStateAtom);
 
-  return sessionState.state === "hasData" ? sessionState.data : null;
+  return session.state === "hasData" ? session.data : null;
 });
 
 export const signInAtom = atom(
@@ -87,13 +79,13 @@ export const signInAtom = atom(
       body: {
         login: email,
         password,
-        purpose: cdsfAppPurpose,
+        purpose: appPurpose,
       },
     });
     const token = response.data;
 
     if (!token) {
-      throw new Error(signInError(response.response.status));
+      throw new Error(getSignInError(response.response.status));
     }
 
     await set(sessionAtom, {
@@ -123,7 +115,7 @@ export const signOutAtom = atom(null, async (get, set) => {
       },
       params: {
         query: {
-          purpose: cdsfAppPurpose,
+          purpose: appPurpose,
         },
       },
     });
@@ -142,7 +134,7 @@ export function ensureSessionMiddleware() {
 
   const unauthorizedMiddleware: Middleware = {
     async onResponse({ request, response, schemaPath }) {
-      if (response.status !== 401 || isSessionRequest(schemaPath)) {
+      if (response.status !== 401 || isAuthPath(schemaPath)) {
         return;
       }
 

@@ -16,15 +16,6 @@ export type CompetitionListItemDetail = {
   value?: string;
 };
 
-type CompetitionListItemData = {
-  city: string;
-  dateDay: string;
-  dateMonth: string;
-  dateYear: string;
-  details: CompetitionListItemDetail[];
-  title: string;
-};
-
 export type CompetitionListItemProps = {
   event: EventRegistration;
   variant?: "registered" | "results";
@@ -144,43 +135,31 @@ export default function CompetitionListItem({
   event,
   variant = "registered",
 }: CompetitionListItemProps) {
-  function getItemData(): CompetitionListItemData {
-    const details = event.competitions.map((competition) => {
-      const runtimeCompetition = competition as RuntimeCompetitionRegistration;
-      const label = [
-        formatGrade(competition.grade),
-        getAgeLabel(competition.age),
-        formatClass(runtimeCompetition),
-        formatDiscipline(competition.discipline),
-      ]
-        .filter(Boolean)
-        .join(" ");
+  const isResults = variant === "results";
+  const { dateDay, dateMonth, dateYear } = getDateBadge(event.date);
+  const details = event.competitions.map((competition) => {
+    const runtimeCompetition = competition as RuntimeCompetitionRegistration;
+    const label = [
+      formatGrade(competition.grade),
+      getAgeLabel(competition.age),
+      formatClass(runtimeCompetition),
+      formatDiscipline(competition.discipline),
+    ]
+      .filter(Boolean)
+      .join(" ");
 
-      if (variant === "results") {
-        const value = formatPlacement(
-          competition.ranking,
-          competition.rankingTo,
-          runtimeCompetition.competitorsCount,
-        );
-
-        if (value) {
-          return { label, value };
-        }
-      }
-
+    if (!isResults) {
       return { label };
-    });
+    }
 
-    return {
-      city: event.city,
-      title: event.eventName,
-      details,
-      ...getDateBadge(event.date),
-    };
-  }
+    const value = formatPlacement(
+      competition.ranking,
+      competition.rankingTo,
+      runtimeCompetition.competitorsCount,
+    );
 
-  const { city, dateDay, dateMonth, dateYear, details, title } = getItemData(
-  );
+    return value ? { label, value } : { label };
+  });
 
   return (
     <View style={styles.card}>
@@ -195,19 +174,19 @@ export default function CompetitionListItem({
       </View>
 
       <View style={styles.content}>
-        <Text style={styles.city}>{city}</Text>
-        <Text style={styles.title}>{title}</Text>
+        <Text style={styles.city}>{event.city}</Text>
+        <Text style={styles.title}>{event.eventName}</Text>
 
         {details.map((detail, index) => (
           <View
-            key={`${title}-${detail.label}-${detail.value ?? "detail"}-${index}`}
+            key={`${event.eventName}-${detail.label}-${detail.value ?? "detail"}-${index}`}
             style={
-              variant === "results"
+              isResults
                 ? styles.resultsMetaRow
                 : styles.registrationMetaRow
             }
           >
-            {variant === "results" ? (
+            {isResults ? (
               <View style={styles.resultsMetaCopy}>
                 <View style={styles.resultsMetaLabelWrap}>
                   <Text style={styles.resultsMetaLabel}>{detail.label}</Text>

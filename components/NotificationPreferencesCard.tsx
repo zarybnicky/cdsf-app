@@ -11,7 +11,7 @@ import { useAtomValue, useSetAtom } from "jotai";
 import { Text } from "@/components/Themed";
 import {
   defaultPreferences,
-  notificationPreferencesLoadableAtom,
+  notificationPreferencesStateAtom,
   preferenceMetadata,
   preferenceOrder,
   setNotificationPreferenceAtom,
@@ -62,7 +62,7 @@ function NotificationPreferenceRow({
 export default function NotificationPreferencesCard({
   style,
 }: NotificationPreferencesCardProps) {
-  const preferencesState = useAtomValue(notificationPreferencesLoadableAtom);
+  const preferencesState = useAtomValue(notificationPreferencesStateAtom);
   const setPreference = useSetAtom(setNotificationPreferenceAtom);
   const isPreferencesLoading = preferencesState.state === "loading";
   const preferences =

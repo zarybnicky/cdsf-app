@@ -7,11 +7,7 @@ import { stackHeaderScreenOptions } from "@/lib/navigation-header";
 
 export default function AnnouncementsLayout() {
   return (
-    <Stack
-      screenOptions={{
-        ...stackHeaderScreenOptions,
-      }}
-    >
+    <Stack screenOptions={stackHeaderScreenOptions}>
       <Stack.Screen
         name="index"
         options={{

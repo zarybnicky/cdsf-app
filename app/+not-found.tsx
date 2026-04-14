@@ -3,10 +3,11 @@ import { Link, Stack } from "expo-router";
 import { StyleSheet } from "react-native";
 
 import { Text, View } from "@/components/Themed";
-import { sessionValueAtom } from "@/lib/session";
+import { currentSessionAtom } from "@/lib/session";
 
 export default function NotFoundScreen() {
-  const session = useAtomValue(sessionValueAtom);
+  const session = useAtomValue(currentSessionAtom);
+  const homeHref = session ? "/announcements" : "/login";
 
   return (
     <>
@@ -14,7 +15,7 @@ export default function NotFoundScreen() {
       <View style={styles.container}>
         <Text style={styles.title}>Tuto obrazovku se nepodařilo najít.</Text>
 
-        <Link href={session ? "/announcements" : "/login"} style={styles.link}>
+        <Link href={homeHref} style={styles.link}>
           <Text style={styles.linkText}>Přejít na úvod</Text>
         </Link>
       </View>

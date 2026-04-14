@@ -8,32 +8,33 @@ import ListTopShadow from "@/components/ListTopShadow";
 import ProfileAthleteCard from "@/components/ProfileAthleteCard";
 import ScreenStateCard from "@/components/ScreenStateCard";
 import { Text, View } from "@/components/Themed";
-import { profileQueryAtom } from "@/lib/profile-query";
-import { sessionValueAtom, signOutAtom } from "@/lib/session";
+import { profileAtom } from "@/lib/profile-query";
+import { currentSessionAtom, signOutAtom } from "@/lib/session";
 
 export default function ProfileScreen() {
-  const athletesQuery = useAtomValue(profileQueryAtom);
-  const session = useAtomValue(sessionValueAtom);
+  const { data, isError, isLoading, isRefetching, refetch } =
+    useAtomValue(profileAtom);
+  const session = useAtomValue(currentSessionAtom);
   const signOut = useSetAtom(signOutAtom);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const athletes = athletesQuery.data?.collection || [];
-  const isRefreshing = athletesQuery.isRefetching && !athletesQuery.isLoading;
-  const stateTitle = athletesQuery.isLoading
-    ? "Načítám profil"
-    : athletesQuery.isError
-      ? "Nepodařilo se načíst profilové údaje"
-      : "K tomuto účtu nejsou dostupné členské údaje";
-  const stateBody = athletesQuery.isLoading
-    ? "Profilové údaje se načítají."
-    : athletesQuery.isError
-      ? "Zkuste načtení zopakovat."
-      : "Jakmile budou údaje k účtu dostupné, zobrazí se zde.";
+  const athletes = data?.collection ?? [];
+  const isRefreshing = isRefetching && !isLoading;
+  let stateTitle = "K tomuto účtu nejsou dostupné členské údaje";
+  let stateBody = "Jakmile budou údaje k účtu dostupné, zobrazí se zde.";
+
+  if (isLoading) {
+    stateTitle = "Načítám profil";
+    stateBody = "Profilové údaje se načítají.";
+  } else if (isError) {
+    stateTitle = "Nepodařilo se načíst profilové údaje";
+    stateBody = "Zkuste načtení zopakovat.";
+  }
 
   function refreshProfile() {
     setIsMenuOpen(false);
-    void athletesQuery.refetch();
+    void refetch();
   }
 
   async function handleLogout() {
@@ -56,9 +57,7 @@ export default function ProfileScreen() {
               accessibilityHint="Otevře nabídku účtu"
               accessibilityLabel="Nabídka účtu"
               accessibilityRole="button"
-              onPress={() => {
-                setIsMenuOpen((value) => !value);
-              }}
+              onPress={() => setIsMenuOpen((value) => !value)}
               style={({ pressed }) => [
                 styles.headerMenuButton,
                 pressed ? styles.headerMenuButtonPressed : null,
@@ -86,15 +85,12 @@ export default function ProfileScreen() {
         ListEmptyComponent={
           <ScreenStateCard
             body={stateBody}
-            isLoading={athletesQuery.isLoading}
-            onRetry={athletesQuery.isError ? refreshProfile : undefined}
-            style={styles.stateCard}
+            isLoading={isLoading}
+            onRetry={isError ? refreshProfile : undefined}
             title={stateTitle}
           />
         }
-        onScrollBeginDrag={() => {
-          setIsMenuOpen(false);
-        }}
+        onScrollBeginDrag={() => setIsMenuOpen(false)}
         onRefresh={refreshProfile}
         renderItem={({ item }) => <ProfileAthleteCard athlete={item} />}
         refreshing={isRefreshing}
@@ -103,12 +99,7 @@ export default function ProfileScreen() {
       />
       {isMenuOpen ? (
         <>
-          <Pressable
-            onPress={() => {
-              setIsMenuOpen(false);
-            }}
-            style={styles.menuBackdrop}
-          />
+          <Pressable onPress={() => setIsMenuOpen(false)} style={styles.menuBackdrop} />
           <View style={styles.headerMenu}>
             <View style={styles.headerMenuSection}>
               <Text style={styles.headerMenuLabel}>Účet</Text>
@@ -119,9 +110,7 @@ export default function ProfileScreen() {
             <Pressable
               accessibilityRole="button"
               disabled={isSubmitting}
-              onPress={() => {
-                void handleLogout();
-              }}
+              onPress={() => void handleLogout()}
               style={({ pressed }) => [
                 styles.headerMenuItem,
                 styles.headerMenuItemBorder,
@@ -231,8 +220,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     lineHeight: 18,
-  },
-  stateCard: {
-    borderRadius: 16,
   },
 });

@@ -11,14 +11,14 @@ import "react-native-reanimated";
 import { appStore } from "@/lib/app-store";
 import { useNotificationRuntime } from "@/lib/notification-runtime";
 import {
-  markCacheRestoreHandled,
-  queryCacheMaxAge,
+  cacheMaxAge,
+  markCacheRestored,
   queryClient,
   queryPersister,
 } from "@/lib/react-query";
 import {
   ensureSessionMiddleware,
-  sessionLoadableAtom,
+  sessionStateAtom,
 } from "@/lib/session";
 
 export { ErrorBoundary } from "expo-router";
@@ -28,6 +28,7 @@ export const unstable_settings = {
 };
 
 void SplashScreen.preventAutoHideAsync();
+ensureSessionMiddleware();
 
 type RootNavigatorProps = {
   fontsLoaded: boolean;
@@ -35,7 +36,7 @@ type RootNavigatorProps = {
 };
 
 function RootNavigator({ fontsLoaded, cacheReady }: RootNavigatorProps) {
-  const sessionState = useAtomValue(sessionLoadableAtom);
+  const sessionState = useAtomValue(sessionStateAtom);
   const isSessionLoading = sessionState.state === "loading";
   const session = sessionState.state === "hasData" ? sessionState.data : null;
   const isAppReady = fontsLoaded && cacheReady && !isSessionLoading;
@@ -73,12 +74,10 @@ export default function RootLayout() {
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
   const [cacheReady, setCacheReady] = useState(false);
-  const onCacheReady = () => {
-    markCacheRestoreHandled();
+  const handleCacheReady = () => {
+    markCacheRestored();
     setCacheReady(true);
   };
-
-  ensureSessionMiddleware();
 
   if (error) {
     throw error;
@@ -87,15 +86,12 @@ export default function RootLayout() {
   return (
     <PersistQueryClientProvider
       client={queryClient}
-      persistOptions={{ persister: queryPersister, maxAge: queryCacheMaxAge }}
-      onSuccess={onCacheReady}
-      onError={onCacheReady}
+      persistOptions={{ persister: queryPersister, maxAge: cacheMaxAge }}
+      onSuccess={handleCacheReady}
+      onError={handleCacheReady}
     >
       <JotaiProvider store={appStore}>
-        <RootNavigator
-          fontsLoaded={fontsLoaded}
-          cacheReady={cacheReady}
-        />
+        <RootNavigator fontsLoaded={fontsLoaded} cacheReady={cacheReady} />
       </JotaiProvider>
     </PersistQueryClientProvider>
   );

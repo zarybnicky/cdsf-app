@@ -1,10 +1,10 @@
 import { useAtomValue } from "jotai";
 import { Redirect, Stack } from "expo-router";
 
-import { sessionLoadableAtom } from "@/lib/session";
+import { sessionStateAtom } from "@/lib/session";
 
 export default function IndexScreen() {
-  const sessionState = useAtomValue(sessionLoadableAtom);
+  const sessionState = useAtomValue(sessionStateAtom);
   const isLoading = sessionState.state === "loading";
   const session = sessionState.state === "hasData" ? sessionState.data : null;
 

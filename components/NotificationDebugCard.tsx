@@ -16,7 +16,8 @@ import {
 } from "@/lib/notification-runtime";
 
 const emptySnapshot: DebugSnapshot = {
-  announcementsSeenCount: 0,
+  announcementLatestMs: null,
+  announcementLatestIds: 0,
   bgStatus: "Načítám",
   canAskAgain: false,
   allowed: false,
@@ -73,10 +74,32 @@ function StatusRow({ label, value }: StatusRowProps) {
   );
 }
 
+function formatAnnouncementHead(createdMs: number | null) {
+  if (createdMs === null) {
+    return "Žádný";
+  }
+
+  const date = new Date(createdMs);
+
+  return Number.isNaN(date.getTime()) ? createdMs.toString() : date.toISOString();
+}
+
 export default function NotificationDebugCard() {
   const [snapshot, setSnapshot] = useState<DebugSnapshot>(emptySnapshot);
   const [actionState, setActionState] = useState<ActionState>("idle");
   const [feedback, setFeedback] = useState<string | null>(null);
+  const rows = [
+    ["Platforma", snapshot.platform],
+    ["Oprávnění", snapshot.permissionStatus],
+    ["Lze znovu požádat", snapshot.canAskAgain ? "Ano" : "Ne"],
+    ["Lokální oznámení", snapshot.allowed ? "Povolena" : "Nepovolena"],
+    ["Task Manager", snapshot.taskManager ? "Dostupný" : "Nedostupný"],
+    ["Úloha na pozadí", snapshot.bgStatus],
+    ["Úloha registrována", snapshot.registered ? "Ano" : "Ne"],
+    ["Head aktuality", formatAnnouncementHead(snapshot.announcementLatestMs)],
+    ["ID v headu", snapshot.announcementLatestIds.toString()],
+    ["Seen výsledky", snapshot.resultsSeenCount.toString()],
+  ] as const;
 
   useEffect(() => {
     let isCancelled = false;
@@ -123,9 +146,7 @@ export default function NotificationDebugCard() {
   return (
     <View style={styles.card}>
       <View style={styles.headerRow}>
-        <View style={styles.headerCopy}>
-          <Text style={styles.title}>Vývojářské testování</Text>
-        </View>
+        <Text style={styles.title}>Vývojářské testování</Text>
         <Pressable
           accessibilityRole="button"
           onPress={() => {
@@ -141,33 +162,9 @@ export default function NotificationDebugCard() {
       </View>
 
       <View style={styles.statusCard}>
-        <StatusRow label="Platforma" value={snapshot.platform} />
-        <StatusRow label="Oprávnění" value={snapshot.permissionStatus} />
-        <StatusRow
-          label="Lze znovu požádat"
-          value={snapshot.canAskAgain ? "Ano" : "Ne"}
-        />
-        <StatusRow
-          label="Lokální oznámení"
-          value={snapshot.allowed ? "Povolena" : "Nepovolena"}
-        />
-        <StatusRow
-          label="Task Manager"
-          value={snapshot.taskManager ? "Dostupný" : "Nedostupný"}
-        />
-        <StatusRow label="Úloha na pozadí" value={snapshot.bgStatus} />
-        <StatusRow
-          label="Úloha registrována"
-          value={snapshot.registered ? "Ano" : "Ne"}
-        />
-        <StatusRow
-          label="Seen aktuality"
-          value={snapshot.announcementsSeenCount.toString()}
-        />
-        <StatusRow
-          label="Seen výsledky"
-          value={snapshot.resultsSeenCount.toString()}
-        />
+        {rows.map(([label, value]) => (
+          <StatusRow key={label} label={label} value={value} />
+        ))}
       </View>
 
       <View style={styles.actions}>
@@ -210,19 +207,11 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 12,
   },
-  headerCopy: {
-    flex: 1,
-  },
   title: {
     color: "#223045",
     fontSize: 15,
     fontWeight: "800",
-  },
-  body: {
-    color: "#647286",
-    fontSize: 12.5,
-    lineHeight: 17,
-    marginTop: 4,
+    flex: 1,
   },
   refreshButton: {
     borderRadius: 10,

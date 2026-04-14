@@ -1,5 +1,5 @@
 import { useAtomValue, useSetAtom } from "jotai";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Stack, useLocalSearchParams } from "expo-router";
 import {
   ActivityIndicator,
@@ -14,13 +14,13 @@ import CompetitionListItem from "@/components/CompetitionListItem";
 import ListTopShadow from "@/components/ListTopShadow";
 import ScreenStateCard from "@/components/ScreenStateCard";
 import { Text } from "@/components/Themed";
-import { competitionRegistrationsInfiniteQueryAtom } from "@/lib/competition-registrations-query";
+import { competitionRegistrationsAtom } from "@/lib/competition-registrations-query";
 import {
-  competitionResultsInfiniteQueryAtom,
-  flattenPublishedCompetitionResults,
+  competitionResultsAtom,
+  flattenResults,
 } from "@/lib/competition-results-sync";
 import { getDateMs } from "@/lib/cdsf";
-import { addSeenIds, competitionResultsSeenStateAtom } from "@/lib/seen-state";
+import { markResultsSeenAtom } from "@/lib/seen-state";
 
 type CompetitionTab = "registered" | "results";
 type CompetitionEvent = components["schemas"]["EventRegistration"];
@@ -56,24 +56,15 @@ function getRequestedCompetitionTab(
   return undefined;
 }
 
-function sortCompetitionEvents(events: CompetitionEvent[]) {
-  return [...events].sort((left, right) => {
-    const timestampDifference = getDateMs(right.date) - getDateMs(left.date);
-
-    if (timestampDifference !== 0) {
-      return timestampDifference;
-    }
-
-    return left.eventName.localeCompare(right.eventName, "cs");
-  });
-}
-
-function sortCompetitionEventsAscending(events: CompetitionEvent[]) {
+function sortCompetitionEvents(
+  events: CompetitionEvent[],
+  ascending = false,
+) {
   return [...events].sort((left, right) => {
     const timestampDifference = getDateMs(left.date) - getDateMs(right.date);
 
     if (timestampDifference !== 0) {
-      return timestampDifference;
+      return ascending ? timestampDifference : -timestampDifference;
     }
 
     return left.eventName.localeCompare(right.eventName, "cs");
@@ -127,17 +118,13 @@ function CompetitionTabButton({
 export default function CompetitionsScreen() {
   const { tab } = useLocalSearchParams<{ tab?: string | string[] }>();
   const requestedTab = getRequestedCompetitionTab(tab);
-  const handledRequestedTabRef = useRef<CompetitionTab | null>(null);
-  const setCompetitionResultsSeenState = useSetAtom(
-    competitionResultsSeenStateAtom,
-  );
+  const markResultsSeen = useSetAtom(markResultsSeenAtom);
   const [activeTab, setActiveTab] = useState<CompetitionTab>(
     () => requestedTab ?? "registered",
   );
+  const isRegisteredTab = activeTab === "registered";
   const currentQuery = useAtomValue(
-    activeTab === "registered"
-      ? competitionRegistrationsInfiniteQueryAtom
-      : competitionResultsInfiniteQueryAtom,
+    isRegisteredTab ? competitionRegistrationsAtom : competitionResultsAtom,
   );
   const {
     fetchNextPage,
@@ -151,71 +138,59 @@ export default function CompetitionsScreen() {
 
   const currentTab = competitionTabs[activeTab];
   const isRefreshing = isRefetching && !isLoading;
-  const registrationsStartTimestamp = getRegistrationsStartTimestamp();
-  const allEvents =
-    currentQuery.data?.pages.flatMap((page) => page?.collection || []) || [];
-  const newestFetchedEventTimestamp = allEvents.reduce(
-    (newestTimestamp, event) =>
-      Math.max(newestTimestamp, getDateMs(event.date)),
+  const registrationsStartMs = getRegistrationsStartTimestamp();
+  const allEvents = (currentQuery.data?.pages ?? []).flatMap(
+    (page) => page.collection || [],
+  );
+  const newestEventMs = allEvents.reduce(
+    (latestMs, event) => Math.max(latestMs, getDateMs(event.date)),
     Number.NEGATIVE_INFINITY,
   );
-  const isSeekingCurrentRegistrations =
-    activeTab === "registered" &&
+  const seekingCurrentRegistrations =
+    isRegisteredTab &&
     !!hasNextPage &&
     !isLoading &&
     !isFetchingNextPage &&
     !isError &&
-    newestFetchedEventTimestamp < registrationsStartTimestamp;
-  const hasReachedRegistrationsWindow =
-    activeTab !== "registered" ||
-    newestFetchedEventTimestamp >= registrationsStartTimestamp ||
-    !hasNextPage;
-  const isLoadingState =
-    isLoading ||
-    (activeTab === "registered" && !hasReachedRegistrationsWindow);
+    newestEventMs < registrationsStartMs;
+  const hasReachedCurrentWindow =
+    !isRegisteredTab || newestEventMs >= registrationsStartMs || !hasNextPage;
+  const isLoadingState = isLoading || (isRegisteredTab && !hasReachedCurrentWindow);
   const visibleEvents =
-    activeTab === "registered"
-      ? sortCompetitionEventsAscending(
+    isRegisteredTab
+      ? sortCompetitionEvents(
           allEvents.filter(
-            (event) => getDateMs(event.date) >= registrationsStartTimestamp,
+            (event) => getDateMs(event.date) >= registrationsStartMs,
           ),
+          true,
         )
       : sortCompetitionEvents(allEvents);
-  const emptyStateTitle = isLoadingState
-    ? activeTab === "registered" && isSeekingCurrentRegistrations
-      ? "Načítám aktuální přihlášky"
-      : "Načítám přehled soutěží"
-    : isError
-      ? "Nepodařilo se načíst přehled soutěží"
-      : currentTab.emptyTitle;
-  const emptyStateBody = isLoadingState
-    ? activeTab === "registered" && isSeekingCurrentRegistrations
-      ? "Vyhledávám nejnovější přihlášky."
-      : "Přehled soutěží se načítá."
-    : isError
-      ? "Zkuste načtení zopakovat."
-      : currentTab.emptyBody;
+  let emptyStateTitle = currentTab.emptyTitle;
+  let emptyStateBody = currentTab.emptyBody;
+
+  if (isLoadingState) {
+    emptyStateTitle =
+      isRegisteredTab && seekingCurrentRegistrations
+        ? "Načítám aktuální přihlášky"
+        : "Načítám přehled soutěží";
+    emptyStateBody =
+      isRegisteredTab && seekingCurrentRegistrations
+        ? "Vyhledávám nejnovější přihlášky."
+        : "Přehled soutěží se načítá.";
+  } else if (isError) {
+    emptyStateTitle = "Nepodařilo se načíst přehled soutěží";
+    emptyStateBody = "Zkuste načtení zopakovat.";
+  }
 
   useEffect(() => {
-    if (!requestedTab) {
-      handledRequestedTabRef.current = null;
-      return;
-    }
-
-    if (handledRequestedTabRef.current === requestedTab) {
-      return;
-    }
-
-    handledRequestedTabRef.current = requestedTab;
-
-    if (requestedTab !== activeTab) {
+    if (requestedTab) {
       setActiveTab(requestedTab);
     }
-  }, [activeTab, requestedTab]);
+  }, [requestedTab]);
 
   useEffect(() => {
     if (
-      activeTab !== "registered" ||
+      !isRegisteredTab ||
       !hasNextPage ||
       isLoading ||
       isFetchingNextPage ||
@@ -225,29 +200,28 @@ export default function CompetitionsScreen() {
     }
 
     void fetchNextPage();
-  }, [activeTab, fetchNextPage, hasNextPage, isError, isFetchingNextPage, isLoading]);
+  }, [
+    fetchNextPage,
+    hasNextPage,
+    isError,
+    isFetchingNextPage,
+    isLoading,
+    isRegisteredTab,
+  ]);
 
   useEffect(() => {
-    if (activeTab !== "results" || isLoadingState || isError) {
+    if (isRegisteredTab || isLoadingState || isError) {
       return;
     }
 
-    const visibleResultIds = flattenPublishedCompetitionResults(
-      visibleEvents,
-    ).map((result) => result.id);
+    const seenIds = flattenResults(visibleEvents).map(({ id }) => id);
 
-    if (visibleResultIds.length === 0) {
+    if (seenIds.length === 0) {
       return;
     }
 
-    void setCompetitionResultsSeenState(addSeenIds(visibleResultIds));
-  }, [
-    activeTab,
-    isError,
-    isLoadingState,
-    setCompetitionResultsSeenState,
-    visibleEvents,
-  ]);
+    void markResultsSeen(seenIds);
+  }, [isError, isLoadingState, isRegisteredTab, markResultsSeen, visibleEvents]);
 
   function refreshCurrentTab() {
     void refetch();

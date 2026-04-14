@@ -9,14 +9,14 @@ import { queryClientAtom } from "jotai-tanstack-query";
 
 import { appStore } from "@/lib/app-store";
 
-const ONE_DAY_IN_MS = 1000 * 60 * 60 * 24;
+const DAY_MS = 1000 * 60 * 60 * 24;
 
-export const queryCacheMaxAge = ONE_DAY_IN_MS;
+export const cacheMaxAge = DAY_MS;
 
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      gcTime: ONE_DAY_IN_MS,
+      gcTime: DAY_MS,
     },
   },
 });
@@ -29,22 +29,18 @@ export const queryPersister = createAsyncStoragePersister({
 
 let restorePromise: Promise<void> | null = null;
 
-export function markCacheRestoreHandled() {
+export function markCacheRestored() {
   restorePromise ??= Promise.resolve();
 }
 
 export function restoreCache() {
-  if (!restorePromise) {
-    restorePromise = persistQueryClientRestore({
-      queryClient,
-      persister: queryPersister,
-      maxAge: queryCacheMaxAge,
-    }).catch(() => {
-      // Ignore restore failures and continue with a fresh cache.
-    });
-  }
-
-  return restorePromise;
+  return (restorePromise ??= persistQueryClientRestore({
+    queryClient,
+    persister: queryPersister,
+    maxAge: cacheMaxAge,
+  }).catch(() => {
+    // Ignore restore failures and continue with a fresh cache.
+  }));
 }
 
 export async function saveCache() {

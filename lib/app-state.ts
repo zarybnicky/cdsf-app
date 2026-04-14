@@ -7,7 +7,7 @@ import { RESET } from "jotai/utils";
 export async function clearAuthenticatedAppState() {
   await Promise.all([
     clearCache(),
-    await appStore.set(notificationPreferencesAtom, RESET),
+    appStore.set(notificationPreferencesAtom, RESET),
     clearSeenState(),
   ]);
 }

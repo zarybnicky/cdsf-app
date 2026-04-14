@@ -3,10 +3,10 @@ import type { InfiniteData } from "@tanstack/react-query";
 import { atomWithInfiniteQuery } from "jotai-tanstack-query";
 
 import { appStore } from "@/lib/app-store";
-import { fetchClient, isPagingProps } from "@/lib/cdsf-client";
+import { fetchClient, getData, pageCount, paging } from "@/lib/cdsf-client";
 import { queryClient, restoreCache, saveCache } from "@/lib/react-query";
-import { sessionValueAtom } from "@/lib/session";
-import { competitionResultsSeenStateAtom } from "@/lib/seen-state";
+import { currentSessionAtom } from "@/lib/session";
+import { resultsSeenAtom } from "@/lib/seen-state";
 
 type Page =
   paths["/athletes/current/competitions/results"]["get"]["responses"][200]["content"]["application/json"];
@@ -23,8 +23,6 @@ export type PublishedCompetitionResult = {
 export type SyncProgress = {
   events: CompetitionResultEvent[];
   nextPage: number | undefined;
-  pageParams: number[];
-  pages: Page[];
   results: PublishedCompetitionResult[];
   unseen: PublishedCompetitionResult[];
 };
@@ -34,31 +32,34 @@ export type SyncInput = {
     Authorization: string;
   };
   maxPages?: number;
-  seenIds?: ReadonlySet<string>;
+  seenIds?: Iterable<string>;
   stopWhen?: (progress: SyncProgress) => boolean;
 };
 
 const pageSize = 100;
-const defaultMaxPages = 3;
+const defaultPages = 3;
+const key = ["competition-results"] as const;
 
-export function flattenPublishedCompetitionResults(
-  events: readonly CompetitionResultEvent[],
-) {
+export function flattenResults(events: readonly CompetitionResultEvent[]) {
   const results: PublishedCompetitionResult[] = [];
-  const seenResultIds = new Set<string>();
+  const ids = new Set<string>();
 
-  events.forEach((event) => {
-    event.competitions.forEach((competition) => {
-      const id =
-        typeof event.eventId !== "number"
-          ? undefined
-          : `${event.eventId}:${competition.competitionId}`;
-      if (id && !seenResultIds.has(id)) {
-        seenResultIds.add(id);
-        results.push({ id, competition, event });
+  for (const event of events) {
+    if (typeof event.eventId !== "number") {
+      continue;
+    }
+
+    for (const competition of event.competitions) {
+      const id = `${event.eventId}:${competition.competitionId}`;
+
+      if (ids.has(id)) {
+        continue;
       }
-    });
-  });
+
+      ids.add(id);
+      results.push({ id, competition, event });
+    }
+  }
 
   return results;
 }
@@ -74,9 +75,8 @@ async function fetchCompetitionResultsPage({
   pageParam: number;
   signal?: AbortSignal;
 }) {
-  const response = await fetchClient.GET(
-    "/athletes/current/competitions/results",
-    {
+  return getData(
+    await fetchClient.GET("/athletes/current/competitions/results", {
       headers: authHeaders,
       params: {
         query: {
@@ -85,74 +85,48 @@ async function fetchCompetitionResultsPage({
         },
       },
       signal,
-    },
+    }),
+    "Competition results response did not include data.",
   );
-  if (response.error) {
-    throw response.error;
-  }
-  if (!response.data) {
-    throw new Error("Competition results response did not include data.");
-  }
-  return response.data;
 }
 
-export const competitionResultsInfiniteQueryAtom =
-  atomWithInfiniteQuery<
-    Page,
-    Error,
-    InfiniteData<Page, number>,
-    readonly ["competition-results"],
-    number
-  >(
-    (get) => {
-      const session = get(sessionValueAtom);
+export const competitionResultsAtom = atomWithInfiniteQuery((get) => {
+  const session = get(currentSessionAtom);
 
-      return {
-        enabled: !!session,
-        getNextPageParam(lastPage) {
-          return isPagingProps.getNextPageParam(lastPage);
-        },
-        initialPageParam: 1,
-        queryKey: ["competition-results"] as const,
-        queryFn: async ({ pageParam, signal }) => {
-          if (!session) {
-            throw new Error("Session is not available.");
-          }
+  return {
+    enabled: !!session,
+    getNextPageParam: paging.next,
+    initialPageParam: 1,
+    queryKey: key,
+    queryFn: async ({
+      pageParam,
+      signal,
+    }: {
+      pageParam: number;
+      signal: AbortSignal;
+    }): Promise<Page> => {
+      if (!session) {
+        throw new Error("Session is not available.");
+      }
 
-          return fetchCompetitionResultsPage({
-            authHeaders: {
-              Authorization: session.token,
-            },
-            pageParam,
-            signal,
-          });
+      return fetchCompetitionResultsPage({
+        authHeaders: {
+          Authorization: session.token,
         },
-      };
+        pageParam,
+        signal,
+      });
     },
-  );
+  };
+});
 
-function normalizeMaxPages(maxPages: number) {
-  if (!Number.isFinite(maxPages)) {
-    return Number.POSITIVE_INFINITY;
-  }
-
-  return Math.max(1, Math.floor(maxPages));
-}
-
-function buildSyncProgress(
-  pages: Page[],
-  pageParams: number[],
-  seen: ReadonlySet<string>,
-) {
+function buildProgress(pages: Page[], seen: ReadonlySet<string>) {
   const events = pages.flatMap((page) => page.collection || []);
-  const results = flattenPublishedCompetitionResults(events);
-  const latestPage = pages.at(-1);
+  const results = flattenResults(events);
 
   return {
     events,
-    nextPage: latestPage ? isPagingProps.getNextPageParam(latestPage) : undefined,
-    pageParams,
-    pages,
+    nextPage: paging.next(pages.at(-1)),
     results,
     unseen: results.filter((result) => !seen.has(result.id)),
   } satisfies SyncProgress;
@@ -160,7 +134,7 @@ function buildSyncProgress(
 
 export async function syncCompetitionResults({
   authHeaders,
-  maxPages = defaultMaxPages,
+  maxPages = defaultPages,
   seenIds,
   stopWhen,
 }: SyncInput): Promise<SyncProgress> {
@@ -168,50 +142,45 @@ export async function syncCompetitionResults({
     return {
       events: [],
       nextPage: undefined,
-      pageParams: [],
-      pages: [],
       results: [],
       unseen: [],
     };
   }
 
-  const seen =
-    seenIds ?? (await appStore.get(competitionResultsSeenStateAtom)).ids;
+  const seen = new Set(seenIds ?? (await appStore.get(resultsSeenAtom)).ids);
   await restoreCache();
 
-  const existing = queryClient.getQueryData<InfiniteData<Page, number>>([
-    "competition-results",
-  ]);
+  const existing = queryClient.getQueryData<InfiniteData<Page, number>>(key);
   const minimumPageCount = existing?.pages.length ?? 0;
   const data = await queryClient.fetchInfiniteQuery<
     Page,
     Error,
     Page,
-    readonly ["competition-results"],
+    typeof key,
     number
   >({
     getNextPageParam(lastPage, allPages, _lastPageParam, allPageParams) {
       if (
         allPageParams.length >= minimumPageCount &&
-        stopWhen?.(buildSyncProgress(allPages, allPageParams, seen))
+        stopWhen?.(buildProgress(allPages, seen))
       ) {
         return undefined;
       }
 
-      return isPagingProps.getNextPageParam(lastPage);
+      return paging.next(lastPage);
     },
     initialPageParam: 1,
-    pages: Math.max(minimumPageCount, normalizeMaxPages(maxPages)),
+    pages: Math.max(minimumPageCount, pageCount(maxPages)),
     queryFn: ({ pageParam, signal }) =>
       fetchCompetitionResultsPage({
         authHeaders,
         pageParam,
         signal,
       }),
-    queryKey: ["competition-results"] as const,
+    queryKey: key,
   });
 
   await saveCache();
 
-  return buildSyncProgress(data.pages, data.pageParams, seen);
+  return buildProgress(data.pages, seen);
 }

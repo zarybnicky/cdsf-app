@@ -34,11 +34,11 @@ export default function LoginScreen() {
     try {
       await signIn({ email: normalizedEmail, password });
     } catch (caughtError) {
-      if (caughtError instanceof Error) {
-        setError(caughtError.message);
-      } else {
-        setError("Přihlášení se nepodařilo.");
-      }
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Přihlášení se nepodařilo.",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -97,9 +97,7 @@ export default function LoginScreen() {
 
               <Pressable
                 disabled={isSubmitting}
-                onPress={() => {
-                  void handleLogin();
-                }}
+                onPress={() => void handleLogin()}
                 style={({ pressed }) => [
                   styles.button,
                   pressed ? styles.buttonPressed : null,

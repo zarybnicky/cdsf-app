@@ -1,141 +1,240 @@
+import type { components } from "@/CDSF";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { atom } from "jotai";
 import { atomWithStorage, createJSONStorage, RESET } from "jotai/utils";
 
 import { appStore } from "@/lib/app-store";
+import { getDateMs } from "@/lib/cdsf";
 
-export type SeenState = {
-  ids: Set<string>;
+type AnnouncementRecord = Pick<
+  components["schemas"]["Notification"],
+  "created" | "id"
+>;
+
+export type AnnouncementSeen = {
   initialized: boolean;
+  latestCreatedMs: number | null;
+  latestIds: string[];
 };
-type StoredSeenState = {
+
+type ResultsSeen = {
   ids: string[];
   initialized: boolean;
 };
+type Update<T> = T | ((prev: T) => T);
 
-const seenStorage = createJSONStorage<StoredSeenState>(() => AsyncStorage);
+const emptyAnnouncementsSeen: AnnouncementSeen = {
+  initialized: false,
+  latestCreatedMs: null,
+  latestIds: [],
+};
+const emptyResultsSeen: ResultsSeen = {
+  ids: [],
+  initialized: false,
+};
 
-function createSeenStateAtom(storageKey: string) {
-  const storageAtom = atomWithStorage(
-    storageKey,
-    {
-      ids: [],
-      initialized: false,
-    },
-    seenStorage,
-    {
-      getOnInit: true,
-    },
-  );
+const announcementsBaseAtom = atomWithStorage<AnnouncementSeen>(
+  "seen-state:announcements",
+  emptyAnnouncementsSeen,
+  createJSONStorage<AnnouncementSeen>(() => AsyncStorage),
+  { getOnInit: true },
+);
 
-  const stateAtom = atom(
-    async (get): Promise<SeenState> => {
-      const value = await get(storageAtom);
+const resultsBaseAtom = atomWithStorage<ResultsSeen>(
+  "seen-state:competition-results",
+  emptyResultsSeen,
+  createJSONStorage<ResultsSeen>(() => AsyncStorage),
+  { getOnInit: true },
+);
 
-      return {
-        ids: new Set(value.ids),
-        initialized: value.initialized,
-      };
-    },
-    async (get, set, update: SeenState | ((prev: SeenState) => SeenState)) => {
-      const value = await get(storageAtom);
-      const prev = {
-        ids: new Set(value.ids),
-        initialized: value.initialized,
-      };
-      const next = typeof update === "function" ? update(prev) : update;
-      await set(storageAtom, {
-        ids: [...next.ids],
-        initialized: next.initialized,
-      });
-    },
-  );
+export const announcementsSeenAtom = atom(
+  async (get) => get(announcementsBaseAtom),
+  async (get, set, update: Update<AnnouncementSeen>) => {
+    const prev = await get(announcementsBaseAtom);
+    const next = typeof update === "function" ? update(prev) : update;
+    if (next !== prev) {
+      await set(announcementsBaseAtom, next);
+    }
+  },
+);
+
+export const resultsSeenAtom = atom(
+  async (get) => get(resultsBaseAtom),
+  async (get, set, update: Update<ResultsSeen>) => {
+    const prev = await get(resultsBaseAtom);
+    const next = typeof update === "function" ? update(prev) : update;
+    if (next !== prev) {
+      await set(resultsBaseAtom, next);
+    }
+  },
+);
+
+export function getAnnouncementCreatedMs({
+  created,
+}: Pick<AnnouncementRecord, "created">) {
+  const createdMs = getDateMs(created);
+  return Number.isFinite(createdMs) ? createdMs : Number.MIN_SAFE_INTEGER;
+}
+
+export function getLatestHead(notifications: Iterable<AnnouncementRecord>) {
+  let latestCreatedMs: number | null = null;
+  const latestIds = new Set<string>();
+
+  for (const notification of notifications) {
+    const createdMs = getAnnouncementCreatedMs(notification);
+    const id = notification.id.toString();
+
+    if (latestCreatedMs === null || createdMs > latestCreatedMs) {
+      latestCreatedMs = createdMs;
+      latestIds.clear();
+      latestIds.add(id);
+      continue;
+    }
+
+    if (createdMs === latestCreatedMs) {
+      latestIds.add(id);
+    }
+  }
 
   return {
-    stateAtom,
-    storageAtom,
+    latestCreatedMs,
+    latestIds: [...latestIds],
   };
 }
 
-const {
-  stateAtom: announcementsSeenStateAtom,
-  storageAtom: announcementsSeenStorageAtom,
-} = createSeenStateAtom(`seen-state:announcements`);
-const {
-  stateAtom: competitionResultsSeenStateAtom,
-  storageAtom: competitionResultsSeenStorageAtom,
-} = createSeenStateAtom(`seen-state:competition-results`);
+export function hasAnnouncementsBefore(
+  notifications: Iterable<AnnouncementRecord>,
+  createdMs: number | null,
+) {
+  if (createdMs === null) {
+    return false;
+  }
 
-export { announcementsSeenStateAtom, competitionResultsSeenStateAtom };
+  for (const notification of notifications) {
+    if (getAnnouncementCreatedMs(notification) < createdMs) {
+      return true;
+    }
+  }
 
-function normalizeIds(ids: Iterable<string | number>) {
-  return new Set(Array.from(ids, String));
+  return false;
 }
 
-export function addSeenIds(ids: Iterable<string | number>) {
-  const idsToAdd = normalizeIds(ids);
+export function isAnnouncementSeen(
+  state: AnnouncementSeen,
+  notification: AnnouncementRecord,
+) {
+  if (!state.initialized || state.latestCreatedMs === null) {
+    return false;
+  }
+  const createdMs = getAnnouncementCreatedMs(notification);
+  const id = notification.id.toString();
 
-  return (prev: SeenState) => {
-    if (idsToAdd.size === 0) {
-      return prev;
-    }
+  return createdMs < state.latestCreatedMs
+    ? true
+    : createdMs > state.latestCreatedMs
+      ? false
+      : state.latestIds.includes(id);
+}
 
-    const nextIds = new Set(prev.ids);
-    idsToAdd.forEach((id) => {
-      nextIds.add(id);
+export const syncAnnouncementsAtom = atom(
+  null,
+  async (_get, set, notifications: Iterable<AnnouncementRecord>) => {
+    const latest = getLatestHead(notifications);
+
+    await set(announcementsSeenAtom, (prev) => {
+      const initialized = prev.initialized ? prev : { ...prev, initialized: true };
+
+      if (latest.latestCreatedMs === null) {
+        return initialized;
+      }
+
+      if (
+        prev.latestCreatedMs === null ||
+        latest.latestCreatedMs > prev.latestCreatedMs
+      ) {
+        return {
+          initialized: true,
+          latestCreatedMs: latest.latestCreatedMs,
+          latestIds: latest.latestIds,
+        };
+      }
+
+      if (latest.latestCreatedMs < prev.latestCreatedMs) {
+        return initialized;
+      }
+
+      const latestIds = [...new Set([...prev.latestIds, ...latest.latestIds])];
+
+      if (prev.initialized && latestIds.length === prev.latestIds.length) {
+        return prev;
+      }
+
+      return {
+        ...initialized,
+        latestCreatedMs: prev.latestCreatedMs,
+        latestIds,
+      };
     });
+  },
+);
 
-    if (nextIds.size === prev.ids.size && prev.initialized) {
-      return prev;
-    }
+export const unseeAnnouncementsAtom = atom(
+  null,
+  async (_get, set, ids: Iterable<string | number>) => {
+    const idsToRemove = new Set(Array.from(ids, String));
 
-    return {
-      ids: nextIds,
-      initialized: true,
-    };
-  };
-}
+    await set(announcementsSeenAtom, (prev) => {
+      if (
+        idsToRemove.size === 0 ||
+        prev.latestCreatedMs === null ||
+        prev.latestIds.length === 0
+      ) {
+        return prev;
+      }
 
-export function dropSeenIds(ids: Iterable<string | number>) {
-  const idsToRemove = normalizeIds(ids);
+      const latestIds = prev.latestIds.filter((id) => !idsToRemove.has(id));
 
-  return (prev: SeenState) => {
-    if (idsToRemove.size === 0) {
-      return prev;
-    }
+      if (prev.initialized && latestIds.length === prev.latestIds.length) {
+        return prev;
+      }
 
-    const nextIds = new Set(prev.ids);
-    idsToRemove.forEach((id) => {
-      nextIds.delete(id);
+      return {
+        initialized: true,
+        latestCreatedMs: prev.latestCreatedMs,
+        latestIds,
+      };
     });
+  },
+);
 
-    if (nextIds.size === prev.ids.size && prev.initialized) {
-      return prev;
-    }
+export const markResultsSeenAtom = atom(
+  null,
+  async (_get, set, ids: Iterable<string | number>) => {
+    const idsToAdd = [...new Set(Array.from(ids, String))];
 
-    return {
-      ids: nextIds,
-      initialized: true,
-    };
-  };
-}
+    await set(resultsSeenAtom, (prev) => {
+      const initialized = prev.initialized ? prev : { ...prev, initialized: true };
 
-export function initializeSeenState() {
-  return (prev: SeenState) => {
-    if (prev.initialized) {
-      return prev;
-    }
+      if (idsToAdd.length === 0) {
+        return initialized;
+      }
 
-    return {
-      ids: prev.ids,
-      initialized: true,
-    };
-  };
-}
+      const nextIds = [...new Set([...prev.ids, ...idsToAdd])];
+      if (prev.initialized && nextIds.length === prev.ids.length) {
+        return prev;
+      }
+
+      return {
+        ...initialized,
+        ids: nextIds,
+      };
+    });
+  },
+);
 
 export async function clearSeenState() {
   await Promise.all([
-    appStore.set(announcementsSeenStorageAtom, RESET),
-    appStore.set(competitionResultsSeenStorageAtom, RESET),
+    appStore.set(announcementsBaseAtom, RESET),
+    appStore.set(resultsBaseAtom, RESET),
   ]);
 }
