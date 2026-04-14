@@ -9,10 +9,15 @@ type CompetitionLike = {
   grade?: components["schemas"]["CompetitionGrade"];
 };
 
-type NamedCompetitor = Pick<
-  components["schemas"]["Competitor"],
-  "captain" | "competitorId" | "couplesOrDuos" | "name" | "persons"
->;
+type NamedCompetitor = Partial<
+  Pick<components["schemas"]["Competitor"], "captain" | "couplesOrDuos" | "name" | "persons">
+> &
+  Partial<
+    Pick<
+      components["schemas"]["CompetitorResultCompetitor"],
+      "name1" | "name2" | "surname1" | "surname2"
+    >
+  >;
 
 type SourcedCompetitor = Pick<
   components["schemas"]["Competitor"],
@@ -113,9 +118,24 @@ export function formatDateRange(dateFrom?: string, dateTo?: string) {
 }
 
 export function formatCompetitorName(
-  competitor: NamedCompetitor,
+  competitor?: NamedCompetitor,
   fallback?: string,
 ) {
+  if (!competitor) {
+    return fallback ?? "Soutěžící";
+  }
+
+  const first = joinName(competitor.name1, competitor.surname1);
+  const second = joinName(competitor.name2, competitor.surname2);
+
+  if (first && second) {
+    return `${first} - ${second}`;
+  }
+
+  if (first) {
+    return first;
+  }
+
   const name = competitor.name?.trim();
 
   if (name) {

@@ -17,6 +17,7 @@ import {
   queryPersister,
 } from "@/lib/react-query";
 import {
+  currentSessionAtom,
   ensureSessionMiddleware,
   sessionStateAtom,
 } from "@/lib/session";
@@ -36,9 +37,9 @@ type RootNavigatorProps = {
 };
 
 function RootNavigator({ fontsLoaded, cacheReady }: RootNavigatorProps) {
+  const session = useAtomValue(currentSessionAtom);
   const sessionState = useAtomValue(sessionStateAtom);
   const isSessionLoading = sessionState.state === "loading";
-  const session = sessionState.state === "hasData" ? sessionState.data : null;
   const isAppReady = fontsLoaded && cacheReady && !isSessionLoading;
 
   useNotificationRuntime(isAppReady);

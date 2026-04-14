@@ -126,17 +126,18 @@ export default function CompetitionResultScreen() {
         onRefresh={refresh}
         refreshing={isRefreshing}
         renderItem={({ item }) => {
-          const title = formatCompetitorName(
-            item,
-            `Startovní číslo ${item.startNumber}`,
-          );
+          const fallbackTitle = `Startovní číslo ${item.startNumber}`;
+          const title = formatCompetitorName(item.competitor, fallbackTitle);
           const ranking = formatCompetitionPlacement(item.ranking, item.rankingTo);
           const status = formatCompletion(item.completion?.completion);
+          const source =
+            item.club ??
+            item.competitor?.club ??
+            item.country ??
+            item.competitor?.country;
           const meta = [
-            item.club,
-            title === `Startovní číslo ${item.startNumber}`
-              ? undefined
-              : `Start. č. ${item.startNumber}`,
+            source,
+            title === fallbackTitle ? undefined : `Start. č. ${item.startNumber}`,
             status,
           ]
             .filter(Boolean)

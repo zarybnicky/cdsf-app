@@ -7,17 +7,15 @@ import { PermissionStatus } from "expo-modules-core";
 import * as TaskManager from "expo-task-manager";
 import { useRouter, type Href } from "expo-router";
 import { useAtomValue } from "jotai";
+
 import { appStore } from "@/lib/app-store";
 import {
   ensureNotificationChannels,
   replayLatestNotificationForTest,
   runNotificationSyncs,
 } from "@/lib/notification-worker";
-import { currentSessionAtom, type Session } from "@/lib/session";
-import {
-  announcementsSeenAtom,
-  resultsSeenAtom,
-} from "@/lib/seen-state";
+import { currentSessionAtom } from "@/lib/session";
+import { announcementsSeenAtom, resultsSeenAtom } from "@/lib/seen-state";
 
 const bgTaskName = "cdsf-announcements-background-sync";
 const bgIntervalMins = 15;
@@ -67,6 +65,17 @@ function hasPermission(permissions: NotificationPermissions) {
 
 async function canSendLocalNotifications() {
   return !isWeb && hasPermission(await Notifications.getPermissionsAsync());
+}
+
+function getNotificationTarget(data: unknown): NotificationTarget {
+  return (
+    data &&
+    typeof data === "object" &&
+    "target" in data &&
+    data.target === "competition-results"
+  )
+    ? "competition-results"
+    : "announcements";
 }
 
 function bgStatusLabel(status: BackgroundTask.BackgroundTaskStatus | null) {
@@ -151,14 +160,10 @@ export async function replayLatestForTest() {
   return replayLatestNotificationForTest(await canSendLocalNotifications());
 }
 
-async function runBgTask() {
-  await runNotificationSyncs(await canSendLocalNotifications());
-}
-
 if (!TaskManager.isTaskDefined(bgTaskName)) {
   TaskManager.defineTask(bgTaskName, async () => {
     try {
-      await runBgTask();
+      await runNotificationSyncs(await canSendLocalNotifications());
       return BackgroundTask.BackgroundTaskResult.Success;
     } catch (error) {
       console.error("Notifications background task failed.", error);
@@ -272,7 +277,7 @@ export function useNotificationRuntime(enabled: boolean) {
   const router = useRouter();
   const session = useAtomValue(currentSessionAtom);
   const lastHandledIdRef = useRef<string | null>(null);
-  const prevSessionRef = useRef<Session | null | undefined>(undefined);
+  const prevEmailRef = useRef<string | null | undefined>(undefined);
 
   useEffect(() => {
     if (!enabled || isWeb || !session) {
@@ -287,16 +292,9 @@ export function useNotificationRuntime(enabled: boolean) {
       }
 
       lastHandledIdRef.current = id;
-      const { data } = response.notification.request.content;
-      const target =
-        data &&
-        typeof data === "object" &&
-        "target" in data &&
-        data.target === "competition-results"
-          ? "competition-results"
-          : "announcements";
-
-      router.push(targetRoutes[target]);
+      router.push(
+        targetRoutes[getNotificationTarget(response.notification.request.content.data)],
+      );
       Notifications.clearLastNotificationResponse();
     };
 
@@ -319,8 +317,9 @@ export function useNotificationRuntime(enabled: boolean) {
       return;
     }
 
-    const prevSession = prevSessionRef.current;
-    prevSessionRef.current = session;
+    const prevEmail = prevEmailRef.current;
+    const email = session?.email ?? null;
+    prevEmailRef.current = email;
 
     if (!session) {
       lastHandledIdRef.current = null;
@@ -333,7 +332,7 @@ export function useNotificationRuntime(enabled: boolean) {
       return;
     }
 
-    const requestPermissions = prevSession?.email !== session.email;
+    const requestPermissions = prevEmail !== email;
 
     void bootstrapRuntime(requestPermissions).catch((error) => {
       console.error("Unable to bootstrap notifications runtime.", error);

@@ -15,14 +15,6 @@ type ProfileAthleteCardProps = {
 export default function ProfileAthleteCard({
   athlete,
 }: ProfileAthleteCardProps) {
-  const details = [
-    ["Kategorie", getAgeLabel(athlete.age)],
-    [
-      "Platnost lékařské prohlídky",
-      formatSimpleDate(athlete.medicalCheckupExpiration) ?? "Není uvedena",
-    ],
-  ] as const;
-
   return (
     <View style={styles.card}>
       <View style={styles.header}>
@@ -31,18 +23,16 @@ export default function ProfileAthleteCard({
       </View>
 
       <View style={styles.details}>
-        {details.map(([label, value], index) => (
-          <View
-            key={label}
-            style={[
-              styles.detailRow,
-              index < details.length - 1 ? styles.detailRowBorder : null,
-            ]}
-          >
-            <Text style={styles.detailLabel}>{label}</Text>
-            <Text style={styles.detailValue}>{value}</Text>
-          </View>
-        ))}
+        <View style={[styles.detailRow, styles.detailRowBorder]}>
+          <Text style={styles.detailLabel}>Kategorie</Text>
+          <Text style={styles.detailValue}>{getAgeLabel(athlete.age)}</Text>
+        </View>
+        <View style={styles.detailRow}>
+          <Text style={styles.detailLabel}>Platnost lékařské prohlídky</Text>
+          <Text style={styles.detailValue}>
+            {formatSimpleDate(athlete.medicalCheckupExpiration) ?? "Není uvedena"}
+          </Text>
+        </View>
       </View>
 
       <View style={styles.barcodeCard}>

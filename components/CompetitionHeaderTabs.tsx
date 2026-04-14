@@ -8,10 +8,7 @@ type CompetitionHeaderTabsProps = {
   active: CompetitionTab;
 };
 
-const tabs = Object.entries(competitionTabs) as [
-  CompetitionTab,
-  (typeof competitionTabs)[CompetitionTab],
-][];
+const tabs: CompetitionTab[] = ["registered", "results"];
 
 export default function CompetitionHeaderTabs({
   active,
@@ -20,8 +17,9 @@ export default function CompetitionHeaderTabs({
 
   return (
     <View accessibilityRole="tablist" style={styles.headerToggle}>
-      {tabs.map(([tab, { href, label }]) => {
+      {tabs.map((tab) => {
         const isActive = tab === active;
+        const { href, label } = competitionTabs[tab];
 
         return (
           <Pressable

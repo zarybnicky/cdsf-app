@@ -54,41 +54,13 @@ export default function NotificationDebugCard() {
     ["ID v headu", snapshot.announcementLatestIds.toString()],
     ["Seen výsledky", snapshot.resultsSeenCount.toString()],
   ] as const;
-  const actions = [
-    {
-      label: "Spustit worker",
-      onPress: () => {
-        void runAction(runWorkerForTest, "Worker byl spuštěn.");
-      },
-    },
-    {
-      label: "Znovu oznámit poslední",
-      onPress: () => {
-        void runAction(
-          replayLatestForTest,
-          "Poslední oznámení bylo znovu připraveno a worker byl spuštěn.",
-        );
-      },
-    },
-  ] as const;
-
-  useEffect(() => {
-    let active = true;
-
-    void getDebugSnapshot().then((nextSnapshot) => {
-      if (active) {
-        setSnapshot(nextSnapshot);
-      }
-    });
-
-    return () => {
-      active = false;
-    };
-  }, []);
-
   async function refreshSnapshot() {
     setSnapshot(await getDebugSnapshot());
   }
+
+  useEffect(() => {
+    void refreshSnapshot();
+  }, []);
 
   async function runAction(
     action: () => Promise<boolean>,
@@ -144,24 +116,44 @@ export default function NotificationDebugCard() {
       </View>
 
       <View style={styles.actions}>
-        {actions.map(({ label, onPress }) => (
-          <Pressable
-            key={label}
-            onPress={onPress}
-            disabled={loading}
-            style={({ pressed }) => [
-              styles.actionButton,
-              pressed ? styles.actionButtonPressed : null,
-              loading ? styles.actionButtonDisabled : null,
-            ]}
-          >
-            {loading ? (
-              <ActivityIndicator color="#2457b3" size="small" />
-            ) : (
-              <Text style={styles.actionButtonText}>{label}</Text>
-            )}
-          </Pressable>
-        ))}
+        <Pressable
+          disabled={loading}
+          onPress={() => {
+            void runAction(runWorkerForTest, "Worker byl spuštěn.");
+          }}
+          style={({ pressed }) => [
+            styles.actionButton,
+            pressed ? styles.actionButtonPressed : null,
+            loading ? styles.actionButtonDisabled : null,
+          ]}
+        >
+          {loading ? (
+            <ActivityIndicator color="#2457b3" size="small" />
+          ) : (
+            <Text style={styles.actionButtonText}>Spustit worker</Text>
+          )}
+        </Pressable>
+
+        <Pressable
+          disabled={loading}
+          onPress={() => {
+            void runAction(
+              replayLatestForTest,
+              "Poslední oznámení bylo znovu připraveno a worker byl spuštěn.",
+            );
+          }}
+          style={({ pressed }) => [
+            styles.actionButton,
+            pressed ? styles.actionButtonPressed : null,
+            loading ? styles.actionButtonDisabled : null,
+          ]}
+        >
+          {loading ? (
+            <ActivityIndicator color="#2457b3" size="small" />
+          ) : (
+            <Text style={styles.actionButtonText}>Znovu oznámit poslední</Text>
+          )}
+        </Pressable>
       </View>
 
       {feedback ? <Text style={styles.feedback}>{feedback}</Text> : null}

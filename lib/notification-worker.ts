@@ -158,13 +158,7 @@ async function scheduleNotification(
   });
 }
 
-async function runAnnouncementsSync(allowLocal: boolean) {
-  const token = (await appStore.get(sessionAtom))?.token;
-
-  if (!token) {
-    return;
-  }
-
+async function runAnnouncementsSync(token: string, allowLocal: boolean) {
   const [seen, preferences] = await Promise.all([
     appStore.get(announcementsSeenAtom),
     appStore.get(notificationPreferencesAtom),
@@ -197,13 +191,7 @@ async function runAnnouncementsSync(allowLocal: boolean) {
   }
 }
 
-async function runCompetitionResultsSync(allowLocal: boolean) {
-  const token = (await appStore.get(sessionAtom))?.token;
-
-  if (!token) {
-    return;
-  }
-
+async function runCompetitionResultsSync(token: string, allowLocal: boolean) {
   const seen = await appStore.get(resultsSeenAtom);
   const initialized = seen.initialized;
   const result = await syncCompetitionResults({
@@ -283,17 +271,23 @@ export async function replayLatestNotificationForTest(allowLocal: boolean) {
 }
 
 export async function runNotificationSyncs(allowLocal: boolean) {
+  const token = (await appStore.get(sessionAtom))?.token;
+
+  if (!token) {
+    return;
+  }
+
   const errors: unknown[] = [];
 
   try {
-    await runAnnouncementsSync(allowLocal);
+    await runAnnouncementsSync(token, allowLocal);
   } catch (error) {
     console.error("Announcements sync failed.", error);
     errors.push(error);
   }
 
   try {
-    await runCompetitionResultsSync(allowLocal);
+    await runCompetitionResultsSync(token, allowLocal);
   } catch (error) {
     console.error("Competition results sync failed.", error);
     errors.push(error);
