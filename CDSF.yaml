@@ -1295,7 +1295,6 @@ components:
         ]
       example: "Couple"
     CompetitionOfficial:
-      type: object
       allOf:
         - type: object
           properties:
@@ -1312,7 +1311,36 @@ components:
               description: Only for judges, label is informational field.
           required:
             - type
-        - $ref: "#/components/schemas/Official"
+        - type: object
+          properties:
+            id:
+              $ref: "#/components/schemas/Id.Official"
+            firstName:
+              type: string
+              example: Květoslav
+              deprecated: true
+            name:
+              type: string
+              example: Květoslav
+            familyName:
+              type: string
+              example: Zřídkaveselý
+              deprecated: true
+            surname:
+              type: string
+              example: Zřídkaveselý
+            club:
+              type: string
+            country:
+              $ref: "#/components/schemas/Country"
+            licences:
+              type: array
+              items:
+                $ref: "#/components/schemas/OfficialLicence"
+              description: Unused when delivering reults.
+          required:
+            - name
+            - surname
       description: id/Official is generally required. Only in case when the judge is added on venue, it can be ommited.
     CompetitionCheckInEnd:
       type: object
@@ -1520,13 +1548,43 @@ components:
         - competitorId
         - type
         - name or persons or couplesOrDuos
+    CompetitorResultCompetitor:
+      type: object
+      properties:
+        id:
+          type: integer
+          minimum: 1
+        idt1:
+          $ref: "#/components/schemas/Id.Person"
+        name1:
+          type: string
+        surname1:
+          type: string
+        idt2:
+          $ref: "#/components/schemas/Id.Person"
+        name2:
+          type: string
+        surname2:
+          type: string
+        country:
+          $ref: "#/components/schemas/Country"
+        club:
+          $ref: "#/components/schemas/Club"
+      required:
+        - id
+        - idt1
+        - surname1
     CompetitorResult:
       type: object
       properties:
         competitorId:
           $ref: "#/components/schemas/Id.Competitor"
         club:
-          type: string
+          $ref: "#/components/schemas/Club"
+        country:
+          $ref: "#/components/schemas/Country"
+        competitor:
+          $ref: "#/components/schemas/CompetitorResultCompetitor"
         completion:
           $ref: "#/components/schemas/Completion"
         startNumber:
@@ -1577,7 +1635,6 @@ components:
               - sum
       required:
         - competitorId
-        - club
         - startNumber
         - rounds
     CompetitorRankingPoints:

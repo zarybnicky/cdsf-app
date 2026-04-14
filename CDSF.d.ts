@@ -927,7 +927,27 @@ export interface components {
              * @example AA
              */
             label?: string;
-        } & components["schemas"]["Official"];
+        } & {
+            id?: components["schemas"]["Id.Official"];
+            /**
+             * @deprecated
+             * @example Květoslav
+             */
+            firstName?: string;
+            /** @example Květoslav */
+            name: string;
+            /**
+             * @deprecated
+             * @example Zřídkaveselý
+             */
+            familyName?: string;
+            /** @example Zřídkaveselý */
+            surname: string;
+            club?: string;
+            country?: components["schemas"]["Country"];
+            /** @description Unused when delivering reults. */
+            licences?: components["schemas"]["OfficialLicence"][];
+        };
         CompetitionCheckInEnd: {
             competitionId: components["schemas"]["Id.Competition"];
             checkInEnd?: components["schemas"]["CheckInEnd"];
@@ -1011,9 +1031,22 @@ export interface components {
             shortLoanRequired?: boolean;
             rankingPoints?: (components["schemas"]["CompetitorRankingPoints"] & unknown)[];
         };
+        CompetitorResultCompetitor: {
+            id: number;
+            idt1: components["schemas"]["Id.Person"];
+            name1?: string;
+            surname1: string;
+            idt2?: components["schemas"]["Id.Person"];
+            name2?: string;
+            surname2?: string;
+            country?: components["schemas"]["Country"];
+            club?: components["schemas"]["Club"];
+        };
         CompetitorResult: {
             competitorId: components["schemas"]["Id.Competitor"];
-            club: string;
+            club?: components["schemas"]["Club"];
+            country?: components["schemas"]["Country"];
+            competitor?: components["schemas"]["CompetitorResultCompetitor"];
             completion?: components["schemas"]["Completion"];
             /** @example 225 */
             startNumber: number;
