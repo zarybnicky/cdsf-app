@@ -41,6 +41,7 @@ export default function AnnouncementsScreen() {
     (notification) =>
       notification.overrideMuting || preferences[notification.type],
   );
+  console.log(preferences, new Set(notifications.map(x => x.type)));
   const hiddenCount = notifications.length - visible.length;
   const isLoadingState =
     isLoading ||

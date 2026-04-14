@@ -1,9 +1,7 @@
-import { Redirect, Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { Redirect, Stack, useLocalSearchParams } from "expo-router";
 import { useAtomValue } from "jotai";
 import { FlatList, StyleSheet, View } from "react-native";
 
-import { CompetitionActionLink } from "@/components/CompetitionScreenParts";
-import ListTopShadow from "@/components/ListTopShadow";
 import ScreenStateCard from "@/components/ScreenStateCard";
 import { Text } from "@/components/Themed";
 import {
@@ -15,21 +13,20 @@ import {
   formatCompetitionLabel,
   formatCompetitionPlacement,
   formatCompetitorName,
-  formatResultType,
 } from "@/lib/competition-format";
 import { listScreenStyles } from "@/lib/competition-screen-styles";
 import { getRouteId } from "@/lib/competition-routes";
+import { withHeaderSubtitle } from "@/lib/navigation-header";
 import { formatSimpleDate, formatSimpleDateTime } from "@/lib/cdsf";
 
 export default function CompetitionResultScreen() {
-  const router = useRouter();
   const params = useLocalSearchParams<{
     competitionId?: string | string[];
-    eventId?: string | string[];
   }>();
   const competitionId = getRouteId(params.competitionId);
-  const eventId = getRouteId(params.eventId);
-  const competitionQuery = useAtomValue(competitionDetailAtom(competitionId ?? 0));
+  const competitionQuery = useAtomValue(
+    competitionDetailAtom(competitionId ?? 0),
+  );
   const resultQuery = useAtomValue(competitionResultAtom(competitionId ?? 0));
   const competition = competitionQuery.data?.entity;
   const result = resultQuery.data?.entity;
@@ -49,9 +46,9 @@ export default function CompetitionResultScreen() {
   }
 
   const title = competition ? formatCompetitionLabel(competition) : "Výsledek";
-  const routeParams = eventId ? { competitionId, eventId } : { competitionId };
   const loading = competitionQuery.isLoading || resultQuery.isLoading;
-  const hasError = competitionQuery.isError || resultQuery.isError || !competition;
+  const hasError =
+    competitionQuery.isError || resultQuery.isError || !competition;
   const isRefreshing =
     (competitionQuery.isRefetching || resultQuery.isRefetching) && !loading;
   const stateCard = loading
@@ -70,50 +67,24 @@ export default function CompetitionResultScreen() {
           body: "Pro tuto soutěž zatím není k dispozici žádný výsledek.",
           title: "Žádný výsledek soutěže",
         };
-  const header = competition && result ? (
-    <View style={styles.headerCard}>
-      <Text style={styles.headerTitle}>{formatCompetitionLabel(competition)}</Text>
-      {competition.date ? (
-        <Text style={styles.headerMeta}>{formatSimpleDate(competition.date)}</Text>
-      ) : null}
-      <Text style={styles.headerBody}>
-        {formatResultType(result.type) ?? "Výsledek soutěže"}
-        {result.completedAt
-          ? ` · dokončeno ${formatSimpleDateTime(result.completedAt)}`
-          : ""}
-      </Text>
-      <View style={styles.actionRow}>
-        <CompetitionActionLink
-          onPress={() => {
-            router.replace({
-              pathname: "/competitions/[competitionId]",
-              params: routeParams,
-            });
-          }}
-          title="Přehled soutěže"
-        />
-        <CompetitionActionLink
-          onPress={() => {
-            router.replace({
-              pathname: "/competitions/[competitionId]/startlist",
-              params: routeParams,
-            });
-          }}
-          title="Startovní listina"
-        />
-      </View>
-    </View>
-  ) : null;
+  const summary = competition
+    ? [
+        competition.date ? formatSimpleDate(competition.date) : undefined,
+        result?.completedAt
+          ? `dokončeno ${formatSimpleDateTime(result.completedAt)}`
+          : undefined,
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : undefined;
 
   return (
     <View style={styles.container}>
-      <Stack.Screen options={{ title }} />
-      <ListTopShadow />
+      <Stack.Screen options={withHeaderSubtitle(title, summary)} />
       <FlatList
         contentContainerStyle={styles.listContent}
         data={rows}
         keyExtractor={(item) => item.competitorId.toString()}
-        ListHeaderComponent={header}
         ListEmptyComponent={
           <ScreenStateCard
             body={stateCard.body}
@@ -125,10 +96,13 @@ export default function CompetitionResultScreen() {
         }
         onRefresh={refresh}
         refreshing={isRefreshing}
-        renderItem={({ item }) => {
+        renderItem={({ item, index }) => {
           const fallbackTitle = `Startovní číslo ${item.startNumber}`;
           const title = formatCompetitorName(item.competitor, fallbackTitle);
-          const ranking = formatCompetitionPlacement(item.ranking, item.rankingTo);
+          const ranking = formatCompetitionPlacement(
+            item.ranking,
+            item.rankingTo,
+          );
           const status = formatCompletion(item.completion?.completion);
           const source =
             item.club ??
@@ -137,18 +111,28 @@ export default function CompetitionResultScreen() {
             item.competitor?.country;
           const meta = [
             source,
-            title === fallbackTitle ? undefined : `Start. č. ${item.startNumber}`,
+            title === fallbackTitle
+              ? undefined
+              : `Start. č. ${item.startNumber}`,
             status,
           ]
             .filter(Boolean)
             .join(" · ");
 
           return (
-            <View style={styles.card}>
-              <View style={styles.cardHeader}>
-                <Text style={styles.name}>{title}</Text>
-                {ranking ? <Text style={styles.ranking}>{ranking}</Text> : null}
-              </View>
+            <View
+              style={[
+                styles.resultRow,
+                index === 0 ? styles.resultRowFirst : null,
+                index === rows.length - 1 ? styles.resultRowLast : null,
+              ]}
+            >
+              <Text style={styles.resultTitle}>
+                {ranking ? (
+                  <Text style={styles.ranking}>{ranking} </Text>
+                ) : null}
+                {title}
+              </Text>
               {meta ? <Text style={styles.meta}>{meta}</Text> : null}
             </View>
           );
@@ -162,25 +146,51 @@ export default function CompetitionResultScreen() {
 
 const styles = StyleSheet.create({
   ...listScreenStyles,
-  headerTitle: {
-    color: "#223045",
-    fontSize: 17,
-    fontWeight: "800",
-    lineHeight: 23,
+  container: {
+    ...listScreenStyles.container,
+    backgroundColor: "#eef2f6",
   },
-  cardHeader: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
+  list: {
+    ...listScreenStyles.list,
+    backgroundColor: "transparent",
   },
-  name: {
+  listContent: {
+    ...listScreenStyles.listContent,
+    paddingHorizontal: 14,
+    paddingTop: 14,
+    paddingBottom: 28,
+  },
+  resultRow: {
+    ...listScreenStyles.row,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderLeftColor: "#d7dee8",
+    borderRightColor: "#d7dee8",
+    backgroundColor: "#fff",
+    paddingTop: 13,
+    paddingBottom: 12,
+  },
+  resultRowFirst: {
+    borderTopWidth: 1,
+    borderTopColor: "#d7dee8",
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+  },
+  resultRowLast: {
+    borderBottomLeftRadius: 18,
+    borderBottomRightRadius: 18,
+  },
+  resultTitle: {
     ...listScreenStyles.name,
-    flex: 1,
   },
   ranking: {
-    color: "#2457b3",
-    fontSize: 13,
-    fontWeight: "800",
-    lineHeight: 18,
+    color: "#7a8798",
+    fontWeight: "700",
+    fontVariant: ["tabular-nums"],
+  },
+  stateCard: {
+    ...listScreenStyles.stateCard,
+    marginHorizontal: 0,
+    marginTop: 12,
   },
 });

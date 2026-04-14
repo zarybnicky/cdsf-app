@@ -1,10 +1,10 @@
 import type { components } from "@/CDSF";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { atom } from "jotai";
 import { atomWithStorage, createJSONStorage, RESET } from "jotai/utils";
 
 import { appStore } from "@/lib/app-store";
 import { getDateMs } from "@/lib/cdsf";
+import { asyncStringStorage } from "@/lib/string-storage";
 
 type AnnouncementRecord = Pick<
   components["schemas"]["Notification"],
@@ -31,7 +31,7 @@ function storedAtom<T>(key: string, initialValue: T) {
   const baseAtom = atomWithStorage<T>(
     key,
     initialValue,
-    createJSONStorage<T>(() => AsyncStorage),
+    createJSONStorage<T>(() => asyncStringStorage),
     { getOnInit: true },
   );
 

@@ -1,3 +1,5 @@
+import { StyleSheet } from "react-native";
+
 export const detailScreenStyles = {
   container: {
     flex: 1,
@@ -36,69 +38,48 @@ export const detailScreenStyles = {
 export const listScreenStyles = {
   container: {
     flex: 1,
-    backgroundColor: "#f4f6f8",
+    backgroundColor: "#fff",
   },
   list: {
     flex: 1,
+    backgroundColor: "#fff",
   },
   listContent: {
-    paddingTop: 8,
     paddingBottom: 20,
   },
-  headerCard: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "#dde4ed",
-    backgroundColor: "#fff",
-    marginHorizontal: 12,
-    marginBottom: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
+  summary: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "#d7dee8",
+    paddingHorizontal: 16,
+    paddingTop: 6,
+    paddingBottom: 9,
   },
-  headerMeta: {
-    color: "#2457b3",
-    fontSize: 11,
-    fontWeight: "700",
-    letterSpacing: 0.8,
-    marginTop: 7,
-    textTransform: "uppercase",
+  header: {
+    color: "#6a7788",
+    fontSize: 12,
+    lineHeight: 17,
   },
-  headerBody: {
-    color: "#637183",
-    fontSize: 12.5,
-    lineHeight: 18,
-    marginTop: 8,
-  },
-  actionRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginTop: 12,
-  },
-  card: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "#dde4ed",
-    backgroundColor: "#fff",
-    marginHorizontal: 12,
-    marginBottom: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 13,
+  row: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "#d7dee8",
   },
   name: {
     color: "#223045",
-    fontSize: 14,
-    fontWeight: "700",
-    lineHeight: 19,
+    fontSize: 15,
+    fontWeight: "600",
+    lineHeight: 20,
   },
   meta: {
-    color: "#617185",
-    fontSize: 12,
+    color: "#6a7788",
+    fontSize: 12.5,
     lineHeight: 17,
-    marginTop: 4,
+    marginTop: 2,
   },
   stateCard: {
-    marginHorizontal: 12,
+    marginHorizontal: 16,
+    marginTop: 12,
   },
   footer: {
     paddingVertical: 16,

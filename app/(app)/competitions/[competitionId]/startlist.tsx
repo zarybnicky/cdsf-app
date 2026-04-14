@@ -1,9 +1,7 @@
-import { Redirect, Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { Redirect, Stack, useLocalSearchParams } from "expo-router";
 import { useAtomValue } from "jotai";
 import { FlatList, StyleSheet, View } from "react-native";
 
-import { CompetitionActionLink } from "@/components/CompetitionScreenParts";
-import ListTopShadow from "@/components/ListTopShadow";
 import ScreenStateCard from "@/components/ScreenStateCard";
 import { Text } from "@/components/Themed";
 import {
@@ -18,16 +16,14 @@ import {
 } from "@/lib/competition-format";
 import { listScreenStyles } from "@/lib/competition-screen-styles";
 import { getRouteId } from "@/lib/competition-routes";
+import { withHeaderSubtitle } from "@/lib/navigation-header";
 import { formatSimpleDate } from "@/lib/cdsf";
 
 export default function CompetitionStartlistScreen() {
-  const router = useRouter();
   const params = useLocalSearchParams<{
     competitionId?: string | string[];
-    eventId?: string | string[];
   }>();
   const competitionId = getRouteId(params.competitionId);
-  const eventId = getRouteId(params.eventId);
   const competitionQuery = useAtomValue(competitionDetailAtom(competitionId ?? 0));
   const startlistQuery = useAtomValue(competitionStartlistAtom(competitionId ?? 0));
   const competition = competitionQuery.data?.entity;
@@ -42,7 +38,6 @@ export default function CompetitionStartlistScreen() {
   }
 
   const title = competition ? formatCompetitionLabel(competition) : "Startovní listina";
-  const routeParams = eventId ? { competitionId, eventId } : { competitionId };
   const loading = competitionQuery.isLoading || startlistQuery.isLoading;
   const hasError = competitionQuery.isError || startlistQuery.isError || !competition;
   const isRefreshing =
@@ -63,44 +58,27 @@ export default function CompetitionStartlistScreen() {
           body: "Pro tuto soutěž zatím nejsou k dispozici žádné položky.",
           title: "Žádné položky ve startovní listině",
         };
-  const header = competition ? (
-    <View style={styles.headerCard}>
-      <Text style={styles.headerTitle}>{formatCompetitionLabel(competition)}</Text>
-      {competition.date ? (
-        <Text style={styles.headerMeta}>{formatSimpleDate(competition.date)}</Text>
-      ) : null}
-      <View style={styles.actionRow}>
-        <CompetitionActionLink
-          onPress={() => {
-            router.replace({
-              pathname: "/competitions/[competitionId]",
-              params: routeParams,
-            });
-          }}
-          title="Přehled soutěže"
-        />
-        <CompetitionActionLink
-          onPress={() => {
-            router.replace({
-              pathname: "/competitions/[competitionId]/result",
-              params: routeParams,
-            });
-          }}
-          title="Výsledek"
-        />
-      </View>
-    </View>
-  ) : null;
+  const summary = competition
+    ? [
+        competition.date ? formatSimpleDate(competition.date) : undefined,
+        typeof competition.registered === "number"
+          ? `Přihlášeno ${competition.registered}`
+          : undefined,
+        typeof competition.excused === "number"
+          ? `Omluveno ${competition.excused}`
+          : undefined,
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : undefined;
 
   return (
     <View style={styles.container}>
-      <Stack.Screen options={{ title }} />
-      <ListTopShadow />
+      <Stack.Screen options={withHeaderSubtitle(title, summary)} />
       <FlatList
         contentContainerStyle={styles.listContent}
         data={competitors}
         keyExtractor={(item) => item.competitorId.toString()}
-        ListHeaderComponent={header}
         ListEmptyComponent={
           <ScreenStateCard
             body={stateCard.body}
@@ -124,7 +102,7 @@ export default function CompetitionStartlistScreen() {
             .join(" · ");
 
           return (
-            <View style={styles.card}>
+            <View style={styles.row}>
               <Text style={styles.name}>{formatCompetitorName(item)}</Text>
               {meta ? <Text style={styles.meta}>{meta}</Text> : null}
             </View>
@@ -139,10 +117,4 @@ export default function CompetitionStartlistScreen() {
 
 const styles = StyleSheet.create({
   ...listScreenStyles,
-  headerTitle: {
-    color: "#223045",
-    fontSize: 17,
-    fontWeight: "800",
-    lineHeight: 23,
-  },
 });

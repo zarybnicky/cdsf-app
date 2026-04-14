@@ -13,6 +13,7 @@ import {
 import { competitionRegistrationsAtom } from "@/lib/competition-registrations-query";
 import { detailScreenStyles } from "@/lib/competition-screen-styles";
 import { getRouteId } from "@/lib/competition-routes";
+import { withHeaderSubtitle } from "@/lib/navigation-header";
 import { formatSimpleDateTime } from "@/lib/cdsf";
 
 export default function CompetitionEventScreen() {
@@ -32,6 +33,11 @@ export default function CompetitionEventScreen() {
   const myEvent = registrations.find((item) => item.eventId === eventId);
   const event = eventQuery.data?.entity;
   const title = event?.eventTitle ?? myEvent?.eventName ?? "Událost";
+  const summary = event
+    ? [formatDateRange(event.dateFrom, event.dateTo), event.location]
+        .filter(Boolean)
+        .join(" · ")
+    : undefined;
 
   if (eventQuery.isLoading) {
     return (
@@ -39,7 +45,7 @@ export default function CompetitionEventScreen() {
         contentContainerStyle={styles.content}
         style={styles.container}
       >
-        <Stack.Screen options={{ title }} />
+        <Stack.Screen options={withHeaderSubtitle(title, summary)} />
         <ScreenStateCard
           body="Detail soutěžní akce se načítá."
           isLoading
@@ -55,7 +61,7 @@ export default function CompetitionEventScreen() {
         contentContainerStyle={styles.content}
         style={styles.container}
       >
-        <Stack.Screen options={{ title }} />
+        <Stack.Screen options={withHeaderSubtitle(title, summary)} />
         <ScreenStateCard
           body="Zkuste načtení zopakovat."
           onRetry={() => {
@@ -94,15 +100,10 @@ export default function CompetitionEventScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.content} style={styles.container}>
-      <Stack.Screen options={{ title }} />
+      <Stack.Screen options={withHeaderSubtitle(title, summary)} />
 
       <View style={styles.hero}>
         <Text style={styles.eyebrow}>Soutěžní akce</Text>
-        <Text style={styles.title}>{event.eventTitle}</Text>
-        <Text style={styles.meta}>
-          {formatDateRange(event.dateFrom, event.dateTo)}
-        </Text>
-        <Text style={styles.location}>{event.location}</Text>
         {myEvent?.address?.trim() ? (
           <Text style={styles.supporting}>{myEvent.address.trim()}</Text>
         ) : null}
@@ -162,28 +163,12 @@ export default function CompetitionEventScreen() {
 
 const styles = StyleSheet.create({
   ...detailScreenStyles,
-  title: {
-    color: "#182334",
-    fontSize: 24,
-    fontWeight: "800",
-    letterSpacing: -0.3,
-    lineHeight: 30,
-    marginTop: 8,
-  },
-  meta: {
-    color: "#2457b3",
-    fontSize: 12,
-    fontWeight: "700",
-    letterSpacing: 0.7,
-    marginTop: 8,
-    textTransform: "uppercase",
-  },
   location: {
     color: "#223045",
     fontSize: 14.5,
     fontWeight: "700",
     lineHeight: 20,
-    marginTop: 10,
+    marginTop: 8,
   },
   supporting: {
     color: "#667487",

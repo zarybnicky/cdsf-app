@@ -3,7 +3,7 @@ import type { InfiniteData } from "@tanstack/react-query";
 import { atomWithInfiniteQuery } from "jotai-tanstack-query";
 
 import { appStore } from "@/lib/app-store";
-import { fetchClient, getData, pageCount, paging } from "@/lib/cdsf-client";
+import { fetchClient, getData, paging } from "@/lib/cdsf-client";
 import { type NotificationPreferences } from "@/lib/notification-preferences";
 import { queryClient, restoreCache, saveCache } from "@/lib/react-query";
 import { currentSessionAtom } from "@/lib/session";
@@ -32,15 +32,12 @@ type BuiltSyncProgress = SyncProgress & {
 };
 
 export type SyncInput = {
-  maxPages?: number;
-  pageSize?: number;
   preferences: NotificationPreferences;
   seenState?: AnnouncementSeen;
   token?: string;
 };
 
 const pageSize = 10;
-const defaultPages = 3;
 const key = ["announcements"] as const;
 
 async function fetchNotificationsPage({
@@ -134,8 +131,6 @@ function hasBoundary(progress: BuiltSyncProgress, seenState: AnnouncementSeen) {
 }
 
 export async function syncNotifications({
-  maxPages = defaultPages,
-  pageSize: size = pageSize,
   preferences,
   seenState,
   token,
@@ -174,11 +169,11 @@ export async function syncNotifications({
       return progress.nextPage;
     },
     initialPageParam: 1,
-    pages: Math.max(minimumPageCount, pageCount(maxPages)),
+    pages: Math.max(minimumPageCount, 3),
     queryFn: ({ pageParam, signal }) =>
       fetchNotificationsPage({
         page: pageParam,
-        pageSize: size,
+        pageSize,
         signal,
         token,
       }),

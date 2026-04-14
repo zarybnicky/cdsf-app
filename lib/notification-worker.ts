@@ -223,7 +223,10 @@ async function runCompetitionResultsSync(token: string, allowLocal: boolean) {
     );
   }
 
-  await appStore.set(markResultsSeenAtom, results.map(({ id }) => id));
+  await appStore.set(
+    markResultsSeenAtom,
+    results.map(({ id }) => id),
+  );
 }
 
 export async function ensureNotificationChannels() {
@@ -250,7 +253,6 @@ export async function replayLatestNotificationForTest(allowLocal: boolean) {
   }
 
   const result = await syncNotifications({
-    maxPages: 3,
     preferences,
     seenState,
     token,

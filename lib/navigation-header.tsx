@@ -49,3 +49,14 @@ export const stackHeaderScreenOptions = {
   | "headerTintColor"
   | "headerTransparent"
 >;
+
+export function withHeaderSubtitle(title: string, subtitle?: string) {
+  return {
+    title,
+    headerTitle: (props) => (
+      <AppHeaderTitle {...props} subtitle={subtitle}>
+        {title}
+      </AppHeaderTitle>
+    ),
+  } satisfies Pick<NativeStackNavigationOptions, "headerTitle" | "title">;
+}

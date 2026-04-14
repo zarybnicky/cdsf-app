@@ -1,8 +1,8 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { atom } from "jotai";
 import { atomWithStorage, createJSONStorage, loadable } from "jotai/utils";
 
 import type { components } from "@/CDSF";
+import { asyncStringStorage } from "@/lib/string-storage";
 
 export type Notification = components["schemas"]["Notification"];
 export type NotificationType = Notification["type"];
@@ -13,11 +13,15 @@ type PrefMeta = {
   description: string;
 };
 
+
 export const preferenceOrder = [
   "CompetitionMessage",
   "CompetitionChange",
+  "CompetitionCancelled",
+  "CompetitionRegistered",
   "CompetitionRegistrationEndChange",
   "MedicalCheckupExpiration",
+  "Loan",
   "ClubTransferCompletion",
   "ClubRepresentativeMessage",
   "DivisionRepresentativeMessage",
@@ -29,8 +33,11 @@ export const preferenceOrder = [
 export const defaultPreferences: NotificationPreferences = {
   CompetitionMessage: true,
   CompetitionChange: true,
+  CompetitionCancelled: true,
+  CompetitionRegistered: true,
   CompetitionRegistrationEndChange: true,
   MedicalCheckupExpiration: true,
+  Loan: true,
   ClubTransferCompletion: true,
   ClubRepresentativeMessage: true,
   DivisionRepresentativeMessage: true,
@@ -39,7 +46,9 @@ export const defaultPreferences: NotificationPreferences = {
   ExecutiveBoardMinutes: true,
 };
 
-const storage = createJSONStorage<NotificationPreferences>(() => AsyncStorage);
+const storage = createJSONStorage<NotificationPreferences>(
+  () => asyncStringStorage,
+);
 
 export const notificationPreferencesAtom = atomWithStorage(
   "notification-preferences",
@@ -62,6 +71,14 @@ export const preferenceMetadata: Record<NotificationType, PrefMeta> = {
     label: "Změny soutěží",
     description: "Změny termínu, místa, času nebo programu soutěže.",
   },
+  CompetitionCancelled: {
+    label: "Zrušení soutěže",
+    description: "Informace o zrušené soutěži nebo zrušené registraci.",
+  },
+  CompetitionRegistered: {
+    label: "Potvrzení přihlášky",
+    description: "Potvrzení, že byla registrace do soutěže zaevidována.",
+  },
   CompetitionRegistrationEndChange: {
     label: "Termíny přihlášení",
     description: "Úpravy termínů uzávěrek přihlášek do soutěží.",
@@ -69,6 +86,10 @@ export const preferenceMetadata: Record<NotificationType, PrefMeta> = {
   MedicalCheckupExpiration: {
     label: "Lékařská prohlídka",
     description: "Upozornění na blížící se konec platnosti lékařské prohlídky.",
+  },
+  Loan: {
+    label: "Hostování",
+    description: "Oznámení související s hostováním nebo krátkodobým uvolněním.",
   },
   ClubTransferCompletion: {
     label: "Dokončení přestupu",

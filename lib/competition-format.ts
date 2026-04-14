@@ -10,7 +10,10 @@ type CompetitionLike = {
 };
 
 type NamedCompetitor = Partial<
-  Pick<components["schemas"]["Competitor"], "captain" | "couplesOrDuos" | "name" | "persons">
+  Pick<
+    components["schemas"]["Competitor"],
+    "captain" | "couplesOrDuos" | "name" | "persons"
+  >
 > &
   Partial<
     Pick<
@@ -144,8 +147,9 @@ export function formatCompetitorName(
 
   if (competitor.couplesOrDuos?.length) {
     return competitor.couplesOrDuos
-      .map(({ name1, name2, surname1, surname2 }) =>
-        `${joinName(name1, surname1)} / ${joinName(name2, surname2)}`,
+      .map(
+        ({ name1, name2, surname1, surname2 }) =>
+          `${joinName(name1, surname1)} / ${joinName(name2, surname2)}`,
       )
       .join(", ");
   }
@@ -190,19 +194,6 @@ export function formatPresence(value?: components["schemas"]["Presence"]) {
     case "3":
     case "WaitingList":
       return "Čekací listina";
-    default:
-      return undefined;
-  }
-}
-
-export function formatResultType(value?: string) {
-  switch (value) {
-    case "approved":
-      return "Schválený výsledek";
-    case "preliminary":
-      return "Předběžný výsledek";
-    case "partial":
-      return "Průběžný výsledek";
     default:
       return undefined;
   }

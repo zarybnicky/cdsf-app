@@ -80,15 +80,17 @@ export default function CompetitionListItem({
       <Text style={styles.title}>{event.eventName}</Text>
     );
 
-  function renderCompetition(competition: Competition) {
+  function renderCompetition(competition: Competition, index: number) {
     const label = formatCompetitionLabel(competition);
+    const competitionKey = [
+      event.eventId ?? event.date ?? event.eventName,
+      competition.competitionId,
+      index,
+    ].join(":");
 
     if (!isResults) {
       return (
-        <View
-          key={competition.competitionId}
-          style={styles.registrationMetaRow}
-        >
+        <View key={competitionKey} style={styles.registrationMetaRow}>
           <View style={styles.metaMarker} />
           <Text style={styles.registrationMetaText}>{label}</Text>
         </View>
@@ -111,7 +113,7 @@ export default function CompetitionListItem({
 
     if (!onPressCompetition) {
       return (
-        <View key={competition.competitionId} style={styles.resultsMetaRow}>
+        <View key={competitionKey} style={styles.resultsMetaRow}>
           {content}
         </View>
       );
@@ -119,7 +121,7 @@ export default function CompetitionListItem({
 
     return (
       <Pressable
-        key={competition.competitionId}
+        key={competitionKey}
         accessibilityRole="link"
         onPress={() => {
           onPressCompetition(competition.competitionId);

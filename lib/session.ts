@@ -1,12 +1,11 @@
-import * as SecureStore from "expo-secure-store";
 import type { Middleware } from "openapi-fetch";
 import { atom } from "jotai";
 import { atomWithStorage, createJSONStorage, loadable } from "jotai/utils";
-import { Platform } from "react-native";
 
 import { appStore } from "@/lib/app-store";
 import { clearAuthenticatedAppState } from "@/lib/app-state";
 import { appPurpose, fetchClient } from "@/lib/cdsf-client";
+import { secureStringStorage } from "@/lib/string-storage";
 
 export type Session = {
   email: string;
@@ -18,24 +17,7 @@ type SignInInput = {
   password: string;
 };
 
-const rawStorage =
-  Platform.OS === "web"
-    ? {
-        getItem: async (key: string) => localStorage.getItem(key),
-        setItem: async (key: string, value: string) => {
-          localStorage.setItem(key, value);
-        },
-        removeItem: async (key: string) => {
-          localStorage.removeItem(key);
-        },
-      }
-    : {
-        getItem: SecureStore.getItemAsync,
-        setItem: SecureStore.setItemAsync,
-        removeItem: SecureStore.deleteItemAsync,
-      };
-
-const storage = createJSONStorage<Session | null>(() => rawStorage);
+const storage = createJSONStorage<Session | null>(() => secureStringStorage);
 
 function isAuthPath(schemaPath: string) {
   return schemaPath === "/credentials" || schemaPath === "/credentials/current";

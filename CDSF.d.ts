@@ -1225,7 +1225,7 @@ export interface components {
         Notification: {
             id: components["schemas"]["Id.Notification"];
             /** @enum {string} */
-            type: "MedicalCheckupExpiration" | "CompetitionChange" | "CompetitionRegistrationEndChange" | "CompetitionMessage" | "ClubTransferCompletion" | "ExecutiveBoardMinutes" | "AdjudicatorsMessage" | "OfficialsMessage" | "DivisionRepresentativeMessage" | "ClubRepresentativeMessage";
+            type: "MedicalCheckupExpiration" | "CompetitionCancelled" | "CompetitionChange" | "CompetitionRegistered" | "CompetitionRegistrationEndChange" | "CompetitionMessage" | "Loan" | "ClubTransferCompletion" | "ExecutiveBoardMinutes" | "AdjudicatorsMessage" | "OfficialsMessage" | "DivisionRepresentativeMessage" | "ClubRepresentativeMessage";
             /** Format: #/components/schemas/DateTime */
             created: string;
             /** @description simple string, or single line (with inline tags only) markdown */

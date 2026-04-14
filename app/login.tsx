@@ -126,6 +126,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   container: {
+    backgroundColor: "transparent",
     width: "100%",
     maxWidth: 520,
     alignSelf: "center",
