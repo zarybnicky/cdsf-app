@@ -1,11 +1,11 @@
+import { useQuery } from "@tanstack/react-query";
 import { Redirect, Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useAtomValue } from "jotai";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 
-import { CompetitionDetailRow } from "@/components/CompetitionScreenParts";
 import ScreenStateCard from "@/components/ScreenStateCard";
 import { Text } from "@/components/Themed";
-import { competitionEventAtom } from "@/lib/competition-detail-query";
+import { fetchClient, getData } from "@/lib/cdsf-client";
 import {
   formatCompetitionLabel,
   formatDateRange,
@@ -15,12 +15,36 @@ import { detailScreenStyles } from "@/lib/competition-screen-styles";
 import { getRouteId } from "@/lib/competition-routes";
 import { withHeaderSubtitle } from "@/lib/navigation-header";
 import { formatSimpleDateTime } from "@/lib/cdsf";
+import { currentSessionAtom } from "@/lib/session";
 
 export default function CompetitionEventScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ eventId?: string | string[] }>();
   const eventId = getRouteId(params.eventId);
-  const eventQuery = useAtomValue(competitionEventAtom(eventId ?? 0));
+  const session = useAtomValue(currentSessionAtom);
+  const headers = session ? { Authorization: session.token } : undefined;
+  const eventQuery = useQuery({
+    enabled: !!eventId,
+    queryKey: ["competition-event", eventId] as const,
+    queryFn: async ({ signal }) => {
+      if (!eventId) {
+        throw new Error("Event id is invalid.");
+      }
+
+      return getData(
+        await fetchClient.GET("/competition_events/{eventId}", {
+          headers,
+          params: {
+            path: {
+              eventId,
+            },
+          },
+          signal,
+        }),
+        "Competition event response did not include data.",
+      );
+    },
+  });
   const registrationsQuery = useAtomValue(competitionRegistrationsAtom);
 
   if (!eventId) {
@@ -97,6 +121,16 @@ export default function CompetitionEventScreen() {
       })),
     },
   ].filter(({ rows }) => rows.length > 0);
+  const infoRows = [
+    { label: "Místo", value: event.location?.trim() },
+    { label: "Organizátor", value: event.organizer?.trim() },
+    { label: "Pořadatel", value: event.promoter?.trim() },
+    {
+      label: "Úředníci",
+      value: event.officials.length ? `${event.officials.length} osob` : undefined,
+    },
+    { label: "GPS", value: myEvent?.gps?.trim() },
+  ].filter((row): row is { label: string; value: string } => Boolean(row.value));
 
   return (
     <ScrollView contentContainerStyle={styles.content} style={styles.container}>
@@ -143,18 +177,12 @@ export default function CompetitionEventScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Informace</Text>
         <View style={styles.detailCard}>
-          <CompetitionDetailRow label="Místo" value={event.location} />
-          <CompetitionDetailRow label="Organizátor" value={event.organizer} />
-          <CompetitionDetailRow label="Pořadatel" value={event.promoter} />
-          <CompetitionDetailRow
-            label="Úředníci"
-            value={
-              event.officials.length
-                ? `${event.officials.length} osob`
-                : undefined
-            }
-          />
-          <CompetitionDetailRow label="GPS" value={myEvent?.gps} />
+          {infoRows.map(({ label, value }) => (
+            <View key={label} style={styles.detailRow}>
+              <Text style={styles.detailLabel}>{label}</Text>
+              <Text style={styles.detailValue}>{value}</Text>
+            </View>
+          ))}
         </View>
       </View>
     </ScrollView>
@@ -163,13 +191,6 @@ export default function CompetitionEventScreen() {
 
 const styles = StyleSheet.create({
   ...detailScreenStyles,
-  location: {
-    color: "#223045",
-    fontSize: 14.5,
-    fontWeight: "700",
-    lineHeight: 20,
-    marginTop: 8,
-  },
   supporting: {
     color: "#667487",
     fontSize: 13,
@@ -184,6 +205,26 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "800",
     marginLeft: 2,
+  },
+  detailRow: {
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    borderBottomWidth: 1,
+    borderBottomColor: "#edf1f6",
+  },
+  detailLabel: {
+    color: "#728093",
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+  },
+  detailValue: {
+    color: "#223045",
+    fontSize: 13.5,
+    fontWeight: "600",
+    lineHeight: 19,
+    marginTop: 4,
   },
   linkCard: {
     borderRadius: 16,

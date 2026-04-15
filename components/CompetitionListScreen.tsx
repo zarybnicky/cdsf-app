@@ -1,12 +1,18 @@
 import type { components } from "@/CDSF";
-import { Stack } from "expo-router";
-import { ActivityIndicator, FlatList, StyleSheet, View } from "react-native";
+import { Stack, useRouter } from "expo-router";
+import {
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  StyleSheet,
+  View,
+} from "react-native";
 
-import CompetitionHeaderTabs from "@/components/CompetitionHeaderTabs";
 import CompetitionListItem from "@/components/CompetitionListItem";
 import ListTopShadow from "@/components/ListTopShadow";
 import ScreenStateCard from "@/components/ScreenStateCard";
-import { type CompetitionTab } from "@/lib/competition-routes";
+import { Text } from "@/components/Themed";
+import { competitionTabs, type CompetitionTab } from "@/lib/competition-routes";
 
 type Props = {
   events: components["schemas"]["EventRegistration"][];
@@ -25,6 +31,49 @@ type Props = {
   tab: CompetitionTab;
 };
 
+const tabs: CompetitionTab[] = ["registered", "results"];
+
+function HeaderTabs({ tab: active }: Pick<Props, "tab">) {
+  const router = useRouter();
+
+  return (
+    <View accessibilityRole="tablist" style={styles.headerToggle}>
+      {tabs.map((tab) => {
+        const isActive = tab === active;
+        const { href, label } = competitionTabs[tab];
+
+        return (
+          <Pressable
+            key={tab}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: isActive }}
+            hitSlop={4}
+            onPress={() => {
+              if (!isActive) {
+                router.replace(href);
+              }
+            }}
+            style={({ pressed }) => [
+              styles.segment,
+              isActive ? styles.segmentActive : null,
+              pressed ? styles.segmentPressed : null,
+            ]}
+          >
+            <Text
+              style={[
+                styles.segmentText,
+                isActive ? styles.segmentTextActive : null,
+              ]}
+            >
+              {label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 export default function CompetitionListScreen({
   events,
   isFetchingNextPage,
@@ -40,7 +89,7 @@ export default function CompetitionListScreen({
     <View style={styles.container}>
       <Stack.Screen
         options={{
-          headerRight: () => <CompetitionHeaderTabs active={tab} />,
+          headerRight: () => <HeaderTabs tab={tab} />,
           title: "Soutěže",
         }}
       />
@@ -114,6 +163,45 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingBottom: 20,
+  },
+  headerToggle: {
+    flexDirection: "row",
+    gap: 3,
+    marginRight: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#dfe6ef",
+    backgroundColor: "#eef3f8",
+    padding: 3,
+  },
+  segment: {
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 9,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  segmentActive: {
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#dce4ef",
+    shadowColor: "#183769",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  segmentPressed: {
+    opacity: 0.86,
+  },
+  segmentText: {
+    color: "#7e8997",
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: -0.1,
+  },
+  segmentTextActive: {
+    color: "#2457b3",
   },
   stateCard: {
     marginHorizontal: 12,

@@ -64,11 +64,8 @@ export default function NotificationPreferencesCard({
 }: NotificationPreferencesCardProps) {
   const preferencesState = useAtomValue(notificationPreferencesStateAtom);
   const setPreference = useSetAtom(setNotificationPreferenceAtom);
-  const isPreferencesLoading = preferencesState.state === "loading";
-  const preferences =
-    preferencesState.state === "hasData"
-      ? preferencesState.data
-      : defaultPreferences;
+  const isPreferencesLoading = preferencesState === undefined;
+  const preferences = preferencesState ?? defaultPreferences;
 
   return (
     <View style={[styles.card, style]}>

@@ -1,13 +1,11 @@
+import { useQuery } from "@tanstack/react-query";
 import { Redirect, Stack, useLocalSearchParams } from "expo-router";
 import { useAtomValue } from "jotai";
 import { FlatList, StyleSheet, View } from "react-native";
 
 import ScreenStateCard from "@/components/ScreenStateCard";
 import { Text } from "@/components/Themed";
-import {
-  competitionDetailAtom,
-  competitionResultAtom,
-} from "@/lib/competition-detail-query";
+import { fetchClient, getData } from "@/lib/cdsf-client";
 import {
   formatCompletion,
   formatCompetitionLabel,
@@ -18,16 +16,59 @@ import { listScreenStyles } from "@/lib/competition-screen-styles";
 import { getRouteId } from "@/lib/competition-routes";
 import { withHeaderSubtitle } from "@/lib/navigation-header";
 import { formatSimpleDate, formatSimpleDateTime } from "@/lib/cdsf";
+import { currentSessionAtom } from "@/lib/session";
 
 export default function CompetitionResultScreen() {
   const params = useLocalSearchParams<{
     competitionId?: string | string[];
   }>();
   const competitionId = getRouteId(params.competitionId);
-  const competitionQuery = useAtomValue(
-    competitionDetailAtom(competitionId ?? 0),
-  );
-  const resultQuery = useAtomValue(competitionResultAtom(competitionId ?? 0));
+  const session = useAtomValue(currentSessionAtom);
+  const headers = session ? { Authorization: session.token } : undefined;
+  const competitionQuery = useQuery({
+    enabled: !!competitionId,
+    queryKey: ["competition", competitionId] as const,
+    queryFn: async ({ signal }) => {
+      if (!competitionId) {
+        throw new Error("Competition id is invalid.");
+      }
+
+      return getData(
+        await fetchClient.GET("/competitions/{competitionId}", {
+          headers,
+          params: {
+            path: {
+              competitionId,
+            },
+          },
+          signal,
+        }),
+        "Competition response did not include data.",
+      );
+    },
+  });
+  const resultQuery = useQuery({
+    enabled: !!competitionId,
+    queryKey: ["competition-result", competitionId] as const,
+    queryFn: async ({ signal }) => {
+      if (!competitionId) {
+        throw new Error("Competition id is invalid.");
+      }
+
+      return getData(
+        await fetchClient.GET("/competitions/{competitionId}/result", {
+          headers,
+          params: {
+            path: {
+              competitionId,
+            },
+          },
+          signal,
+        }),
+        "Competition result response did not include data.",
+      );
+    },
+  });
   const competition = competitionQuery.data?.entity;
   const result = resultQuery.data?.entity;
   const rows = [...(result?.competitors ?? [])].sort((left, right) => {

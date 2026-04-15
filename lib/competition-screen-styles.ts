@@ -47,18 +47,6 @@ export const listScreenStyles = {
   listContent: {
     paddingBottom: 20,
   },
-  summary: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#d7dee8",
-    paddingHorizontal: 16,
-    paddingTop: 6,
-    paddingBottom: 9,
-  },
-  header: {
-    color: "#6a7788",
-    fontSize: 12,
-    lineHeight: 17,
-  },
   row: {
     paddingHorizontal: 16,
     paddingVertical: 12,

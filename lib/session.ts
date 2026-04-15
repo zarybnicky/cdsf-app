@@ -1,6 +1,6 @@
 import type { Middleware } from "openapi-fetch";
 import { atom } from "jotai";
-import { atomWithStorage, createJSONStorage, loadable } from "jotai/utils";
+import { atomWithStorage, createJSONStorage, unwrap } from "jotai/utils";
 
 import { appStore } from "@/lib/app-store";
 import { clearAuthenticatedAppState } from "@/lib/app-state";
@@ -43,12 +43,8 @@ export const sessionAtom = atomWithStorage<Session | null>(
     getOnInit: true,
   },
 );
-export const sessionStateAtom = loadable(sessionAtom);
-export const currentSessionAtom = atom((get) => {
-  const session = get(sessionStateAtom);
-
-  return session.state === "hasData" ? session.data : null;
-});
+export const sessionStateAtom = unwrap(sessionAtom, () => undefined);
+export const currentSessionAtom = atom((get) => get(sessionStateAtom) ?? null);
 
 export const signInAtom = atom(
   null,

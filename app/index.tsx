@@ -6,7 +6,7 @@ import { currentSessionAtom, sessionStateAtom } from "@/lib/session";
 export default function IndexScreen() {
   const session = useAtomValue(currentSessionAtom);
   const sessionState = useAtomValue(sessionStateAtom);
-  const isLoading = sessionState.state === "loading";
+  const isLoading = sessionState === undefined;
 
   if (isLoading) {
     return null;

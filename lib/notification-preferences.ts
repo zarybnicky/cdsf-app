@@ -1,5 +1,5 @@
 import { atom } from "jotai";
-import { atomWithStorage, createJSONStorage, loadable } from "jotai/utils";
+import { atomWithStorage, createJSONStorage, unwrap } from "jotai/utils";
 
 import type { components } from "@/CDSF";
 import { asyncStringStorage } from "@/lib/string-storage";
@@ -12,7 +12,6 @@ type PrefMeta = {
   label: string;
   description: string;
 };
-
 
 export const preferenceOrder = [
   "CompetitionMessage",
@@ -58,8 +57,9 @@ export const notificationPreferencesAtom = atomWithStorage(
     getOnInit: true,
   },
 );
-export const notificationPreferencesStateAtom = loadable(
+export const notificationPreferencesStateAtom = unwrap(
   notificationPreferencesAtom,
+  () => undefined,
 );
 
 export const preferenceMetadata: Record<NotificationType, PrefMeta> = {

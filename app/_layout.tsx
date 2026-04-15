@@ -39,7 +39,7 @@ type RootNavigatorProps = {
 function RootNavigator({ fontsLoaded, cacheReady }: RootNavigatorProps) {
   const session = useAtomValue(currentSessionAtom);
   const sessionState = useAtomValue(sessionStateAtom);
-  const isSessionLoading = sessionState.state === "loading";
+  const isSessionLoading = sessionState === undefined;
   const isAppReady = fontsLoaded && cacheReady && !isSessionLoading;
 
   useNotificationRuntime(isAppReady);

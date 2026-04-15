@@ -28,11 +28,8 @@ export default function AnnouncementsScreen() {
   } = useAtomValue(announcementsAtom);
   const preferencesState = useAtomValue(notificationPreferencesStateAtom);
   const syncAnnouncements = useSetAtom(syncAnnouncementsAtom);
-  const prefsLoading = preferencesState.state === "loading";
-  const preferences =
-    preferencesState.state === "hasData"
-      ? preferencesState.data
-      : defaultPreferences;
+  const prefsLoading = preferencesState === undefined;
+  const preferences = preferencesState ?? defaultPreferences;
   const isRefreshing = isRefetching && !isLoading;
   const notifications = (data?.pages ?? []).flatMap(
     (page) => page.collection || [],
@@ -41,7 +38,6 @@ export default function AnnouncementsScreen() {
     (notification) =>
       notification.overrideMuting || preferences[notification.type],
   );
-  console.log(preferences, new Set(notifications.map(x => x.type)));
   const hiddenCount = notifications.length - visible.length;
   const isLoadingState =
     isLoading ||
