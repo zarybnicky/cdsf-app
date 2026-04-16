@@ -1,3 +1,4 @@
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { ActivityIndicator, FlatList, StyleSheet, View } from "react-native";
 import { useAtomValue, useSetAtom } from "jotai";
@@ -12,10 +13,12 @@ import {
   defaultPreferences,
   notificationPreferencesStateAtom,
 } from "@/lib/notification-preferences";
-import { announcementsAtom } from "@/lib/notification-sync";
+import { announcementsQueryOptions } from "@/lib/notification-sync";
+import { currentSessionAtom } from "@/lib/session";
 import { syncAnnouncementsAtom } from "@/lib/seen-state";
 
 export default function AnnouncementsScreen() {
+  const token = useAtomValue(currentSessionAtom)?.token;
   const {
     data,
     fetchNextPage,
@@ -25,30 +28,40 @@ export default function AnnouncementsScreen() {
     isLoading,
     isRefetching,
     refetch,
-  } = useAtomValue(announcementsAtom);
+  } = useInfiniteQuery({
+    ...announcementsQueryOptions(token),
+    enabled: !!token,
+  });
   const preferencesState = useAtomValue(notificationPreferencesStateAtom);
   const syncAnnouncements = useSetAtom(syncAnnouncementsAtom);
-  const prefsLoading = preferencesState === undefined;
+  const preferencesLoading = preferencesState === undefined;
   const preferences = preferencesState ?? defaultPreferences;
   const isRefreshing = isRefetching && !isLoading;
   const notifications = (data?.pages ?? []).flatMap(
     (page) => page.collection || [],
   );
-  const visible = notifications.filter(
+  const visibleNotifications = notifications.filter(
     (notification) =>
       notification.overrideMuting || preferences[notification.type],
   );
-  const hiddenCount = notifications.length - visible.length;
+  const hiddenCount = notifications.length - visibleNotifications.length;
   const isLoadingState =
     isLoading ||
-    prefsLoading ||
-    (isFetchingNextPage && visible.length === 0);
+    preferencesLoading ||
+    (isFetchingNextPage && visibleNotifications.length === 0);
+  const shouldFetchNextPage =
+    !isLoadingState &&
+    !isError &&
+    !!hasNextPage &&
+    notifications.length > 0 &&
+    visibleNotifications.length === 0;
+  const showFilterNotice = hiddenCount > 0 && !isLoadingState && !isError;
   const announcements = isLoadingState
     ? []
-    : visible.map(announcementFromNotification);
-  const showFilterNotice = hiddenCount > 0 && !isLoadingState && !isError;
+    : visibleNotifications.map(announcementFromNotification);
   let emptyStateTitle = "Zatím nejsou dostupné žádné aktuality";
-  let emptyStateBody = "Jakmile budou zveřejněny nové informace, zobrazí se zde.";
+  let emptyStateBody =
+    "Jakmile budou zveřejněny nové informace, zobrazí se zde.";
 
   if (isLoadingState) {
     emptyStateTitle = "Načítám aktuality";
@@ -63,25 +76,12 @@ export default function AnnouncementsScreen() {
   }
 
   useEffect(() => {
-    if (
-      isLoadingState ||
-      isError ||
-      !hasNextPage ||
-      notifications.length === 0 ||
-      visible.length > 0
-    ) {
+    if (!shouldFetchNextPage) {
       return;
     }
 
     void fetchNextPage();
-  }, [
-    fetchNextPage,
-    hasNextPage,
-    isError,
-    isLoadingState,
-    notifications.length,
-    visible.length,
-  ]);
+  }, [fetchNextPage, shouldFetchNextPage]);
 
   useEffect(() => {
     if (isLoadingState || isError) {

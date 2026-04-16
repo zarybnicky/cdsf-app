@@ -1,18 +1,17 @@
-import type { components, paths } from "@/CDSF";
+import { infiniteQueryOptions } from "@tanstack/react-query";
 import type { InfiniteData } from "@tanstack/react-query";
-import { atomWithInfiniteQuery } from "jotai-tanstack-query";
 
+import type { components, paths } from "@/CDSF";
 import { appStore } from "@/lib/app-store";
 import { fetchClient, getData, pageCount, paging } from "@/lib/cdsf-client";
 import { queryClient, restoreCache, saveCache } from "@/lib/react-query";
-import { currentSessionAtom } from "@/lib/session";
 import { resultsSeenAtom } from "@/lib/seen-state";
 
 type Page =
   paths["/athletes/current/competitions/results"]["get"]["responses"][200]["content"]["application/json"];
 
-export type CompetitionResultEvent = components["schemas"]["EventRegistration"];
-export type CompetitionResultCompetition =
+type CompetitionResultEvent = components["schemas"]["EventRegistration"];
+type CompetitionResultCompetition =
   components["schemas"]["CompetitionRegistration"];
 export type PublishedCompetitionResult = {
   id: string;
@@ -36,7 +35,8 @@ export type SyncInput = {
 
 const pageSize = 100;
 const defaultPages = 3;
-const key = ["competition-results"] as const;
+
+export const competitionResultsQueryKey = ["competition-results"] as const;
 
 export function flattenResults(events: readonly CompetitionResultEvent[]) {
   const results: PublishedCompetitionResult[] = [];
@@ -88,14 +88,11 @@ async function fetchCompetitionResultsPage({
   );
 }
 
-export const competitionResultsAtom = atomWithInfiniteQuery((get) => {
-  const session = get(currentSessionAtom);
-
-  return {
-    enabled: !!session,
+export function competitionResultsQueryOptions(token?: string) {
+  return infiniteQueryOptions({
     getNextPageParam: paging.next,
     initialPageParam: 1,
-    queryKey: key,
+    queryKey: competitionResultsQueryKey,
     queryFn: async ({
       pageParam,
       signal,
@@ -103,18 +100,18 @@ export const competitionResultsAtom = atomWithInfiniteQuery((get) => {
       pageParam: number;
       signal: AbortSignal;
     }): Promise<Page> => {
-      if (!session) {
+      if (!token) {
         throw new Error("Session is not available.");
       }
 
       return fetchCompetitionResultsPage({
         page: pageParam,
         signal,
-        token: session.token,
+        token,
       });
     },
-  };
-});
+  });
+}
 
 function buildProgress(pages: Page[], seen: ReadonlySet<string>) {
   const events = pages.flatMap((page) => page.collection || []);
@@ -146,15 +143,12 @@ export async function syncCompetitionResults({
   const seen = new Set(seenIds ?? (await appStore.get(resultsSeenAtom)).ids);
   await restoreCache();
 
-  const existing = queryClient.getQueryData<InfiniteData<Page, number>>(key);
+  const existing = queryClient.getQueryData<InfiniteData<Page, number>>(
+    competitionResultsQueryKey,
+  );
   const minimumPageCount = existing?.pages.length ?? 0;
-  const data = await queryClient.fetchInfiniteQuery<
-    Page,
-    Error,
-    Page,
-    typeof key,
-    number
-  >({
+  const data = await queryClient.fetchInfiniteQuery({
+    ...competitionResultsQueryOptions(token),
     getNextPageParam(lastPage, allPages, _lastPageParam, allPageParams) {
       if (
         allPageParams.length >= minimumPageCount &&
@@ -165,15 +159,7 @@ export async function syncCompetitionResults({
 
       return paging.next(lastPage);
     },
-    initialPageParam: 1,
     pages: Math.max(minimumPageCount, pageCount(maxPages)),
-    queryFn: ({ pageParam, signal }) =>
-      fetchCompetitionResultsPage({
-        page: pageParam,
-        signal,
-        token,
-      }),
-    queryKey: key,
   });
 
   await saveCache();

@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import { useAtomValue, useSetAtom } from "jotai";
 import { SymbolView } from "expo-symbols";
 import { Stack } from "expo-router";
@@ -8,13 +9,31 @@ import ListTopShadow from "@/components/ListTopShadow";
 import ProfileAthleteCard from "@/components/ProfileAthleteCard";
 import ScreenStateCard from "@/components/ScreenStateCard";
 import { Text, View } from "@/components/Themed";
-import { profileAtom } from "@/lib/profile-query";
+import { fetchClient, getData } from "@/lib/cdsf-client";
 import { currentSessionAtom, signOutAtom } from "@/lib/session";
 
 export default function ProfileScreen() {
-  const { data, isError, isLoading, isRefetching, refetch } =
-    useAtomValue(profileAtom);
   const session = useAtomValue(currentSessionAtom);
+  const token = session?.token;
+  const { data, isError, isLoading, isRefetching, refetch } = useQuery({
+    enabled: !!token,
+    queryKey: ["profile"] as const,
+    queryFn: async ({ signal }) => {
+      if (!token) {
+        throw new Error("Session is not available.");
+      }
+
+      return getData(
+        await fetchClient.GET("/athletes/current", {
+          headers: {
+            Authorization: token,
+          },
+          signal,
+        }),
+        "Profile response did not include data.",
+      );
+    },
+  });
   const signOut = useSetAtom(signOutAtom);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -99,7 +118,10 @@ export default function ProfileScreen() {
       />
       {isMenuOpen ? (
         <>
-          <Pressable onPress={() => setIsMenuOpen(false)} style={styles.menuBackdrop} />
+          <Pressable
+            onPress={() => setIsMenuOpen(false)}
+            style={styles.menuBackdrop}
+          />
           <View style={styles.headerMenu}>
             <View style={styles.headerMenuSection}>
               <Text style={styles.headerMenuLabel}>Účet</Text>

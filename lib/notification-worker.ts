@@ -13,7 +13,11 @@ import {
 } from "@/lib/competition-format";
 import { stripMarkdown } from "@/lib/markdown";
 import { notificationPreferencesAtom } from "@/lib/notification-preferences";
-import { type Notification, syncNotifications } from "@/lib/notification-sync";
+import {
+  getNotificationPreview,
+  type Notification,
+  syncNotifications,
+} from "@/lib/notification-sync";
 import { sessionAtom } from "@/lib/session";
 import {
   announcementsSeenAtom,
@@ -25,8 +29,6 @@ import {
 } from "@/lib/seen-state";
 
 const notifColor = "#2457b3";
-const previewMaxLen = 140;
-
 type Channel = {
   description: string;
   id: string;
@@ -72,41 +74,12 @@ async function ensureChannel(channel: Channel) {
   });
 }
 
-function previewText(value: string, maxLength = previewMaxLen) {
-  const preview = stripMarkdown(value)
-    .replace(/[>#-]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  return preview.length <= maxLength
-    ? preview
-    : `${preview.slice(0, maxLength - 1).trimEnd()}…`;
-}
-
-function previewBody(notification: Notification) {
-  const message = notification.message?.trim();
-
-  if (message) {
-    return previewText(message);
-  }
-
-  if (notification.author?.trim()) {
-    return `Autor: ${notification.author.trim()}`;
-  }
-
-  if (notification.contact?.trim()) {
-    return `Kontakt: ${notification.contact.trim()}`;
-  }
-
-  return "Otevřete aplikaci pro detail aktuality.";
-}
-
 function getAnnouncementsContent(unseen: readonly Notification[]) {
   const [latest] = unseen;
   const latestTitle = stripMarkdown(latest.caption);
   const count = unseen.length;
   const single = count === 1;
-  const preview = previewBody(latest);
+  const preview = getNotificationPreview(latest);
 
   return {
     body: single ? preview : `${preview} · +${count - 1} další`,

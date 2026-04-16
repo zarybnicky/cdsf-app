@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { Redirect, Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useAtomValue } from "jotai";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
@@ -10,7 +10,7 @@ import {
   formatCompetitionLabel,
   formatDateRange,
 } from "@/lib/competition-format";
-import { competitionRegistrationsAtom } from "@/lib/competition-registrations-query";
+import { competitionRegistrationsQueryOptions } from "@/lib/competition-registrations-query";
 import { detailScreenStyles } from "@/lib/competition-screen-styles";
 import { getRouteId } from "@/lib/competition-routes";
 import { withHeaderSubtitle } from "@/lib/navigation-header";
@@ -45,7 +45,10 @@ export default function CompetitionEventScreen() {
       );
     },
   });
-  const registrationsQuery = useAtomValue(competitionRegistrationsAtom);
+  const registrationsQuery = useInfiniteQuery({
+    ...competitionRegistrationsQueryOptions(session?.token),
+    enabled: !!session,
+  });
 
   if (!eventId) {
     return <Redirect href="/+not-found" />;
@@ -127,10 +130,14 @@ export default function CompetitionEventScreen() {
     { label: "Pořadatel", value: event.promoter?.trim() },
     {
       label: "Úředníci",
-      value: event.officials.length ? `${event.officials.length} osob` : undefined,
+      value: event.officials.length
+        ? `${event.officials.length} osob`
+        : undefined,
     },
     { label: "GPS", value: myEvent?.gps?.trim() },
-  ].filter((row): row is { label: string; value: string } => Boolean(row.value));
+  ].filter((row): row is { label: string; value: string } =>
+    Boolean(row.value),
+  );
 
   return (
     <ScrollView contentContainerStyle={styles.content} style={styles.container}>

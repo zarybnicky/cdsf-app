@@ -5,9 +5,6 @@ import {
   persistQueryClientSave,
 } from "@tanstack/react-query-persist-client";
 import { QueryClient } from "@tanstack/react-query";
-import { queryClientAtom } from "jotai-tanstack-query";
-
-import { appStore } from "@/lib/app-store";
 
 const DAY_MS = 1000 * 60 * 60 * 24;
 
@@ -20,7 +17,6 @@ export const queryClient = new QueryClient({
     },
   },
 });
-appStore.set(queryClientAtom, queryClient);
 
 export const queryPersister = createAsyncStoragePersister({
   storage: AsyncStorage,

@@ -1,15 +1,16 @@
-import type { components, paths } from "@/CDSF";
+import { infiniteQueryOptions } from "@tanstack/react-query";
 import type { InfiniteData } from "@tanstack/react-query";
-import { atomWithInfiniteQuery } from "jotai-tanstack-query";
 
+import type { components, paths } from "@/CDSF";
 import { appStore } from "@/lib/app-store";
 import { fetchClient, getData, paging } from "@/lib/cdsf-client";
+import { stripMarkdown } from "@/lib/markdown";
 import { type NotificationPreferences } from "@/lib/notification-preferences";
 import { queryClient, restoreCache, saveCache } from "@/lib/react-query";
-import { currentSessionAtom } from "@/lib/session";
 import {
   announcementsSeenAtom,
   type AnnouncementSeen,
+  getAnnouncementCreatedMs,
   getLatestHead,
   hasAnnouncementsBefore,
   isAnnouncementSeen,
@@ -38,16 +39,16 @@ export type SyncInput = {
 };
 
 const pageSize = 10;
-const key = ["announcements"] as const;
+const previewMaxLen = 140;
+
+export const announcementsQueryKey = ["announcements"] as const;
 
 async function fetchNotificationsPage({
   page,
-  pageSize: size,
   signal,
   token,
 }: {
   page: number;
-  pageSize: number;
   signal?: AbortSignal;
   token: string;
 }) {
@@ -59,7 +60,7 @@ async function fetchNotificationsPage({
       params: {
         query: {
           page,
-          pageSize: size,
+          pageSize,
         },
       },
       signal,
@@ -68,14 +69,40 @@ async function fetchNotificationsPage({
   );
 }
 
-export const announcementsAtom = atomWithInfiniteQuery((get) => {
-  const session = get(currentSessionAtom);
+function previewText(value: string, maxLength = previewMaxLen) {
+  const preview = stripMarkdown(value)
+    .replace(/[>#-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 
-  return {
-    enabled: !!session,
+  return preview.length <= maxLength
+    ? preview
+    : `${preview.slice(0, maxLength - 1).trimEnd()}…`;
+}
+
+export function getNotificationPreview(notification: Notification) {
+  const message = notification.message?.trim();
+
+  if (message) {
+    return previewText(message);
+  }
+
+  if (notification.author?.trim()) {
+    return `Autor: ${notification.author.trim()}`;
+  }
+
+  if (notification.contact?.trim()) {
+    return `Kontakt: ${notification.contact.trim()}`;
+  }
+
+  return "Otevřete aplikaci pro detail aktuality.";
+}
+
+export function announcementsQueryOptions(token?: string) {
+  return infiniteQueryOptions({
     getNextPageParam: paging.next,
     initialPageParam: 1,
-    queryKey: key,
+    queryKey: announcementsQueryKey,
     queryFn: async ({
       pageParam,
       signal,
@@ -83,19 +110,18 @@ export const announcementsAtom = atomWithInfiniteQuery((get) => {
       pageParam: number;
       signal: AbortSignal;
     }): Promise<Page> => {
-      if (!session) {
+      if (!token) {
         throw new Error("Session is not available.");
       }
 
       return fetchNotificationsPage({
         page: pageParam,
-        pageSize,
         signal,
-        token: session.token,
+        token,
       });
     },
-  };
-});
+  });
+}
 
 function buildProgress(
   pages: Page[],
@@ -147,15 +173,12 @@ export async function syncNotifications({
   const seen = seenState ?? (await appStore.get(announcementsSeenAtom));
   await restoreCache();
 
-  const existing = queryClient.getQueryData<InfiniteData<Page, number>>(key);
+  const existing = queryClient.getQueryData<InfiniteData<Page, number>>(
+    announcementsQueryKey,
+  );
   const minimumPageCount = existing?.pages.length ?? 0;
-  const data = await queryClient.fetchInfiniteQuery<
-    Page,
-    Error,
-    Page,
-    typeof key,
-    number
-  >({
+  const data = await queryClient.fetchInfiniteQuery({
+    ...announcementsQueryOptions(token),
     getNextPageParam(lastPage, allPages, _lastPageParam, allPageParams) {
       const progress = buildProgress(allPages, preferences, seen);
 
@@ -168,16 +191,7 @@ export async function syncNotifications({
 
       return progress.nextPage;
     },
-    initialPageParam: 1,
     pages: Math.max(minimumPageCount, 3),
-    queryFn: ({ pageParam, signal }) =>
-      fetchNotificationsPage({
-        page: pageParam,
-        pageSize,
-        signal,
-        token,
-      }),
-    queryKey: key,
   });
 
   await saveCache();

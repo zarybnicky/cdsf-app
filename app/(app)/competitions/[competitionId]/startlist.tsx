@@ -12,6 +12,7 @@ import {
   formatPresence,
   formatCompetitorSource,
 } from "@/lib/competition-format";
+import { competitionQueryOptions } from "@/lib/competition-query";
 import { listScreenStyles } from "@/lib/competition-screen-styles";
 import { getRouteId } from "@/lib/competition-routes";
 import { withHeaderSubtitle } from "@/lib/navigation-header";
@@ -24,28 +25,9 @@ export default function CompetitionStartlistScreen() {
   }>();
   const competitionId = getRouteId(params.competitionId);
   const session = useAtomValue(currentSessionAtom);
-  const headers = session ? { Authorization: session.token } : undefined;
   const competitionQuery = useQuery({
+    ...competitionQueryOptions(competitionId, session?.token),
     enabled: !!competitionId,
-    queryKey: ["competition", competitionId] as const,
-    queryFn: async ({ signal }) => {
-      if (!competitionId) {
-        throw new Error("Competition id is invalid.");
-      }
-
-      return getData(
-        await fetchClient.GET("/competitions/{competitionId}", {
-          headers,
-          params: {
-            path: {
-              competitionId,
-            },
-          },
-          signal,
-        }),
-        "Competition response did not include data.",
-      );
-    },
   });
   const startlistQuery = useQuery({
     enabled: !!competitionId,
@@ -57,7 +39,7 @@ export default function CompetitionStartlistScreen() {
 
       return getData(
         await fetchClient.GET("/competitions/{competitionId}/startlist", {
-          headers,
+          headers: session ? { Authorization: session.token } : undefined,
           params: {
             path: {
               competitionId,
@@ -80,9 +62,12 @@ export default function CompetitionStartlistScreen() {
     return <Redirect href="/+not-found" />;
   }
 
-  const title = competition ? formatCompetitionLabel(competition) : "Startovní listina";
+  const title = competition
+    ? formatCompetitionLabel(competition)
+    : "Startovní listina";
   const loading = competitionQuery.isLoading || startlistQuery.isLoading;
-  const hasError = competitionQuery.isError || startlistQuery.isError || !competition;
+  const hasError =
+    competitionQuery.isError || startlistQuery.isError || !competition;
   const isRefreshing =
     (competitionQuery.isRefetching || startlistQuery.isRefetching) && !loading;
   const stateCard = loading

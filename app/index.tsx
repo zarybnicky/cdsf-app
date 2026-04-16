@@ -15,7 +15,7 @@ export default function IndexScreen() {
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <Redirect href={session ? "/announcements" : "/login"} />
+      <Redirect href={session ? "/feed" : "/login"} />
     </>
   );
 }

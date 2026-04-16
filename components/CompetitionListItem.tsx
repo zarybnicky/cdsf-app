@@ -9,7 +9,12 @@ import {
 import { parseCdsfDate } from "@/lib/cdsf";
 
 type EventRegistration = components["schemas"]["EventRegistration"];
-type Competition = EventRegistration["competitions"][number];
+type CompetitionRow = {
+  competitionId: number;
+  key: string;
+  label: string;
+  placement?: string;
+};
 
 export type CompetitionListItemProps = {
   event: EventRegistration;
@@ -55,6 +60,21 @@ function getDateBadge(dateString: string) {
   };
 }
 
+function getCompetitionRows(event: EventRegistration) {
+  const keyPrefix = event.eventId ?? event.date ?? event.eventName;
+
+  return event.competitions.map((competition, index) => ({
+    competitionId: competition.competitionId,
+    key: [keyPrefix, competition.competitionId, index].join(":"),
+    label: formatCompetitionLabel(competition),
+    placement: formatCompetitionPlacement(
+      competition.ranking,
+      competition.rankingTo,
+      competition.competitorsCount,
+    ),
+  })) satisfies CompetitionRow[];
+}
+
 export default function CompetitionListItem({
   event,
   onPressCompetition,
@@ -62,7 +82,7 @@ export default function CompetitionListItem({
   variant = "registered",
 }: CompetitionListItemProps) {
   const isResults = variant === "results";
-  const competitions = event.competitions;
+  const competitionRows = getCompetitionRows(event);
   const { dateDay, dateMonth, dateYear } = getDateBadge(event.date);
   const title =
     isResults && onPressEvent ? (
@@ -80,40 +100,30 @@ export default function CompetitionListItem({
       <Text style={styles.title}>{event.eventName}</Text>
     );
 
-  function renderCompetition(competition: Competition, index: number) {
-    const label = formatCompetitionLabel(competition);
-    const competitionKey = [
-      event.eventId ?? event.date ?? event.eventName,
-      competition.competitionId,
-      index,
-    ].join(":");
-
+  function renderCompetitionRow(row: CompetitionRow) {
     if (!isResults) {
       return (
-        <View key={competitionKey} style={styles.registrationMetaRow}>
+        <View key={row.key} style={styles.registrationMetaRow}>
           <View style={styles.metaMarker} />
-          <Text style={styles.registrationMetaText}>{label}</Text>
+          <Text style={styles.registrationMetaText}>{row.label}</Text>
         </View>
       );
     }
 
-    const value = formatCompetitionPlacement(
-      competition.ranking,
-      competition.rankingTo,
-      competition.competitorsCount,
-    );
     const content = (
       <View style={styles.resultsMetaCopy}>
         <View style={styles.resultsMetaLabelWrap}>
-          <Text style={styles.resultsMetaLabel}>{label}</Text>
+          <Text style={styles.resultsMetaLabel}>{row.label}</Text>
         </View>
-        {value ? <Text style={styles.resultsMetaValue}>{value}</Text> : null}
+        {row.placement ? (
+          <Text style={styles.resultsMetaValue}>{row.placement}</Text>
+        ) : null}
       </View>
     );
 
     if (!onPressCompetition) {
       return (
-        <View key={competitionKey} style={styles.resultsMetaRow}>
+        <View key={row.key} style={styles.resultsMetaRow}>
           {content}
         </View>
       );
@@ -121,10 +131,10 @@ export default function CompetitionListItem({
 
     return (
       <Pressable
-        key={competitionKey}
+        key={row.key}
         accessibilityRole="link"
         onPress={() => {
-          onPressCompetition(competition.competitionId);
+          onPressCompetition(row.competitionId);
         }}
         style={({ pressed }) => [
           styles.resultsMetaRow,
@@ -152,7 +162,7 @@ export default function CompetitionListItem({
       <View style={styles.content}>
         <Text style={styles.city}>{event.city}</Text>
         {title}
-        {competitions.map(renderCompetition)}
+        {competitionRows.map(renderCompetitionRow)}
       </View>
     </>
   );

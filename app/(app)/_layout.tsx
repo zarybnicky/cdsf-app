@@ -29,6 +29,23 @@ export default function AppLayout() {
       }}
     >
       <Tabs.Screen
+        name="feed"
+        options={{
+          title: "Přehled",
+          tabBarIcon: ({ color }) => (
+            <SymbolView
+              name={{
+                ios: "rectangle.grid.1x2.fill",
+                android: "dashboard",
+                web: "dashboard",
+              }}
+              tintColor={color}
+              size={24}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="announcements"
         options={{
           headerShown: false,

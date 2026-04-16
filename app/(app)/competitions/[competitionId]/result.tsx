@@ -12,6 +12,7 @@ import {
   formatCompetitionPlacement,
   formatCompetitorName,
 } from "@/lib/competition-format";
+import { competitionQueryOptions } from "@/lib/competition-query";
 import { listScreenStyles } from "@/lib/competition-screen-styles";
 import { getRouteId } from "@/lib/competition-routes";
 import { withHeaderSubtitle } from "@/lib/navigation-header";
@@ -24,28 +25,9 @@ export default function CompetitionResultScreen() {
   }>();
   const competitionId = getRouteId(params.competitionId);
   const session = useAtomValue(currentSessionAtom);
-  const headers = session ? { Authorization: session.token } : undefined;
   const competitionQuery = useQuery({
+    ...competitionQueryOptions(competitionId, session?.token),
     enabled: !!competitionId,
-    queryKey: ["competition", competitionId] as const,
-    queryFn: async ({ signal }) => {
-      if (!competitionId) {
-        throw new Error("Competition id is invalid.");
-      }
-
-      return getData(
-        await fetchClient.GET("/competitions/{competitionId}", {
-          headers,
-          params: {
-            path: {
-              competitionId,
-            },
-          },
-          signal,
-        }),
-        "Competition response did not include data.",
-      );
-    },
   });
   const resultQuery = useQuery({
     enabled: !!competitionId,
@@ -57,7 +39,7 @@ export default function CompetitionResultScreen() {
 
       return getData(
         await fetchClient.GET("/competitions/{competitionId}/result", {
-          headers,
+          headers: session ? { Authorization: session.token } : undefined,
           params: {
             path: {
               competitionId,

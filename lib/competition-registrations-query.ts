@@ -1,23 +1,22 @@
-import { atomWithInfiniteQuery } from "jotai-tanstack-query";
+import { infiniteQueryOptions } from "@tanstack/react-query";
 
 import type { paths } from "@/CDSF";
 import { fetchClient, getData, paging } from "@/lib/cdsf-client";
-import { currentSessionAtom } from "@/lib/session";
 
 type Page =
   paths["/athletes/current/competitions/registrations"]["get"]["responses"][200]["content"]["application/json"];
 
 const pageSize = 100;
-const key = ["competition-registrations"] as const;
 
-export const competitionRegistrationsAtom = atomWithInfiniteQuery((get) => {
-  const session = get(currentSessionAtom);
+export const competitionRegistrationsQueryKey = [
+  "competition-registrations",
+] as const;
 
-  return {
-    enabled: !!session,
+export function competitionRegistrationsQueryOptions(token?: string) {
+  return infiniteQueryOptions({
     getNextPageParam: paging.next,
     initialPageParam: 1,
-    queryKey: key,
+    queryKey: competitionRegistrationsQueryKey,
     queryFn: async ({
       pageParam,
       signal,
@@ -25,14 +24,14 @@ export const competitionRegistrationsAtom = atomWithInfiniteQuery((get) => {
       pageParam: number;
       signal: AbortSignal;
     }): Promise<Page> => {
-      if (!session) {
+      if (!token) {
         throw new Error("Session is not available.");
       }
 
       return getData(
         await fetchClient.GET("/athletes/current/competitions/registrations", {
           headers: {
-            Authorization: session.token,
+            Authorization: token,
           },
           params: {
             query: {
@@ -45,5 +44,5 @@ export const competitionRegistrationsAtom = atomWithInfiniteQuery((get) => {
         "Competition registrations response did not include data.",
       );
     },
-  };
-});
+  });
+}

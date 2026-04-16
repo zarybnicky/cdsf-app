@@ -7,7 +7,7 @@ import { currentSessionAtom } from "@/lib/session";
 
 export default function NotFoundScreen() {
   const session = useAtomValue(currentSessionAtom);
-  const homeHref = session ? "/announcements" : "/login";
+  const homeHref = session ? "/feed" : "/login";
 
   return (
     <>

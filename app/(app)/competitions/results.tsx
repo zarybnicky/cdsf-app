@@ -1,19 +1,25 @@
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useAtomValue, useSetAtom } from "jotai";
 import { useEffect } from "react";
 
 import CompetitionListScreen from "@/components/CompetitionListScreen";
 import {
-  competitionResultsAtom,
+  competitionResultsQueryOptions,
   flattenResults,
 } from "@/lib/competition-results-sync";
 import { getDateMs } from "@/lib/cdsf";
+import { currentSessionAtom } from "@/lib/session";
 import { markResultsSeenAtom } from "@/lib/seen-state";
 
 export default function CompetitionResultsScreen() {
   const router = useRouter();
+  const token = useAtomValue(currentSessionAtom)?.token;
   const markResultsSeen = useSetAtom(markResultsSeenAtom);
-  const query = useAtomValue(competitionResultsAtom);
+  const query = useInfiniteQuery({
+    ...competitionResultsQueryOptions(token),
+    enabled: !!token,
+  });
   const {
     data,
     fetchNextPage,
@@ -24,17 +30,17 @@ export default function CompetitionResultsScreen() {
     isRefetching,
     refetch,
   } = query;
-  const events = [
-    ...(data?.pages ?? []).flatMap((page) => page.collection || []),
-  ].sort((left, right) => {
-    const timestampDifference = getDateMs(right.date) - getDateMs(left.date);
+  const events = [...(data?.pages ?? []).flatMap((page) => page.collection || [])]
+    .sort((left, right) => {
+      const timestampDifference = getDateMs(right.date) - getDateMs(left.date);
 
-    if (timestampDifference !== 0) {
-      return timestampDifference;
-    }
+      if (timestampDifference !== 0) {
+        return timestampDifference;
+      }
 
-    return left.eventName.localeCompare(right.eventName, "cs");
-  });
+      return left.eventName.localeCompare(right.eventName, "cs");
+    });
+  const seenIds = flattenResults(events).map(({ id }) => id);
   const stateCard = isLoading
     ? {
         body: "Přehled soutěží se načítá.",
@@ -59,12 +65,10 @@ export default function CompetitionResultsScreen() {
       return;
     }
 
-    const seenIds = flattenResults(events).map(({ id }) => id);
-
     if (seenIds.length > 0) {
       void markResultsSeen(seenIds);
     }
-  }, [events, isError, isLoading, markResultsSeen]);
+  }, [isError, isLoading, markResultsSeen, seenIds]);
 
   return (
     <CompetitionListScreen
