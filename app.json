@@ -1,8 +1,9 @@
 {
   "expo": {
-    "name": "cdsf-app",
+    "name": "ČSTS",
     "slug": "cdsf-app",
     "version": "1.0.0",
+    "description": "Mobile app for ČSTS members.",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "cdsfapp",
@@ -14,6 +15,7 @@
     },
     "ios": {
       "supportsTablet": true,
+      "buildNumber": "1",
       "bundleIdentifier": "com.zarybnicky.cdsfapp"
     },
     "android": {
@@ -23,8 +25,14 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
+      "blockedPermissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ],
       "predictiveBackGestureEnabled": false,
-      "package": "com.zarybnicky.cdsfapp"
+      "package": "com.zarybnicky.cdsfapp",
+      "versionCode": 1
     },
     "web": {
       "bundler": "metro",
@@ -46,6 +54,12 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "f0a4c264-e3aa-430d-b721-2f185219d82d"
+      }
     }
   }
 }

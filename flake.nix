@@ -34,8 +34,10 @@
 
             env = {
               JAVA_HOME = jdk.home;
-              ANDROID_SDK_ROOT = "${androidSdk}/libexec/android-sdk";
               ANDROID_HOME = "${androidSdk}/libexec/android-sdk";
+              ANDROID_SDK_ROOT = "${androidSdk}/libexec/android-sdk";
+              ANDROID_NDK_HOME = "${androidSdk}/libexec/android-sdk/ndk-bundle";
+              NDK_HOME = "${androidSdk}/libexec/android-sdk/ndk-bundle";
               GRADLE_OPTS =
                 "-Dorg.gradle.project.android.aapt2FromMavenOverride=${androidSdk}/libexec/android-sdk/build-tools/35.0.0/aapt2";
             };
