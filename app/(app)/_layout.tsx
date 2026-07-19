@@ -29,7 +29,7 @@ export default function AppLayout() {
       }}
     >
       <Tabs.Screen
-        name="feed"
+        name="dashboard"
         options={{
           title: "Přehled",
           tabBarIcon: ({ color }) => (
@@ -38,24 +38,6 @@ export default function AppLayout() {
                 ios: "rectangle.grid.1x2.fill",
                 android: "dashboard",
                 web: "dashboard",
-              }}
-              tintColor={color}
-              size={24}
-            />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="announcements"
-        options={{
-          headerShown: false,
-          title: "Aktuality",
-          tabBarIcon: ({ color }) => (
-            <SymbolView
-              name={{
-                ios: "megaphone.fill",
-                android: "campaign",
-                web: "campaign",
               }}
               tintColor={color}
               size={24}

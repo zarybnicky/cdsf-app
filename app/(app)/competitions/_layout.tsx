@@ -14,7 +14,10 @@ export default function CompetitionsLayout() {
         name="[competitionId]/startlist"
         options={{ title: "Startovní listina" }}
       />
-      <Stack.Screen name="[competitionId]/result" options={{ title: "Výsledek" }} />
+      <Stack.Screen
+        name="[competitionId]/result"
+        options={{ title: "Výsledek" }}
+      />
     </Stack>
   );
 }

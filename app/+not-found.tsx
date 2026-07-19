@@ -3,11 +3,11 @@ import { Link, Stack } from "expo-router";
 import { StyleSheet } from "react-native";
 
 import { Text, View } from "@/components/Themed";
-import { currentSessionAtom } from "@/lib/session";
+import { sessionStateAtom } from "@/lib/session";
 
 export default function NotFoundScreen() {
-  const session = useAtomValue(currentSessionAtom);
-  const homeHref = session ? "/feed" : "/login";
+  const session = useAtomValue(sessionStateAtom);
+  const homeHref = session ? "/dashboard" : "/login";
 
   return (
     <>

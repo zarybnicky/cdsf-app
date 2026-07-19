@@ -1,48 +1,22 @@
-import { useInfiniteQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useAtomValue } from "jotai";
-import { useEffect } from "react";
+import { useState } from "react";
 
 import CompetitionListScreen from "@/components/CompetitionListScreen";
+import { registrationsAtom, syncStateAtom } from "@/lib/atoms";
 import { getDateMs } from "@/lib/cdsf";
-import { competitionRegistrationsQueryOptions } from "@/lib/competition-registrations-query";
-import { currentSessionAtom } from "@/lib/session";
+import { sync } from "@/lib/sync";
 
 export default function RegisteredCompetitionsScreen() {
   const router = useRouter();
-  const token = useAtomValue(currentSessionAtom)?.token;
-  const query = useInfiniteQuery({
-    ...competitionRegistrationsQueryOptions(token),
-    enabled: !!token,
-  });
-  const {
-    data,
-    fetchNextPage,
-    hasNextPage,
-    isError,
-    isFetchingNextPage,
-    isLoading,
-    isRefetching,
-    refetch,
-  } = query;
+  const registrations = useAtomValue(registrationsAtom);
+  const syncState = useAtomValue(syncStateAtom).registrations;
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const registrationsStart = new Date();
   registrationsStart.setHours(0, 0, 0, 0);
   registrationsStart.setDate(registrationsStart.getDate() - 1);
   const registrationsStartMs = registrationsStart.getTime();
-  const allEvents = (data?.pages ?? []).flatMap((page) => page.collection || []);
-  const newestEventMs = allEvents.reduce(
-    (latestMs, event) => Math.max(latestMs, getDateMs(event.date)),
-    Number.NEGATIVE_INFINITY,
-  );
-  const isSeekingCurrentWindow =
-    !!hasNextPage &&
-    !isLoading &&
-    !isFetchingNextPage &&
-    !isError &&
-    newestEventMs < registrationsStartMs;
-  const hasReachedCurrentWindow =
-    newestEventMs >= registrationsStartMs || !hasNextPage;
-  const events = allEvents
+  const events = registrations
     .filter((event) => getDateMs(event.date) >= registrationsStartMs)
     .sort((left, right) => {
       const timestampDifference = getDateMs(left.date) - getDateMs(right.date);
@@ -53,44 +27,44 @@ export default function RegisteredCompetitionsScreen() {
 
       return left.eventName.localeCompare(right.eventName, "cs");
     });
-  const stateCard =
-    isLoading || !hasReachedCurrentWindow
+  const isLoading =
+    registrations.length === 0 &&
+    syncState.lastSync === null &&
+    syncState.lastError === null;
+  const stateCard = isLoading
+    ? {
+        body: "Přehled soutěží se načítá.",
+        isLoading: true,
+        title: "Načítám přehled soutěží",
+      }
+    : syncState.lastError
       ? {
-          body: isSeekingCurrentWindow
-            ? "Vyhledávám nejnovější přihlášky."
-            : "Přehled soutěží se načítá.",
-          isLoading: true,
-          title: isSeekingCurrentWindow
-            ? "Načítám aktuální přihlášky"
-            : "Načítám přehled soutěží",
+          body: "Zkuste načtení zopakovat.",
+          onRetry: () => {
+            void refresh();
+          },
+          title: "Nepodařilo se načíst přehled soutěží",
         }
-      : isError
-        ? {
-            body: "Zkuste načtení zopakovat.",
-            onRetry: () => {
-              void refetch();
-            },
-            title: "Nepodařilo se načíst přehled soutěží",
-          }
-        : {
-            body: "Jakmile budou přihlášky na soutěže evidovány, zobrazí se zde.",
-            title: "Žádné přihlášky na soutěže",
-          };
+      : {
+          body: "Jakmile budou přihlášky na soutěže evidovány, zobrazí se zde.",
+          title: "Žádné přihlášky na soutěže",
+        };
 
-  useEffect(() => {
-    if (!isSeekingCurrentWindow) {
-      return;
+  async function refresh() {
+    setIsRefreshing(true);
+    try {
+      await sync({ trigger: "manual", domains: ["registrations"] }).catch(
+        () => {},
+      );
+    } finally {
+      setIsRefreshing(false);
     }
-
-    void fetchNextPage();
-  }, [fetchNextPage, isSeekingCurrentWindow]);
+  }
 
   return (
     <CompetitionListScreen
       events={events}
-      isFetchingNextPage={isFetchingNextPage}
-      isRefreshing={isRefetching && !isLoading}
-      onEndReached={hasNextPage ? () => void fetchNextPage() : undefined}
+      isRefreshing={isRefreshing}
       onPressEvent={(eventId) => {
         router.push({
           pathname: "/competitions/events/[eventId]",
@@ -98,7 +72,7 @@ export default function RegisteredCompetitionsScreen() {
         });
       }}
       onRefresh={() => {
-        void refetch();
+        void refresh();
       }}
       stateCard={stateCard}
       tab="registered"

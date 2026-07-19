@@ -1,10 +1,6 @@
-import { atom } from "jotai";
-import { atomWithStorage, createJSONStorage, unwrap } from "jotai/utils";
+import { atomWithMMKV } from "@/lib/mmkv";
+import type { Notification } from "@/lib/types";
 
-import type { components } from "@/CDSF";
-import { asyncStringStorage } from "@/lib/string-storage";
-
-export type Notification = components["schemas"]["Notification"];
 export type NotificationType = Notification["type"];
 export type NotificationPreferences = Record<NotificationType, boolean>;
 
@@ -45,22 +41,20 @@ export const defaultPreferences: NotificationPreferences = {
   ExecutiveBoardMinutes: true,
 };
 
-const storage = createJSONStorage<NotificationPreferences>(
-  () => asyncStringStorage,
-);
+export const notificationPreferencesAtom =
+  atomWithMMKV<NotificationPreferences>(
+    "notification-preferences",
+    defaultPreferences,
+  );
 
-export const notificationPreferencesAtom = atomWithStorage(
-  "notification-preferences",
-  defaultPreferences,
-  storage,
-  {
-    getOnInit: true,
-  },
-);
-export const notificationPreferencesStateAtom = unwrap(
-  notificationPreferencesAtom,
-  () => undefined,
-);
+export function isNotificationVisible(
+  notification: Notification,
+  preferences: NotificationPreferences,
+): boolean {
+  return Boolean(
+    notification.overrideMuting || preferences[notification.type],
+  );
+}
 
 export const preferenceMetadata: Record<NotificationType, PrefMeta> = {
   CompetitionMessage: {
@@ -89,7 +83,8 @@ export const preferenceMetadata: Record<NotificationType, PrefMeta> = {
   },
   Loan: {
     label: "Hostování",
-    description: "Oznámení související s hostováním nebo krátkodobým uvolněním.",
+    description:
+      "Oznámení související s hostováním nebo krátkodobým uvolněním.",
   },
   ClubTransferCompletion: {
     label: "Dokončení přestupu",
@@ -116,12 +111,3 @@ export const preferenceMetadata: Record<NotificationType, PrefMeta> = {
     description: "Zveřejněné zápisy, usnesení a další výstupy výkonné rady.",
   },
 };
-
-export const setNotificationPreferenceAtom = atom(
-  null,
-  (_get, set, { enabled, type }: { enabled: boolean; type: NotificationType }) =>
-    set(notificationPreferencesAtom, (current) => ({
-      ...current,
-      [type]: enabled,
-    })),
-);

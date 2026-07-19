@@ -1,5 +1,4 @@
 import {
-  ActivityIndicator,
   StyleSheet,
   Switch,
   View,
@@ -10,11 +9,9 @@ import { useAtomValue, useSetAtom } from "jotai";
 
 import { Text } from "@/components/Themed";
 import {
-  defaultPreferences,
-  notificationPreferencesStateAtom,
+  notificationPreferencesAtom,
   preferenceMetadata,
   preferenceOrder,
-  setNotificationPreferenceAtom,
   type NotificationType,
 } from "@/lib/notification-preferences";
 
@@ -62,31 +59,22 @@ function NotificationPreferenceRow({
 export default function NotificationPreferencesCard({
   style,
 }: NotificationPreferencesCardProps) {
-  const preferencesState = useAtomValue(notificationPreferencesStateAtom);
-  const setPreference = useSetAtom(setNotificationPreferenceAtom);
-  const isPreferencesLoading = preferencesState === undefined;
-  const preferences = preferencesState ?? defaultPreferences;
+  const preferences = useAtomValue(notificationPreferencesAtom);
+  const setPreferences = useSetAtom(notificationPreferencesAtom);
 
   return (
     <View style={[styles.card, style]}>
-      {isPreferencesLoading ? (
-        <View style={styles.loadingRow}>
-          <ActivityIndicator color="#2f67ce" />
-          <Text style={styles.loadingText}>Načítám nastavení upozornění</Text>
-        </View>
-      ) : (
-        preferenceOrder.map((type, index) => (
-          <NotificationPreferenceRow
-            key={type}
-            enabled={preferences[type]}
-            isLastRow={index === preferenceOrder.length - 1}
-            onValueChange={(value) => {
-              void setPreference({ enabled: value, type });
-            }}
-            type={type}
-          />
-        ))
-      )}
+      {preferenceOrder.map((type, index) => (
+        <NotificationPreferenceRow
+          key={type}
+          enabled={preferences[type]}
+          isLastRow={index === preferenceOrder.length - 1}
+          onValueChange={(value) => {
+            setPreferences((current) => ({ ...current, [type]: value }));
+          }}
+          type={type}
+        />
+      ))}
 
       <Text style={styles.preferenceHint}>
         Důležitá oznámení zůstávají viditelná vždy.
@@ -108,16 +96,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.035,
     shadowRadius: 12,
     elevation: 1,
-  },
-  loadingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginTop: 12,
-  },
-  loadingText: {
-    color: "#6a7586",
-    fontSize: 12.5,
   },
   preferenceRow: {
     flexDirection: "row",

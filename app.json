@@ -50,7 +50,9 @@
       ],
       "expo-background-task",
       "expo-secure-store",
-      "react-native-enriched-markdown"
+      "react-native-enriched-markdown",
+      "expo-font",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true

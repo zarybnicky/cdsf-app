@@ -1,12 +1,10 @@
 import { ScrollView, StyleSheet } from "react-native";
 
-import NotificationDebugCard from "@/components/NotificationDebugCard";
 import NotificationPreferencesCard from "@/components/NotificationPreferencesCard";
 
 export default function AnnouncementSettingsScreen() {
   return (
     <ScrollView contentContainerStyle={styles.content} style={styles.container}>
-      {__DEV__ ? <NotificationDebugCard /> : null}
       <NotificationPreferencesCard />
     </ScrollView>
   );

@@ -1,4 +1,3 @@
-import { useQuery } from "@tanstack/react-query";
 import { useAtomValue, useSetAtom } from "jotai";
 import { SymbolView } from "expo-symbols";
 import { Stack } from "expo-router";
@@ -9,51 +8,28 @@ import ListTopShadow from "@/components/ListTopShadow";
 import ProfileAthleteCard from "@/components/ProfileAthleteCard";
 import ScreenStateCard from "@/components/ScreenStateCard";
 import { Text, View } from "@/components/Themed";
-import { fetchClient, getData } from "@/lib/cdsf-client";
-import { currentSessionAtom, signOutAtom } from "@/lib/session";
+import { athleteAtom } from "@/lib/atoms";
+import { sync } from "@/lib/sync";
+import { sessionStateAtom, signOutAtom } from "@/lib/session";
 
 export default function ProfileScreen() {
-  const session = useAtomValue(currentSessionAtom);
-  const token = session?.token;
-  const { data, isError, isLoading, isRefetching, refetch } = useQuery({
-    enabled: !!token,
-    queryKey: ["profile"] as const,
-    queryFn: async ({ signal }) => {
-      if (!token) {
-        throw new Error("Session is not available.");
-      }
-
-      return getData(
-        await fetchClient.GET("/athletes/current", {
-          headers: {
-            Authorization: token,
-          },
-          signal,
-        }),
-        "Profile response did not include data.",
-      );
-    },
-  });
+  const session = useAtomValue(sessionStateAtom);
+  const athlete = useAtomValue(athleteAtom);
   const signOut = useSetAtom(signOutAtom);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const athletes = data?.collection ?? [];
-  const isRefreshing = isRefetching && !isLoading;
-  let stateTitle = "K tomuto účtu nejsou dostupné členské údaje";
-  let stateBody = "Jakmile budou údaje k účtu dostupné, zobrazí se zde.";
+  const athletes = athlete ? [athlete] : [];
 
-  if (isLoading) {
-    stateTitle = "Načítám profil";
-    stateBody = "Profilové údaje se načítají.";
-  } else if (isError) {
-    stateTitle = "Nepodařilo se načíst profilové údaje";
-    stateBody = "Zkuste načtení zopakovat.";
-  }
-
-  function refreshProfile() {
+  async function refreshProfile() {
     setIsMenuOpen(false);
-    void refetch();
+    setIsRefreshing(true);
+    try {
+      await sync({ trigger: "manual", domains: ["athlete"] }).catch(() => {});
+    } finally {
+      setIsRefreshing(false);
+    }
   }
 
   async function handleLogout() {
@@ -103,14 +79,12 @@ export default function ProfileScreen() {
         keyExtractor={(item) => item.idt.toString()}
         ListEmptyComponent={
           <ScreenStateCard
-            body={stateBody}
-            isLoading={isLoading}
-            onRetry={isError ? refreshProfile : undefined}
-            title={stateTitle}
+            body="Obnovte obrazovku tažením dolů a zkuste údaje načíst znovu."
+            title="K tomuto účtu nejsou dostupné členské údaje"
           />
         }
         onScrollBeginDrag={() => setIsMenuOpen(false)}
-        onRefresh={refreshProfile}
+        onRefresh={() => void refreshProfile()}
         renderItem={({ item }) => <ProfileAthleteCard athlete={item} />}
         refreshing={isRefreshing}
         showsVerticalScrollIndicator={false}

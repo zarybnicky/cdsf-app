@@ -1,58 +1,41 @@
-import { useQuery } from "@tanstack/react-query";
 import { Redirect, Stack, useLocalSearchParams } from "expo-router";
 import { useAtomValue } from "jotai";
+import { useEffect, useState } from "react";
 import { FlatList, StyleSheet, View } from "react-native";
 
 import ScreenStateCard from "@/components/ScreenStateCard";
 import { Text } from "@/components/Themed";
-import { fetchClient, getData } from "@/lib/cdsf-client";
+import { resultsFullAtom, resultsSummaryAtom } from "@/lib/atoms";
 import {
   formatCompletion,
   formatCompetitionLabel,
   formatCompetitionPlacement,
   formatCompetitorName,
 } from "@/lib/competition-format";
-import { competitionQueryOptions } from "@/lib/competition-query";
 import { listScreenStyles } from "@/lib/competition-screen-styles";
-import { getRouteId } from "@/lib/competition-routes";
 import { withHeaderSubtitle } from "@/lib/navigation-header";
 import { formatSimpleDate, formatSimpleDateTime } from "@/lib/cdsf";
-import { currentSessionAtom } from "@/lib/session";
+import { refreshCompetitionResult } from "@/lib/competition-details";
 
 export default function CompetitionResultScreen() {
-  const params = useLocalSearchParams<{
-    competitionId?: string | string[];
-  }>();
-  const competitionId = getRouteId(params.competitionId);
-  const session = useAtomValue(currentSessionAtom);
-  const competitionQuery = useQuery({
-    ...competitionQueryOptions(competitionId, session?.token),
-    enabled: !!competitionId,
-  });
-  const resultQuery = useQuery({
-    enabled: !!competitionId,
-    queryKey: ["competition-result", competitionId] as const,
-    queryFn: async ({ signal }) => {
-      if (!competitionId) {
-        throw new Error("Competition id is invalid.");
-      }
-
-      return getData(
-        await fetchClient.GET("/competitions/{competitionId}/result", {
-          headers: session ? { Authorization: session.token } : undefined,
-          params: {
-            path: {
-              competitionId,
-            },
-          },
-          signal,
-        }),
-        "Competition result response did not include data.",
-      );
-    },
-  });
-  const competition = competitionQuery.data?.entity;
-  const result = resultQuery.data?.entity;
+  const params = useLocalSearchParams<{ competitionId?: string }>();
+  const parsedCompetitionId = Number(params.competitionId);
+  const competitionId =
+    Number.isInteger(parsedCompetitionId) && parsedCompetitionId > 0
+      ? parsedCompetitionId
+      : null;
+  const resultEvents = useAtomValue(resultsSummaryAtom);
+  const result = useAtomValue(resultsFullAtom)[competitionId ?? 0];
+  const event = resultEvents.find((x) =>
+    x.competitions.some((c) => c.competitionId === competitionId),
+  );
+  const competition = event?.competitions.find(
+    (x) => x.competitionId === competitionId,
+  );
+  const [loadState, setLoadState] = useState<"loading" | "ready" | "error">(
+    result ? "ready" : "loading",
+  );
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const rows = [...(result?.competitors ?? [])].sort((left, right) => {
     const leftRank = left.ranking ?? Number.MAX_SAFE_INTEGER;
     const rightRank = right.ranking ?? Number.MAX_SAFE_INTEGER;
@@ -60,8 +43,25 @@ export default function CompetitionResultScreen() {
     return leftRank - rightRank || left.startNumber - right.startNumber;
   });
 
-  function refresh() {
-    void Promise.all([competitionQuery.refetch(), resultQuery.refetch()]);
+  useEffect(() => {
+    if (!competitionId) return;
+    void refreshCompetitionResult(competitionId).then(
+      () => setLoadState("ready"),
+      () => setLoadState("error"),
+    );
+  }, [competitionId]);
+
+  async function refresh() {
+    if (!competitionId) return;
+    setIsRefreshing(true);
+    try {
+      await refreshCompetitionResult(competitionId);
+      setLoadState("ready");
+    } catch {
+      setLoadState("error");
+    } finally {
+      setIsRefreshing(false);
+    }
   }
 
   if (!competitionId) {
@@ -69,11 +69,8 @@ export default function CompetitionResultScreen() {
   }
 
   const title = competition ? formatCompetitionLabel(competition) : "Výsledek";
-  const loading = competitionQuery.isLoading || resultQuery.isLoading;
-  const hasError =
-    competitionQuery.isError || resultQuery.isError || !competition;
-  const isRefreshing =
-    (competitionQuery.isRefetching || resultQuery.isRefetching) && !loading;
+  const loading = loadState === "loading" && !result;
+  const hasError = loadState === "error" && !result;
   const stateCard = loading
     ? {
         body: "Výsledek soutěže se načítá.",
@@ -92,7 +89,7 @@ export default function CompetitionResultScreen() {
         };
   const summary = competition
     ? [
-        competition.date ? formatSimpleDate(competition.date) : undefined,
+        event?.date ? formatSimpleDate(event.date) : undefined,
         result?.completedAt
           ? `dokončeno ${formatSimpleDateTime(result.completedAt)}`
           : undefined,
@@ -117,7 +114,7 @@ export default function CompetitionResultScreen() {
             title={stateCard.title}
           />
         }
-        onRefresh={refresh}
+        onRefresh={() => void refresh()}
         refreshing={isRefreshing}
         renderItem={({ item, index }) => {
           const fallbackTitle = `Startovní číslo ${item.startNumber}`;

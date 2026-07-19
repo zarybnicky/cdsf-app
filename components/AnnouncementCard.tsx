@@ -1,12 +1,8 @@
-import type { components } from "@/CDSF";
-import { StyleSheet, View } from "react-native";
-
 import MarkdownText from "@/components/MarkdownText";
 import { Text } from "@/components/Themed";
 import { parseCdsfDate } from "@/lib/cdsf";
-import { stripMarkdown } from "@/lib/markdown";
-
-type Notification = components["schemas"]["Notification"];
+import type { Notification } from "@/lib/types";
+import { StyleSheet, View } from "react-native";
 
 export type AnnouncementCardProps = {
   id: string;
@@ -16,6 +12,14 @@ export type AnnouncementCardProps = {
 };
 
 const weekdayLabels = ["NE", "PO", "ÚT", "ST", "ČT", "PÁ", "SO"];
+
+function stripMarkdown(value: string) {
+  return value
+    .replace(/!\[([^\]]*)]\(([^)]+)\)/g, "$1")
+    .replace(/\[([^\]]+)]\(([^)]+)\)/g, "$1")
+    .replace(/[*_`~]/g, "")
+    .trim();
+}
 
 function pad(value: number) {
   return value.toString().padStart(2, "0");

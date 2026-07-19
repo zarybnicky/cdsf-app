@@ -1,12 +1,10 @@
 import { StyleSheet, View } from "react-native";
 
-import type { components } from "@/CDSF";
 import Ean8Barcode from "@/components/Ean8Barcode";
 import { formatSimpleDate, getAgeLabel } from "@/lib/cdsf";
+import type { Athlete } from "@/lib/types";
 
 import { Text } from "./Themed";
-
-type Athlete = components["schemas"]["Athlete"];
 
 type ProfileAthleteCardProps = {
   athlete: Athlete;

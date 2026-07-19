@@ -1,57 +1,31 @@
-import { useInfiniteQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import { useAtomValue, useSetAtom } from "jotai";
-import { useEffect } from "react";
+import { useAtomValue } from "jotai";
+import { useState } from "react";
 
 import CompetitionListScreen from "@/components/CompetitionListScreen";
-import {
-  competitionResultsQueryOptions,
-  flattenResults,
-} from "@/lib/competition-results-sync";
-import { getDateMs } from "@/lib/cdsf";
-import { currentSessionAtom } from "@/lib/session";
-import { markResultsSeenAtom } from "@/lib/seen-state";
+import { recentResultsAtom, syncStateAtom } from "@/lib/atoms";
+import { sync } from "@/lib/sync";
 
 export default function CompetitionResultsScreen() {
   const router = useRouter();
-  const token = useAtomValue(currentSessionAtom)?.token;
-  const markResultsSeen = useSetAtom(markResultsSeenAtom);
-  const query = useInfiniteQuery({
-    ...competitionResultsQueryOptions(token),
-    enabled: !!token,
-  });
-  const {
-    data,
-    fetchNextPage,
-    hasNextPage,
-    isError,
-    isFetchingNextPage,
-    isLoading,
-    isRefetching,
-    refetch,
-  } = query;
-  const events = [...(data?.pages ?? []).flatMap((page) => page.collection || [])]
-    .sort((left, right) => {
-      const timestampDifference = getDateMs(right.date) - getDateMs(left.date);
-
-      if (timestampDifference !== 0) {
-        return timestampDifference;
-      }
-
-      return left.eventName.localeCompare(right.eventName, "cs");
-    });
-  const seenIds = flattenResults(events).map(({ id }) => id);
+  const events = useAtomValue(recentResultsAtom);
+  const syncState = useAtomValue(syncStateAtom).results;
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const isLoading =
+    events.length === 0 &&
+    syncState.lastSync === null &&
+    syncState.lastError === null;
   const stateCard = isLoading
     ? {
         body: "Přehled soutěží se načítá.",
         isLoading: true,
         title: "Načítám přehled soutěží",
       }
-    : isError
+    : syncState.lastError
       ? {
           body: "Zkuste načtení zopakovat.",
           onRetry: () => {
-            void refetch();
+            void refresh();
           },
           title: "Nepodařilo se načíst přehled soutěží",
         }
@@ -60,22 +34,19 @@ export default function CompetitionResultsScreen() {
           title: "Žádné výsledky soutěží",
         };
 
-  useEffect(() => {
-    if (isLoading || isError) {
-      return;
+  async function refresh() {
+    setIsRefreshing(true);
+    try {
+      await sync({ trigger: "manual", domains: ["results"] }).catch(() => {});
+    } finally {
+      setIsRefreshing(false);
     }
-
-    if (seenIds.length > 0) {
-      void markResultsSeen(seenIds);
-    }
-  }, [isError, isLoading, markResultsSeen, seenIds]);
+  }
 
   return (
     <CompetitionListScreen
       events={events}
-      isFetchingNextPage={isFetchingNextPage}
-      isRefreshing={isRefetching && !isLoading}
-      onEndReached={hasNextPage ? () => void fetchNextPage() : undefined}
+      isRefreshing={isRefreshing}
       onPressCompetition={(competitionId, eventId) => {
         const params =
           eventId > 0 ? { competitionId, eventId } : { competitionId };
@@ -92,7 +63,7 @@ export default function CompetitionResultsScreen() {
         });
       }}
       onRefresh={() => {
-        void refetch();
+        void refresh();
       }}
       stateCard={stateCard}
       tab="results"

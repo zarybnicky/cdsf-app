@@ -1,64 +1,47 @@
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { Redirect, Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useAtomValue } from "jotai";
+import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 
 import ScreenStateCard from "@/components/ScreenStateCard";
 import { Text } from "@/components/Themed";
-import { fetchClient, getData } from "@/lib/cdsf-client";
+import { eventsAtom, registrationsAtom } from "@/lib/atoms";
 import {
   formatCompetitionLabel,
   formatDateRange,
 } from "@/lib/competition-format";
-import { competitionRegistrationsQueryOptions } from "@/lib/competition-registrations-query";
 import { detailScreenStyles } from "@/lib/competition-screen-styles";
-import { getRouteId } from "@/lib/competition-routes";
 import { withHeaderSubtitle } from "@/lib/navigation-header";
 import { formatSimpleDateTime } from "@/lib/cdsf";
-import { currentSessionAtom } from "@/lib/session";
+import { refreshCompetitionEvent } from "@/lib/competition-details";
 
 export default function CompetitionEventScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ eventId?: string | string[] }>();
-  const eventId = getRouteId(params.eventId);
-  const session = useAtomValue(currentSessionAtom);
-  const headers = session ? { Authorization: session.token } : undefined;
-  const eventQuery = useQuery({
-    enabled: !!eventId,
-    queryKey: ["competition-event", eventId] as const,
-    queryFn: async ({ signal }) => {
-      if (!eventId) {
-        throw new Error("Event id is invalid.");
-      }
+  const params = useLocalSearchParams<{ eventId?: string }>();
+  const parsedEventId = Number(params.eventId);
+  const eventId =
+    Number.isInteger(parsedEventId) && parsedEventId > 0 ? parsedEventId : null;
+  const registrations = useAtomValue(registrationsAtom);
+  const storedEvent = useAtomValue(eventsAtom)[eventId ?? 0];
+  const event =
+    storedEvent && "competitions" in storedEvent ? storedEvent : null;
+  const [loadState, setLoadState] = useState<"loading" | "ready" | "error">(
+    event ? "ready" : "loading",
+  );
 
-      return getData(
-        await fetchClient.GET("/competition_events/{eventId}", {
-          headers,
-          params: {
-            path: {
-              eventId,
-            },
-          },
-          signal,
-        }),
-        "Competition event response did not include data.",
-      );
-    },
-  });
-  const registrationsQuery = useInfiniteQuery({
-    ...competitionRegistrationsQueryOptions(session?.token),
-    enabled: !!session,
-  });
+  useEffect(() => {
+    if (!eventId) return;
+    void refreshCompetitionEvent(eventId).then(
+      () => setLoadState("ready"),
+      () => setLoadState("error"),
+    );
+  }, [eventId]);
 
   if (!eventId) {
     return <Redirect href="/+not-found" />;
   }
 
-  const registrations = (registrationsQuery.data?.pages ?? []).flatMap(
-    (page) => page.collection || [],
-  );
   const myEvent = registrations.find((item) => item.eventId === eventId);
-  const event = eventQuery.data?.entity;
   const title = event?.eventTitle ?? myEvent?.eventName ?? "Událost";
   const summary = event
     ? [formatDateRange(event.dateFrom, event.dateTo), event.location]
@@ -66,7 +49,7 @@ export default function CompetitionEventScreen() {
         .join(" · ")
     : undefined;
 
-  if (eventQuery.isLoading) {
+  if (loadState === "loading" && !event) {
     return (
       <ScrollView
         contentContainerStyle={styles.content}
@@ -82,7 +65,7 @@ export default function CompetitionEventScreen() {
     );
   }
 
-  if (eventQuery.isError || !event) {
+  if (!event) {
     return (
       <ScrollView
         contentContainerStyle={styles.content}
@@ -92,7 +75,11 @@ export default function CompetitionEventScreen() {
         <ScreenStateCard
           body="Zkuste načtení zopakovat."
           onRetry={() => {
-            void eventQuery.refetch();
+            setLoadState("loading");
+            void refreshCompetitionEvent(eventId).then(
+              () => setLoadState("ready"),
+              () => setLoadState("error"),
+            );
           }}
           title="Nepodařilo se načíst detail akce"
         />

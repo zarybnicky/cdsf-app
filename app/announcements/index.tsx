@@ -1,6 +1,5 @@
-import { useInfiniteQuery } from "@tanstack/react-query";
-import { useEffect } from "react";
-import { ActivityIndicator, FlatList, StyleSheet, View } from "react-native";
+import { useEffect, useState } from "react";
+import { FlatList, StyleSheet, View } from "react-native";
 import { useAtomValue, useSetAtom } from "jotai";
 
 import AnnouncementCard, {
@@ -10,52 +9,36 @@ import ListTopShadow from "@/components/ListTopShadow";
 import ScreenStateCard from "@/components/ScreenStateCard";
 import { Text } from "@/components/Themed";
 import {
-  defaultPreferences,
-  notificationPreferencesStateAtom,
+  notificationsAtom,
+  seenNotificationsAtom,
+  syncStateAtom,
+} from "@/lib/atoms";
+import {
+  isNotificationVisible,
+  notificationPreferencesAtom,
 } from "@/lib/notification-preferences";
-import { announcementsQueryOptions } from "@/lib/notification-sync";
-import { currentSessionAtom } from "@/lib/session";
-import { syncAnnouncementsAtom } from "@/lib/seen-state";
+import { sync } from "@/lib/sync";
 
 export default function AnnouncementsScreen() {
-  const token = useAtomValue(currentSessionAtom)?.token;
-  const {
-    data,
-    fetchNextPage,
-    hasNextPage,
-    isError,
-    isFetchingNextPage,
-    isLoading,
-    isRefetching,
-    refetch,
-  } = useInfiniteQuery({
-    ...announcementsQueryOptions(token),
-    enabled: !!token,
-  });
-  const preferencesState = useAtomValue(notificationPreferencesStateAtom);
-  const syncAnnouncements = useSetAtom(syncAnnouncementsAtom);
-  const preferencesLoading = preferencesState === undefined;
-  const preferences = preferencesState ?? defaultPreferences;
-  const isRefreshing = isRefetching && !isLoading;
-  const notifications = (data?.pages ?? []).flatMap(
-    (page) => page.collection || [],
+  const storedNotifications = useAtomValue(notificationsAtom);
+  const syncState = useAtomValue(syncStateAtom).notifications;
+  const preferences = useAtomValue(notificationPreferencesAtom);
+  const markSeen = useSetAtom(seenNotificationsAtom);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const notifications = Object.values(storedNotifications).sort(
+    (left, right) =>
+      right.created.localeCompare(left.created) || right.id - left.id,
   );
   const visibleNotifications = notifications.filter(
-    (notification) =>
-      notification.overrideMuting || preferences[notification.type],
+    (notification) => isNotificationVisible(notification, preferences),
   );
   const hiddenCount = notifications.length - visibleNotifications.length;
   const isLoadingState =
-    isLoading ||
-    preferencesLoading ||
-    (isFetchingNextPage && visibleNotifications.length === 0);
-  const shouldFetchNextPage =
-    !isLoadingState &&
-    !isError &&
-    !!hasNextPage &&
-    notifications.length > 0 &&
-    visibleNotifications.length === 0;
-  const showFilterNotice = hiddenCount > 0 && !isLoadingState && !isError;
+    notifications.length === 0 &&
+    syncState.lastSync === null &&
+    syncState.lastError === null;
+  const showFilterNotice =
+    hiddenCount > 0 && !isLoadingState && !syncState.lastError;
   const announcements = isLoadingState
     ? []
     : visibleNotifications.map(announcementFromNotification);
@@ -66,7 +49,7 @@ export default function AnnouncementsScreen() {
   if (isLoadingState) {
     emptyStateTitle = "Načítám aktuality";
     emptyStateBody = "Aktuality se načítají.";
-  } else if (isError) {
+  } else if (syncState.lastError) {
     emptyStateTitle = "Nepodařilo se načíst aktuality";
     emptyStateBody = "Zkuste načtení zopakovat.";
   } else if (hiddenCount > 0) {
@@ -76,23 +59,33 @@ export default function AnnouncementsScreen() {
   }
 
   useEffect(() => {
-    if (!shouldFetchNextPage) {
-      return;
+    const ids = Object.values(storedNotifications)
+      .filter((notification) =>
+        isNotificationVisible(notification, preferences),
+      )
+      .map((notification) => String(notification.id));
+    if (ids.length === 0) return;
+
+    markSeen((seen) => {
+      if (ids.every((id) => id in seen)) return seen;
+      const next = { ...seen };
+      const seenAt = Date.now();
+      for (const id of ids) {
+        if (!(id in next)) next[id] = seenAt;
+      }
+      return next;
+    });
+  }, [markSeen, preferences, storedNotifications]);
+
+  async function refresh() {
+    setIsRefreshing(true);
+    try {
+      await sync({ trigger: "manual", domains: ["notifications"] }).catch(
+        () => {},
+      );
+    } finally {
+      setIsRefreshing(false);
     }
-
-    void fetchNextPage();
-  }, [fetchNextPage, shouldFetchNextPage]);
-
-  useEffect(() => {
-    if (isLoadingState || isError) {
-      return;
-    }
-
-    void syncAnnouncements(notifications);
-  }, [isError, isLoadingState, notifications, syncAnnouncements]);
-
-  function refresh() {
-    void refetch();
   }
 
   return (
@@ -122,21 +115,12 @@ export default function AnnouncementsScreen() {
           <ScreenStateCard
             body={emptyStateBody}
             isLoading={isLoadingState}
-            onRetry={isError ? refresh : undefined}
+            onRetry={syncState.lastError ? () => void refresh() : undefined}
             style={styles.stateCard}
             title={emptyStateTitle}
           />
         }
-        ListFooterComponent={
-          isFetchingNextPage ? (
-            <View style={styles.footer}>
-              <ActivityIndicator color="#2f67ce" />
-            </View>
-          ) : null
-        }
-        onRefresh={refresh}
-        onEndReached={hasNextPage ? () => void fetchNextPage() : undefined}
-        onEndReachedThreshold={0.4}
+        onRefresh={() => void refresh()}
         renderItem={({ item }) => <AnnouncementCard {...item} />}
         refreshing={isRefreshing}
         showsVerticalScrollIndicator={false}
@@ -189,8 +173,5 @@ const styles = StyleSheet.create({
   stateCard: {
     marginHorizontal: 12,
     marginTop: 6,
-  },
-  footer: {
-    paddingVertical: 16,
   },
 });

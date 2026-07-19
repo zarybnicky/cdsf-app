@@ -1,7 +1,6 @@
 import type { components } from "@/CDSF";
 import { Stack, useRouter } from "expo-router";
 import {
-  ActivityIndicator,
   FlatList,
   Pressable,
   StyleSheet,
@@ -12,13 +11,17 @@ import CompetitionListItem from "@/components/CompetitionListItem";
 import ListTopShadow from "@/components/ListTopShadow";
 import ScreenStateCard from "@/components/ScreenStateCard";
 import { Text } from "@/components/Themed";
-import { competitionTabs, type CompetitionTab } from "@/lib/competition-routes";
+
+const tabs = [
+  { key: "registered", href: "/competitions/registered", label: "Přihlášky" },
+  { key: "results", href: "/competitions/results", label: "Výsledky" },
+] as const;
+
+type CompetitionTab = (typeof tabs)[number]["key"];
 
 type Props = {
   events: components["schemas"]["EventRegistration"][];
-  isFetchingNextPage: boolean;
   isRefreshing: boolean;
-  onEndReached?: () => void;
   onPressCompetition?: (competitionId: number, eventId: number) => void;
   onPressEvent?: (eventId: number) => void;
   onRefresh: () => void;
@@ -31,20 +34,17 @@ type Props = {
   tab: CompetitionTab;
 };
 
-const tabs: CompetitionTab[] = ["registered", "results"];
-
 function HeaderTabs({ tab: active }: Pick<Props, "tab">) {
   const router = useRouter();
 
   return (
     <View accessibilityRole="tablist" style={styles.headerToggle}>
-      {tabs.map((tab) => {
-        const isActive = tab === active;
-        const { href, label } = competitionTabs[tab];
+      {tabs.map(({ href, key, label }) => {
+        const isActive = key === active;
 
         return (
           <Pressable
-            key={tab}
+            key={key}
             accessibilityRole="tab"
             accessibilityState={{ selected: isActive }}
             hitSlop={4}
@@ -76,9 +76,7 @@ function HeaderTabs({ tab: active }: Pick<Props, "tab">) {
 
 export default function CompetitionListScreen({
   events,
-  isFetchingNextPage,
   isRefreshing,
-  onEndReached,
   onPressCompetition,
   onPressEvent,
   onRefresh,
@@ -110,15 +108,6 @@ export default function CompetitionListScreen({
             title={stateCard.title}
           />
         }
-        ListFooterComponent={
-          isFetchingNextPage ? (
-            <View style={styles.footer}>
-              <ActivityIndicator color="#2f67ce" />
-            </View>
-          ) : null
-        }
-        onEndReached={onEndReached}
-        onEndReachedThreshold={0.4}
         onRefresh={onRefresh}
         refreshing={isRefreshing}
         renderItem={({ item }) => {
@@ -206,8 +195,5 @@ const styles = StyleSheet.create({
   stateCard: {
     marginHorizontal: 12,
     marginTop: 8,
-  },
-  footer: {
-    paddingVertical: 16,
   },
 });

@@ -27,7 +27,7 @@ type SourcedCompetitor = Pick<
   "captain" | "club" | "country"
 >;
 
-function joinName(...parts: Array<string | undefined>) {
+function joinName(...parts: (string | undefined)[]) {
   return parts.join(" ").replace(/\s+/g, " ").trim();
 }
 

@@ -1,26 +1,22 @@
+import { appStore } from "@/lib/app-store";
+import { seenNotificationsAtom } from "@/lib/atoms";
+import { sessionStateAtom } from "@/lib/session";
+import { setAuthenticatedSyncEnabled } from "@/lib/sync-runtime";
 import { DefaultTheme, ThemeProvider } from "@react-navigation/native";
-import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { useFonts } from "expo-font";
-import { Stack } from "expo-router";
+import {
+  addNotificationResponseReceivedListener,
+  clearLastNotificationResponse,
+  getLastNotificationResponse,
+  type NotificationResponse,
+} from "expo-notifications";
+import { Stack, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { Provider as JotaiProvider, useAtomValue } from "jotai";
-import { useEffect, useState } from "react";
+import { useEffect, useRef } from "react";
+import { Platform } from "react-native";
 import "react-native-reanimated";
-
-import { appStore } from "@/lib/app-store";
-import { useNotificationRuntime } from "@/lib/notification-runtime";
-import {
-  cacheMaxAge,
-  markCacheRestored,
-  queryClient,
-  queryPersister,
-} from "@/lib/react-query";
-import {
-  currentSessionAtom,
-  ensureSessionMiddleware,
-  sessionStateAtom,
-} from "@/lib/session";
 
 export { ErrorBoundary } from "expo-router";
 
@@ -29,26 +25,75 @@ export const unstable_settings = {
 };
 
 void SplashScreen.preventAutoHideAsync();
-ensureSessionMiddleware();
 
 type RootNavigatorProps = {
   fontsLoaded: boolean;
-  cacheReady: boolean;
 };
 
-function RootNavigator({ fontsLoaded, cacheReady }: RootNavigatorProps) {
-  const session = useAtomValue(currentSessionAtom);
-  const sessionState = useAtomValue(sessionStateAtom);
-  const isSessionLoading = sessionState === undefined;
-  const isAppReady = fontsLoaded && cacheReady && !isSessionLoading;
-
-  useNotificationRuntime(isAppReady);
+function RootNavigator({ fontsLoaded }: RootNavigatorProps) {
+  const router = useRouter();
+  const session = useAtomValue(sessionStateAtom);
+  const isSessionLoading = session === undefined;
+  const isAuthenticated = session !== null && session !== undefined;
+  const isAppReady = fontsLoaded && !isSessionLoading;
+  const handledNotification = useRef<string | null>(null);
 
   useEffect(() => {
     if (isAppReady) {
       void SplashScreen.hideAsync();
     }
   }, [isAppReady]);
+
+  useEffect(() => {
+    if (!isSessionLoading) {
+      setAuthenticatedSyncEnabled(isAuthenticated);
+    }
+  }, [isAuthenticated, isSessionLoading]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      handledNotification.current = null;
+      return;
+    }
+
+    const handleNotificationResponse = (resp: NotificationResponse) => {
+      const requestId = resp.notification.request.identifier;
+      if (handledNotification.current === requestId) return;
+      handledNotification.current = requestId;
+
+      const data = resp.notification.request.content.data as {
+        type?: string;
+        id?: number;
+        competitionId?: number;
+      };
+      if (data.type === "result" && data.competitionId) {
+        router.push({
+          pathname: "/competitions/[competitionId]/result",
+          params: { competitionId: data.competitionId },
+        });
+      } else if (data.type === "registration" && data.competitionId) {
+        router.push("/competitions/registered");
+      } else if (data.type === "notification" && data.id) {
+        appStore.set(seenNotificationsAtom, (seen) => ({
+          ...seen,
+          [String(data.id)]: Date.now(),
+        }));
+        router.push("/announcements");
+      }
+      clearLastNotificationResponse();
+    };
+    if (Platform.OS !== 'web') {
+      const lastResponse = getLastNotificationResponse();
+      if (lastResponse) handleNotificationResponse(lastResponse);
+    }
+    const tapSub = addNotificationResponseReceivedListener(
+      handleNotificationResponse,
+    );
+
+    return () => {
+      tapSub.remove();
+    };
+  }, [isAuthenticated, router]);
 
   if (!isAppReady) {
     return null;
@@ -59,8 +104,9 @@ function RootNavigator({ fontsLoaded, cacheReady }: RootNavigatorProps) {
       <StatusBar backgroundColor="#f4f7fb" style="dark" />
       <Stack>
         <Stack.Screen name="index" options={{ headerShown: false }} />
-        <Stack.Protected guard={session !== null}>
+        <Stack.Protected guard={isAuthenticated}>
           <Stack.Screen name="(app)" options={{ headerShown: false }} />
+          <Stack.Screen name="announcements" options={{ headerShown: false }} />
         </Stack.Protected>
         <Stack.Protected guard={session === null}>
           <Stack.Screen name="login" options={{ headerShown: false }} />
@@ -74,26 +120,13 @@ export default function RootLayout() {
   const [fontsLoaded, error] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
-  const [cacheReady, setCacheReady] = useState(false);
-  const handleCacheReady = () => {
-    markCacheRestored();
-    setCacheReady(true);
-  };
-
   if (error) {
     throw error;
   }
 
   return (
-    <PersistQueryClientProvider
-      client={queryClient}
-      persistOptions={{ persister: queryPersister, maxAge: cacheMaxAge }}
-      onSuccess={handleCacheReady}
-      onError={handleCacheReady}
-    >
-      <JotaiProvider store={appStore}>
-        <RootNavigator fontsLoaded={fontsLoaded} cacheReady={cacheReady} />
-      </JotaiProvider>
-    </PersistQueryClientProvider>
+    <JotaiProvider store={appStore}>
+      <RootNavigator fontsLoaded={fontsLoaded} />
+    </JotaiProvider>
   );
 }

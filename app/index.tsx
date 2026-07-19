@@ -1,12 +1,11 @@
 import { useAtomValue } from "jotai";
 import { Redirect, Stack } from "expo-router";
 
-import { currentSessionAtom, sessionStateAtom } from "@/lib/session";
+import { sessionStateAtom } from "@/lib/session";
 
 export default function IndexScreen() {
-  const session = useAtomValue(currentSessionAtom);
-  const sessionState = useAtomValue(sessionStateAtom);
-  const isLoading = sessionState === undefined;
+  const session = useAtomValue(sessionStateAtom);
+  const isLoading = session === undefined;
 
   if (isLoading) {
     return null;
@@ -15,7 +14,7 @@ export default function IndexScreen() {
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <Redirect href={session ? "/feed" : "/login"} />
+      <Redirect href={session ? "/dashboard" : "/login"} />
     </>
   );
 }

@@ -1,6 +1,4 @@
-import type { components } from "@/CDSF";
-
-type Athlete = components["schemas"]["Athlete"];
+import type { Athlete } from "@/lib/types";
 
 const translatedAgeLabels: Partial<Record<Athlete["age"], string>> = {
   "Under 8": "Do 8 let",

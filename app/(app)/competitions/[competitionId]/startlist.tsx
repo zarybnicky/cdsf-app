@@ -1,61 +1,61 @@
-import { useQuery } from "@tanstack/react-query";
 import { Redirect, Stack, useLocalSearchParams } from "expo-router";
 import { useAtomValue } from "jotai";
+import { useEffect, useState } from "react";
 import { FlatList, StyleSheet, View } from "react-native";
 
 import ScreenStateCard from "@/components/ScreenStateCard";
 import { Text } from "@/components/Themed";
-import { fetchClient, getData } from "@/lib/cdsf-client";
+import { competitionsAtom, startlistsAtom } from "@/lib/atoms";
 import {
   formatCompetitionLabel,
   formatCompetitorName,
   formatPresence,
   formatCompetitorSource,
 } from "@/lib/competition-format";
-import { competitionQueryOptions } from "@/lib/competition-query";
 import { listScreenStyles } from "@/lib/competition-screen-styles";
-import { getRouteId } from "@/lib/competition-routes";
 import { withHeaderSubtitle } from "@/lib/navigation-header";
 import { formatSimpleDate } from "@/lib/cdsf";
-import { currentSessionAtom } from "@/lib/session";
+import { refreshCompetitionStartlist } from "@/lib/competition-details";
 
 export default function CompetitionStartlistScreen() {
   const params = useLocalSearchParams<{
-    competitionId?: string | string[];
+    competitionId?: string;
   }>();
-  const competitionId = getRouteId(params.competitionId);
-  const session = useAtomValue(currentSessionAtom);
-  const competitionQuery = useQuery({
-    ...competitionQueryOptions(competitionId, session?.token),
-    enabled: !!competitionId,
-  });
-  const startlistQuery = useQuery({
-    enabled: !!competitionId,
-    queryKey: ["competition-startlist", competitionId] as const,
-    queryFn: async ({ signal }) => {
-      if (!competitionId) {
-        throw new Error("Competition id is invalid.");
-      }
+  const parsedCompetitionId = Number(params.competitionId);
+  const competitionId =
+    Number.isInteger(parsedCompetitionId) && parsedCompetitionId > 0
+      ? parsedCompetitionId
+      : null;
+  const competitions = useAtomValue(competitionsAtom);
+  const startlists = useAtomValue(startlistsAtom);
+  const competition = competitions[competitionId ?? 0];
+  const competitors = startlists[competitionId ?? 0] ?? [];
+  const hasCachedStartlist =
+    competitionId !== null && competitionId in startlists;
+  const [loadState, setLoadState] = useState<"loading" | "ready" | "error">(
+    competition && hasCachedStartlist ? "ready" : "loading",
+  );
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-      return getData(
-        await fetchClient.GET("/competitions/{competitionId}/startlist", {
-          headers: session ? { Authorization: session.token } : undefined,
-          params: {
-            path: {
-              competitionId,
-            },
-          },
-          signal,
-        }),
-        "Competition startlist response did not include data.",
-      );
-    },
-  });
-  const competition = competitionQuery.data?.entity;
-  const competitors = startlistQuery.data?.collection ?? [];
+  useEffect(() => {
+    if (!competitionId) return;
+    void refreshCompetitionStartlist(competitionId).then(
+      () => setLoadState("ready"),
+      () => setLoadState("error"),
+    );
+  }, [competitionId]);
 
-  function refresh() {
-    void Promise.all([competitionQuery.refetch(), startlistQuery.refetch()]);
+  async function refresh() {
+    if (!competitionId) return;
+    setIsRefreshing(true);
+    try {
+      await refreshCompetitionStartlist(competitionId);
+      setLoadState("ready");
+    } catch {
+      setLoadState("error");
+    } finally {
+      setIsRefreshing(false);
+    }
   }
 
   if (!competitionId) {
@@ -65,11 +65,8 @@ export default function CompetitionStartlistScreen() {
   const title = competition
     ? formatCompetitionLabel(competition)
     : "Startovní listina";
-  const loading = competitionQuery.isLoading || startlistQuery.isLoading;
-  const hasError =
-    competitionQuery.isError || startlistQuery.isError || !competition;
-  const isRefreshing =
-    (competitionQuery.isRefetching || startlistQuery.isRefetching) && !loading;
+  const loading = loadState === "loading" && !hasCachedStartlist;
+  const hasError = loadState === "error" && !hasCachedStartlist;
   const stateCard = loading
     ? {
         body: "Startovní listina soutěže se načítá.",
@@ -116,7 +113,7 @@ export default function CompetitionStartlistScreen() {
             title={stateCard.title}
           />
         }
-        onRefresh={refresh}
+        onRefresh={() => void refresh()}
         refreshing={isRefreshing}
         renderItem={({ item }) => {
           const meta = [
