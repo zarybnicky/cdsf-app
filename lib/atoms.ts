@@ -1,4 +1,5 @@
 import { atom } from "jotai";
+import { formatCdsfDate } from "./cdsf";
 import type {
   Athlete,
   Competition,
@@ -44,7 +45,10 @@ export const startlistsAtom = atomWithMMKV<
 >("startlists", {});
 
 // Full event details loaded on demand; this is not the competition-discovery cache.
-export const eventsAtom = atomWithMMKV<Record<number, Event>>("events", {});
+export const eventsAtom = atomWithMMKV<Record<number, Event>>(
+  "events:details",
+  {},
+);
 
 export const notificationsAtom = atomWithMMKV<Record<number, Notification>>(
   "notifications",
@@ -69,7 +73,7 @@ export const notifiedAtom = atomWithMMKV<Record<string, number>>(
 );
 
 export const upcomingRegistrationsAtom = atom((get) => {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = formatCdsfDate();
   return get(registrationsAtom)
     .filter((event) => event.date >= today)
     .sort(
@@ -87,14 +91,21 @@ export const recentResultsAtom = atom((get) => {
   );
 });
 
-export const unseenNotificationCountAtom = atom((get) => {
-  const notifs = get(notificationsAtom);
-  const seen = get(seenNotificationsAtom);
+export const visibleNotificationsAtom = atom((get) => {
   const preferences = get(notificationPreferencesAtom);
 
-  return Object.values(notifs).filter(
-    (notification) =>
-      isNotificationVisible(notification, preferences) &&
-      !(String(notification.id) in seen),
+  return Object.values(get(notificationsAtom))
+    .filter((notification) => isNotificationVisible(notification, preferences))
+    .sort(
+      (left, right) =>
+        right.created.localeCompare(left.created) || right.id - left.id,
+    );
+});
+
+export const unseenNotificationCountAtom = atom((get) => {
+  const seen = get(seenNotificationsAtom);
+
+  return get(visibleNotificationsAtom).filter(
+    (notification) => !(String(notification.id) in seen),
   ).length;
 });

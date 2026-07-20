@@ -1,25 +1,18 @@
 import type { components } from "@/CDSF";
-import { Pressable, StyleSheet, View } from "react-native";
+import { useRouter } from "expo-router";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { Text } from "@/components/Themed";
 import {
   formatCompetitionLabel,
   formatCompetitionPlacement,
 } from "@/lib/competition-format";
 import { parseCdsfDate } from "@/lib/cdsf";
+import { dismissResultNotification } from "@/lib/notify";
 
 type EventRegistration = components["schemas"]["EventRegistration"];
-type CompetitionRow = {
-  competitionId: number;
-  key: string;
-  label: string;
-  placement?: string;
-};
 
-export type CompetitionListItemProps = {
+type CompetitionListItemProps = {
   event: EventRegistration;
-  onPressCompetition?: (competitionId: number) => void;
-  onPressEvent?: () => void;
   variant?: "registered" | "results";
 };
 
@@ -60,95 +53,47 @@ function getDateBadge(dateString: string) {
   };
 }
 
-function getCompetitionRows(event: EventRegistration) {
-  const keyPrefix = event.eventId ?? event.date ?? event.eventName;
-
-  return event.competitions.map((competition, index) => ({
-    competitionId: competition.competitionId,
-    key: [keyPrefix, competition.competitionId, index].join(":"),
-    label: formatCompetitionLabel(competition),
-    placement: formatCompetitionPlacement(
-      competition.ranking,
-      competition.rankingTo,
-      competition.competitorsCount,
-    ),
-  })) satisfies CompetitionRow[];
-}
-
 export default function CompetitionListItem({
   event,
-  onPressCompetition,
-  onPressEvent,
   variant = "registered",
 }: CompetitionListItemProps) {
+  const router = useRouter();
   const isResults = variant === "results";
-  const competitionRows = getCompetitionRows(event);
+  const eventId = event.eventId;
+  const eventKey = eventId ?? event.date ?? event.eventName;
   const { dateDay, dateMonth, dateYear } = getDateBadge(event.date);
-  const title =
-    isResults && onPressEvent ? (
-      <Pressable
-        accessibilityRole="link"
-        onPress={onPressEvent}
-        style={({ pressed }) => [
-          styles.titleButton,
-          pressed ? styles.linkPressed : null,
-        ]}
-      >
-        <Text style={[styles.title, styles.titleLink]}>{event.eventName}</Text>
-      </Pressable>
-    ) : (
-      <Text style={styles.title}>{event.eventName}</Text>
-    );
+  const title = eventId ? (
+    <Pressable
+      accessibilityRole="link"
+      onPress={() =>
+        router.push({
+          pathname: "/competitions/events/[eventId]",
+          params: { eventId },
+        })
+      }
+      style={({ pressed }) => [
+        styles.titleButton,
+        pressed ? styles.linkPressed : null,
+      ]}
+    >
+      <Text style={[styles.title, styles.titleLink]}>{event.eventName}</Text>
+    </Pressable>
+  ) : (
+    <Text style={styles.title}>{event.eventName}</Text>
+  );
 
-  function renderCompetitionRow(row: CompetitionRow) {
-    if (!isResults) {
-      return (
-        <View key={row.key} style={styles.registrationMetaRow}>
-          <View style={styles.metaMarker} />
-          <Text style={styles.registrationMetaText}>{row.label}</Text>
-        </View>
-      );
-    }
-
-    const content = (
-      <View style={styles.resultsMetaCopy}>
-        <View style={styles.resultsMetaLabelWrap}>
-          <Text style={styles.resultsMetaLabel}>{row.label}</Text>
-        </View>
-        {row.placement ? (
-          <Text style={styles.resultsMetaValue}>{row.placement}</Text>
-        ) : null}
-      </View>
-    );
-
-    if (!onPressCompetition) {
-      return (
-        <View key={row.key} style={styles.resultsMetaRow}>
-          {content}
-        </View>
-      );
-    }
-
-    return (
-      <Pressable
-        key={row.key}
-        accessibilityRole="link"
-        onPress={() => {
-          onPressCompetition(row.competitionId);
-        }}
-        style={({ pressed }) => [
-          styles.resultsMetaRow,
-          styles.resultsMetaPressable,
-          pressed ? styles.linkPressed : null,
-        ]}
-      >
-        {content}
-      </Pressable>
-    );
+  function openCompetition(competitionId: number) {
+    if (isResults) void dismissResultNotification(competitionId);
+    router.push({
+      pathname: isResults
+        ? "/competitions/[competitionId]/result"
+        : "/competitions/[competitionId]/startlist",
+      params: eventId ? { competitionId, eventId } : { competitionId },
+    });
   }
 
-  const content = (
-    <>
+  return (
+    <View style={styles.card}>
       <View style={styles.dateBadge}>
         <View style={styles.monthBadge}>
           <Text style={styles.monthText}>{dateMonth}</Text>
@@ -162,26 +107,47 @@ export default function CompetitionListItem({
       <View style={styles.content}>
         <Text style={styles.city}>{event.city}</Text>
         {title}
-        {competitionRows.map(renderCompetitionRow)}
+        {event.competitions.map((competition, index) => {
+          const label = formatCompetitionLabel(competition);
+          const placement = isResults
+            ? formatCompetitionPlacement(
+                competition.ranking,
+                competition.rankingTo,
+                competition.competitorsCount,
+              )
+            : undefined;
+
+          return (
+            <Pressable
+              key={[eventKey, competition.competitionId, index].join(":")}
+              accessibilityRole="link"
+              onPress={() => openCompetition(competition.competitionId)}
+              style={({ pressed }) => [
+                styles.competitionRow,
+                isResults ? styles.resultsRow : styles.registrationRow,
+                pressed ? styles.linkPressed : null,
+              ]}
+            >
+              {isResults ? (
+                <View style={styles.resultsMetaCopy}>
+                  <View style={styles.resultsMetaLabelWrap}>
+                    <Text style={styles.resultsMetaLabel}>{label}</Text>
+                  </View>
+                  {placement ? (
+                    <Text style={styles.resultsMetaValue}>{placement}</Text>
+                  ) : null}
+                </View>
+              ) : (
+                <>
+                  <View style={styles.metaMarker} />
+                  <Text style={styles.registrationMetaText}>{label}</Text>
+                </>
+              )}
+            </Pressable>
+          );
+        })}
       </View>
-    </>
-  );
-
-  if (isResults || !onPressEvent) {
-    return <View style={styles.card}>{content}</View>;
-  }
-
-  return (
-    <Pressable
-      accessibilityRole="link"
-      onPress={onPressEvent}
-      style={({ pressed }) => [
-        styles.card,
-        pressed ? styles.cardPressed : null,
-      ]}
-    >
-      {content}
-    </Pressable>
+    </View>
   );
 }
 
@@ -202,9 +168,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.02,
     shadowRadius: 6,
     elevation: 1,
-  },
-  cardPressed: {
-    opacity: 0.9,
   },
   dateBadge: {
     width: 46,
@@ -278,7 +241,13 @@ const styles = StyleSheet.create({
   titleLink: {
     color: "#2457b3",
   },
-  registrationMetaRow: {
+  competitionRow: {
+    borderRadius: 10,
+    marginHorizontal: -4,
+    paddingHorizontal: 4,
+    paddingVertical: 3,
+  },
+  registrationRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
@@ -296,14 +265,8 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     lineHeight: 17,
   },
-  resultsMetaRow: {
+  resultsRow: {
     paddingTop: 1,
-  },
-  resultsMetaPressable: {
-    borderRadius: 10,
-    marginHorizontal: -4,
-    paddingHorizontal: 4,
-    paddingVertical: 3,
   },
   resultsMetaCopy: {
     flex: 1,

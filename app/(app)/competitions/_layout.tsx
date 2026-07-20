@@ -9,7 +9,6 @@ export default function CompetitionsLayout() {
       <Stack.Screen name="registered" options={{ title: "Soutěže" }} />
       <Stack.Screen name="results" options={{ title: "Soutěže" }} />
       <Stack.Screen name="events/[eventId]" options={{ title: "Událost" }} />
-      <Stack.Screen name="[competitionId]" options={{ title: "Soutěž" }} />
       <Stack.Screen
         name="[competitionId]/startlist"
         options={{ title: "Startovní listina" }}

@@ -2,8 +2,10 @@ import createClient from "openapi-fetch";
 
 import type { paths } from "@/CDSF";
 
+export const API_BASE_URL = "https://www.csts.cz/api/1";
+
 export const apiClient = createClient<paths>({
-  baseUrl: "https://www.csts.cz/api/1",
+  baseUrl: API_BASE_URL,
 });
 
 export class ApiError extends Error {
@@ -14,7 +16,9 @@ export class ApiError extends Error {
 
   constructor(response: Response, details: unknown) {
     const description = formatErrorDetails(details);
-    const status = [response.status, response.statusText].filter(Boolean).join(" ");
+    const status = [response.status, response.statusText]
+      .filter(Boolean)
+      .join(" ");
     const location = response.url ? ` ${response.url}` : "";
     super(
       `API request failed (${status})${location}${description ? `: ${description}` : ""}`,

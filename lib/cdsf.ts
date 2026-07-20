@@ -19,6 +19,14 @@ const translatedAgeLabels: Partial<Record<Athlete["age"], string>> = {
   "Senior V": "Seniori V",
 };
 
+export function formatCdsfDate(date = new Date()) {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
 export function parseCdsfDate(input: string) {
   const dateOnlyMatch = input.match(/^(\d{4})-(\d{2})-(\d{2})$/);
 

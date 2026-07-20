@@ -2,13 +2,21 @@ import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import { notifiedAtom } from "./atoms";
 import { appStore } from "./app-store";
-import type { SyncTrigger } from "../lib/types";
+import type { SyncTrigger } from "./types";
+
+export type NotificationNavigationData =
+  | { type: "notification"; id: number }
+  | {
+      type: "registration" | "result";
+      competitionId: number;
+      eventId?: number;
+    };
 
 export interface NotificationDraft {
   key: string; // dedup key
   title: string;
   body?: string;
-  data?: Record<string, unknown>;
+  data: NotificationNavigationData;
 }
 
 const CHANNEL_ID = "fed-updates";
@@ -46,13 +54,11 @@ export async function prepareNotifications(): Promise<void> {
 export async function dismissResultNotification(
   competitionId: number,
 ): Promise<void> {
-  if (Platform.OS === 'web') return;
+  if (Platform.OS === "web") return;
   const presented = await Notifications.getPresentedNotificationsAsync();
   for (const notification of presented) {
-    const data = notification.request.content.data as {
-      type?: string;
-      competitionId?: number;
-    };
+    const data = notification.request.content
+      .data as NotificationNavigationData;
     if (data.type === "result" && data.competitionId === competitionId) {
       await Notifications.dismissNotificationAsync(
         notification.request.identifier,
@@ -91,7 +97,7 @@ export async function dispatchNotifications(
 
     try {
       await Notifications.scheduleNotificationAsync({
-        content: { title: d.title, body: d.body, data: d.data ?? {} },
+        content: { title: d.title, body: d.body, data: d.data },
         trigger: Platform.OS === "android" ? { channelId: CHANNEL_ID } : null,
       });
     } catch {

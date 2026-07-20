@@ -3,7 +3,6 @@ import { Tabs } from "expo-router";
 import { StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import Colors from "@/constants/Colors";
 import { tabHeaderScreenOptions } from "@/lib/navigation-header";
 
 export default function AppLayout() {
@@ -12,7 +11,7 @@ export default function AppLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors.light.tint,
+        tabBarActiveTintColor: "#2457b3",
         tabBarInactiveTintColor: "#7f8795",
         tabBarStyle: [
           styles.tabBar,

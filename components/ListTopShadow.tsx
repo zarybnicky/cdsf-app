@@ -1,14 +1,10 @@
-import { StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
-
-type ListTopShadowProps = {
-  style?: StyleProp<ViewStyle>;
-};
+import { StyleSheet, View } from "react-native";
 
 const shadowOpacities = [0.08, 0.055, 0.038, 0.026, 0.017, 0.01, 0.005];
 
-export default function ListTopShadow({ style }: ListTopShadowProps) {
+export default function ListTopShadow() {
   return (
-    <View pointerEvents="none" style={[styles.container, style]}>
+    <View pointerEvents="none" style={styles.container}>
       <View style={styles.edge} />
       {shadowOpacities.map((opacity, index) => (
         <View

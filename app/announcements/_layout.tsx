@@ -2,7 +2,6 @@ import { SymbolView } from "expo-symbols";
 import { Link, Stack } from "expo-router";
 import { Pressable, StyleSheet } from "react-native";
 
-import Colors from "@/constants/Colors";
 import { stackHeaderScreenOptions } from "@/lib/navigation-header";
 
 export default function AnnouncementsLayout() {
@@ -23,7 +22,7 @@ export default function AnnouncementsLayout() {
                       web: "settings",
                     }}
                     size={17}
-                    tintColor={Colors.light.tint}
+                    tintColor="#2457b3"
                     style={{ opacity: pressed ? 0.55 : 1 }}
                   />
                 )}

@@ -1,5 +1,6 @@
 import { appStore } from "@/lib/app-store";
 import { seenNotificationsAtom } from "@/lib/atoms";
+import type { NotificationNavigationData } from "@/lib/notify";
 import { sessionStateAtom } from "@/lib/session";
 import { setAuthenticatedSyncEnabled } from "@/lib/sync-runtime";
 import { DefaultTheme, ThemeProvider } from "@react-navigation/native";
@@ -61,19 +62,19 @@ function RootNavigator({ fontsLoaded }: RootNavigatorProps) {
       if (handledNotification.current === requestId) return;
       handledNotification.current = requestId;
 
-      const data = resp.notification.request.content.data as {
-        type?: string;
-        id?: number;
-        competitionId?: number;
-      };
-      if (data.type === "result" && data.competitionId) {
+      const data = resp.notification.request.content
+        .data as NotificationNavigationData;
+      if (data.type === "result" || data.type === "registration") {
         router.push({
-          pathname: "/competitions/[competitionId]/result",
-          params: { competitionId: data.competitionId },
+          pathname:
+            data.type === "result"
+              ? "/competitions/[competitionId]/result"
+              : "/competitions/[competitionId]/startlist",
+          params: data.eventId
+            ? { competitionId: data.competitionId, eventId: data.eventId }
+            : { competitionId: data.competitionId },
         });
-      } else if (data.type === "registration" && data.competitionId) {
-        router.push("/competitions/registered");
-      } else if (data.type === "notification" && data.id) {
+      } else if (data.type === "notification") {
         appStore.set(seenNotificationsAtom, (seen) => ({
           ...seen,
           [String(data.id)]: Date.now(),
@@ -82,7 +83,7 @@ function RootNavigator({ fontsLoaded }: RootNavigatorProps) {
       }
       clearLastNotificationResponse();
     };
-    if (Platform.OS !== 'web') {
+    if (Platform.OS !== "web") {
       const lastResponse = getLastNotificationResponse();
       if (lastResponse) handleNotificationResponse(lastResponse);
     }

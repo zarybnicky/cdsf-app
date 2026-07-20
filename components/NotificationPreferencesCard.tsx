@@ -1,80 +1,49 @@
-import {
-  StyleSheet,
-  Switch,
-  View,
-  type StyleProp,
-  type ViewStyle,
-} from "react-native";
+import { StyleSheet, Switch, Text, View } from "react-native";
 import { useAtomValue, useSetAtom } from "jotai";
 
-import { Text } from "@/components/Themed";
 import {
   notificationPreferencesAtom,
   preferenceMetadata,
   preferenceOrder,
-  type NotificationType,
 } from "@/lib/notification-preferences";
 
-type NotificationPreferenceRowProps = {
-  type: NotificationType;
-  enabled: boolean;
-  isLastRow: boolean;
-  onValueChange: (value: boolean) => void;
-};
-
-type NotificationPreferencesCardProps = {
-  style?: StyleProp<ViewStyle>;
-};
-
-function NotificationPreferenceRow({
-  type,
-  enabled,
-  isLastRow,
-  onValueChange,
-}: NotificationPreferenceRowProps) {
-  const metadata = preferenceMetadata[type];
-
-  return (
-    <View
-      style={[
-        styles.preferenceRow,
-        !isLastRow ? styles.preferenceRowBorder : null,
-      ]}
-    >
-      <View style={styles.preferenceCopy}>
-        <Text style={styles.preferenceTitle}>{metadata.label}</Text>
-        <Text style={styles.preferenceDescription}>{metadata.description}</Text>
-      </View>
-      <Switch
-        ios_backgroundColor="#cdd4e0"
-        onValueChange={onValueChange}
-        thumbColor="#ffffff"
-        trackColor={{ false: "#cfd6e0", true: "#7ea5ee" }}
-        value={enabled}
-      />
-    </View>
-  );
-}
-
-export default function NotificationPreferencesCard({
-  style,
-}: NotificationPreferencesCardProps) {
+export default function NotificationPreferencesCard() {
   const preferences = useAtomValue(notificationPreferencesAtom);
   const setPreferences = useSetAtom(notificationPreferencesAtom);
 
   return (
-    <View style={[styles.card, style]}>
-      {preferenceOrder.map((type, index) => (
-        <NotificationPreferenceRow
-          key={type}
-          enabled={preferences[type]}
-          isLastRow={index === preferenceOrder.length - 1}
-          onValueChange={(value) => {
-            setPreferences((current) => ({ ...current, [type]: value }));
-          }}
-          type={type}
-        />
-      ))}
+    <View style={styles.card}>
+      {preferenceOrder.map((type, index) => {
+        const metadata = preferenceMetadata[type];
+
+        return (
+          <View
+            key={type}
+            style={[
+              styles.preferenceRow,
+              index < preferenceOrder.length - 1
+                ? styles.preferenceRowBorder
+                : null,
+            ]}
+          >
+            <View style={styles.preferenceCopy}>
+              <Text style={styles.preferenceTitle}>{metadata.label}</Text>
+              <Text style={styles.preferenceDescription}>
+                {metadata.description}
+              </Text>
+            </View>
+            <Switch
+              ios_backgroundColor="#cdd4e0"
+              onValueChange={(value) => {
+                setPreferences((current) => ({ ...current, [type]: value }));
+              }}
+              thumbColor="#ffffff"
+              trackColor={{ false: "#cfd6e0", true: "#7ea5ee" }}
+              value={preferences[type]}
+            />
+          </View>
+        );
+      })}
 
       <Text style={styles.preferenceHint}>
         Důležitá oznámení zůstávají viditelná vždy.

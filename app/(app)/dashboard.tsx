@@ -1,19 +1,18 @@
 import { SymbolView } from "expo-symbols";
 import { Tabs, useRouter } from "expo-router";
 import { useAtomValue } from "jotai";
-import { useCallback, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import {
   Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
+  Text,
   View,
 } from "react-native";
 
 import CompetitionListItem from "@/components/CompetitionListItem";
 import ScreenStateCard from "@/components/ScreenStateCard";
-import { Text } from "@/components/Themed";
-import Colors from "@/constants/Colors";
 import {
   athleteAtom,
   recentResultsAtom,
@@ -26,7 +25,6 @@ import {
   formatDateRange,
 } from "@/lib/competition-format";
 import { getAgeLabel, getDateMs, parseCdsfDate } from "@/lib/cdsf";
-import { dismissResultNotification } from "@/lib/notify";
 import { sync } from "@/lib/sync";
 import type { Athlete, EventRegistration } from "@/lib/types";
 
@@ -75,33 +73,24 @@ function getRankingPoints(athlete: Athlete | null): RankingPoint[] {
 
 export default function DashboardScreen() {
   const router = useRouter();
-  const athlete = useAtomValue(athleteAtom);
   const upcomingWeek = selectClosestWeek(
     useAtomValue(upcomingRegistrationsAtom),
     true,
   );
   const resultWeek = selectClosestWeek(useAtomValue(recentResultsAtom), false);
-  const announcementCount = useAtomValue(unseenNotificationCountAtom);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const refresh = useCallback(async () => {
+
+  async function refresh() {
     setIsRefreshing(true);
-    try {
-      await sync({ trigger: "manual" }).catch(() => {});
-    } finally {
-      setIsRefreshing(false);
-    }
-  }, []);
+    await sync({ trigger: "manual" }).catch(() => {});
+    setIsRefreshing(false);
+  }
 
   return (
     <>
       <Tabs.Screen
         options={{
-          headerRight: () => (
-            <AnnouncementButton
-              count={announcementCount}
-              onPress={() => router.push("/announcements")}
-            />
-          ),
+          headerRight: () => <AnnouncementButton />,
         }}
       />
       <ScrollView
@@ -111,10 +100,7 @@ export default function DashboardScreen() {
         }
         showsVerticalScrollIndicator={false}
       >
-        <ProfileSummary
-          athlete={athlete}
-          onPress={() => router.push("/profile")}
-        />
+        <ProfileSummary />
 
         <Section
           action="Všechny přihlášky"
@@ -125,23 +111,12 @@ export default function DashboardScreen() {
           title="Nejbližší soutěžní víkend"
         >
           {upcomingWeek.length ? (
-            upcomingWeek.map((event) => {
-              const eventId = event.eventId;
-              return (
-                <CompetitionListItem
-                  event={event}
-                  key={eventId ?? `${event.eventName}:${event.date}`}
-                  onPressEvent={() =>
-                    eventId
-                      ? router.push({
-                          pathname: "/competitions/events/[eventId]",
-                          params: { eventId },
-                        })
-                      : router.push("/competitions/registered")
-                  }
-                />
-              );
-            })
+            upcomingWeek.map((event) => (
+              <CompetitionListItem
+                event={event}
+                key={event.eventId ?? `${event.eventName}:${event.date}`}
+              />
+            ))
           ) : (
             <ScreenStateCard
               body="Další přihlášené soutěže se zobrazí tady."
@@ -158,35 +133,13 @@ export default function DashboardScreen() {
           title="Poslední soutěžní víkend"
         >
           {resultWeek.length ? (
-            resultWeek.map((event) => {
-              const eventId = event.eventId;
-              return (
-                <CompetitionListItem
-                  event={event}
-                  key={eventId ?? `${event.eventName}:${event.date}`}
-                  onPressCompetition={(competitionId) => {
-                    void dismissResultNotification(competitionId);
-                    router.push({
-                      pathname: "/competitions/[competitionId]/result",
-                      params: {
-                        competitionId,
-                        ...(eventId ? { eventId } : {}),
-                      },
-                    });
-                  }}
-                  onPressEvent={
-                    eventId
-                      ? () =>
-                          router.push({
-                            pathname: "/competitions/events/[eventId]",
-                            params: { eventId },
-                          })
-                      : undefined
-                  }
-                  variant="results"
-                />
-              );
-            })
+            resultWeek.map((event) => (
+              <CompetitionListItem
+                event={event}
+                key={event.eventId ?? `${event.eventName}:${event.date}`}
+                variant="results"
+              />
+            ))
           ) : (
             <ScreenStateCard
               body="Výsledky posledního soutěžního víkendu se zobrazí tady."
@@ -200,20 +153,17 @@ export default function DashboardScreen() {
   );
 }
 
-function AnnouncementButton({
-  count,
-  onPress,
-}: {
-  count: number;
-  onPress: () => void;
-}) {
+function AnnouncementButton() {
+  const router = useRouter();
+  const count = useAtomValue(unseenNotificationCountAtom);
+
   return (
     <Pressable
       accessibilityLabel={
         count ? `Aktuality, ${count} nepřečtených` : "Aktuality"
       }
       accessibilityRole="button"
-      onPress={onPress}
+      onPress={() => router.push("/announcements")}
       style={({ pressed }) => [styles.bell, pressed && styles.pressed]}
     >
       <SymbolView
@@ -223,7 +173,7 @@ function AnnouncementButton({
           web: "notifications",
         }}
         size={19}
-        tintColor={Colors.light.tint}
+        tintColor="#2457b3"
       />
       {count ? (
         <View style={styles.badge}>
@@ -234,18 +184,15 @@ function AnnouncementButton({
   );
 }
 
-function ProfileSummary({
-  athlete,
-  onPress,
-}: {
-  athlete: Athlete | null;
-  onPress: () => void;
-}) {
+function ProfileSummary() {
+  const router = useRouter();
+  const athlete = useAtomValue(athleteAtom);
   const points = getRankingPoints(athlete);
+
   return (
     <Pressable
       accessibilityRole="link"
-      onPress={onPress}
+      onPress={() => router.push("/profile")}
       style={({ pressed }) => [styles.profile, pressed && styles.pressed]}
     >
       <View style={styles.profileHeader}>
@@ -388,7 +335,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   eyebrow: {
-    color: Colors.light.tint,
+    color: "#2457b3",
     fontSize: 10.5,
     fontWeight: "800",
     letterSpacing: 0.9,
@@ -439,7 +386,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: { color: "#223045", fontSize: 16, fontWeight: "800" },
   action: {
-    color: Colors.light.tint,
+    color: "#2457b3",
     fontSize: 11.5,
     fontWeight: "800",
     paddingVertical: 2,

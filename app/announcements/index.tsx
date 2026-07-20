@@ -1,47 +1,31 @@
 import { useEffect, useState } from "react";
-import { FlatList, StyleSheet, View } from "react-native";
+import { FlatList, StyleSheet, Text, View } from "react-native";
 import { useAtomValue, useSetAtom } from "jotai";
 
-import AnnouncementCard, {
-  announcementFromNotification,
-} from "@/components/AnnouncementCard";
+import AnnouncementCard from "@/components/AnnouncementCard";
 import ListTopShadow from "@/components/ListTopShadow";
 import ScreenStateCard from "@/components/ScreenStateCard";
-import { Text } from "@/components/Themed";
 import {
   notificationsAtom,
   seenNotificationsAtom,
   syncStateAtom,
+  visibleNotificationsAtom,
 } from "@/lib/atoms";
-import {
-  isNotificationVisible,
-  notificationPreferencesAtom,
-} from "@/lib/notification-preferences";
 import { sync } from "@/lib/sync";
 
 export default function AnnouncementsScreen() {
   const storedNotifications = useAtomValue(notificationsAtom);
+  const notifications = useAtomValue(visibleNotificationsAtom);
   const syncState = useAtomValue(syncStateAtom).notifications;
-  const preferences = useAtomValue(notificationPreferencesAtom);
   const markSeen = useSetAtom(seenNotificationsAtom);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const notifications = Object.values(storedNotifications).sort(
-    (left, right) =>
-      right.created.localeCompare(left.created) || right.id - left.id,
-  );
-  const visibleNotifications = notifications.filter(
-    (notification) => isNotificationVisible(notification, preferences),
-  );
-  const hiddenCount = notifications.length - visibleNotifications.length;
+  const storedNotificationCount = Object.keys(storedNotifications).length;
+  const hiddenCount = storedNotificationCount - notifications.length;
   const isLoadingState =
-    notifications.length === 0 &&
+    storedNotificationCount === 0 &&
     syncState.lastSync === null &&
     syncState.lastError === null;
-  const showFilterNotice =
-    hiddenCount > 0 && !isLoadingState && !syncState.lastError;
-  const announcements = isLoadingState
-    ? []
-    : visibleNotifications.map(announcementFromNotification);
+  const showFilterNotice = hiddenCount > 0 && !syncState.lastError;
   let emptyStateTitle = "Zatím nejsou dostupné žádné aktuality";
   let emptyStateBody =
     "Jakmile budou zveřejněny nové informace, zobrazí se zde.";
@@ -59,11 +43,7 @@ export default function AnnouncementsScreen() {
   }
 
   useEffect(() => {
-    const ids = Object.values(storedNotifications)
-      .filter((notification) =>
-        isNotificationVisible(notification, preferences),
-      )
-      .map((notification) => String(notification.id));
+    const ids = notifications.map((notification) => String(notification.id));
     if (ids.length === 0) return;
 
     markSeen((seen) => {
@@ -75,7 +55,7 @@ export default function AnnouncementsScreen() {
       }
       return next;
     });
-  }, [markSeen, preferences, storedNotifications]);
+  }, [markSeen, notifications]);
 
   async function refresh() {
     setIsRefreshing(true);
@@ -93,8 +73,8 @@ export default function AnnouncementsScreen() {
       <ListTopShadow />
       <FlatList
         contentContainerStyle={styles.listContent}
-        data={announcements}
-        keyExtractor={(item) => item.id}
+        data={notifications}
+        keyExtractor={(item) => item.id.toString()}
         ListHeaderComponent={
           showFilterNotice ? (
             <View style={styles.header}>
@@ -121,7 +101,7 @@ export default function AnnouncementsScreen() {
           />
         }
         onRefresh={() => void refresh()}
-        renderItem={({ item }) => <AnnouncementCard {...item} />}
+        renderItem={({ item }) => <AnnouncementCard notification={item} />}
         refreshing={isRefreshing}
         showsVerticalScrollIndicator={false}
         style={styles.list}

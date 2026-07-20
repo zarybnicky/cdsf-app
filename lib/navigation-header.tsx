@@ -58,10 +58,6 @@ type TitleProps = HeaderTitleProps & {
   subtitle?: string;
 };
 
-function getHeaderTitleText(children: HeaderTitleProps["children"]) {
-  return typeof children === "string" ? children : "";
-}
-
 function HeaderBackground() {
   return (
     <View pointerEvents="none" style={styles.headerBackground}>
@@ -78,7 +74,7 @@ function HeaderBackground() {
 }
 
 function HeaderTitle({ children, subtitle }: TitleProps) {
-  const title = getHeaderTitleText(children);
+  const title = typeof children === "string" ? children : "";
 
   return (
     <View style={styles.titleContainer}>
@@ -102,38 +98,17 @@ const sharedHeaderOptions = {
   headerShadowVisible: false,
   headerStyle: styles.header,
   headerTitle: HeaderTitle,
-  headerTitleAlign: "left" as const,
+  headerTitleAlign: "left",
   headerTintColor: "#182334",
   headerTransparent: false,
-};
+} satisfies BottomTabNavigationOptions;
 
-export const tabHeaderScreenOptions = {
-  ...sharedHeaderOptions,
-} satisfies Pick<
-  BottomTabNavigationOptions,
-  | "headerBackground"
-  | "headerShadowVisible"
-  | "headerStyle"
-  | "headerTitle"
-  | "headerTitleAlign"
-  | "headerTintColor"
-  | "headerTransparent"
->;
+export const tabHeaderScreenOptions = sharedHeaderOptions;
 
 export const stackHeaderScreenOptions = {
   ...sharedHeaderOptions,
-  headerBackButtonDisplayMode: "minimal" as const,
-} satisfies Pick<
-  NativeStackNavigationOptions,
-  | "headerBackground"
-  | "headerBackButtonDisplayMode"
-  | "headerShadowVisible"
-  | "headerStyle"
-  | "headerTitle"
-  | "headerTitleAlign"
-  | "headerTintColor"
-  | "headerTransparent"
->;
+  headerBackButtonDisplayMode: "minimal",
+} satisfies NativeStackNavigationOptions;
 
 export function withHeaderSubtitle(title: string, subtitle?: string) {
   return {
@@ -143,5 +118,5 @@ export function withHeaderSubtitle(title: string, subtitle?: string) {
         {title}
       </HeaderTitle>
     ),
-  } satisfies Pick<NativeStackNavigationOptions, "headerTitle" | "title">;
+  } satisfies NativeStackNavigationOptions;
 }

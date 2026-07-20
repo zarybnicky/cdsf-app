@@ -1,21 +1,12 @@
-import {
-  Image,
-  StyleSheet,
-  View,
-  type StyleProp,
-  type ViewStyle,
-} from "react-native";
+import { Image, StyleSheet, View } from "react-native";
 
 type BrandMarkProps = {
-  size?: number;
-  style?: StyleProp<ViewStyle>;
+  size: number;
 };
 
-export default function BrandMark({ size = 34, style }: BrandMarkProps) {
+export default function BrandMark({ size }: BrandMarkProps) {
   return (
-    <View
-      style={[styles.container, { width: size * 1.1, height: size }, style]}
-    >
+    <View style={[styles.container, { width: size * 1.1, height: size }]}>
       <Image
         resizeMode="contain"
         source={require("../assets/images/logo_color.png")}

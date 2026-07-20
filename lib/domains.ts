@@ -104,8 +104,7 @@ export async function syncAthlete(): Promise<void> {
 /** Returns local-notification drafts produced by this sync pass. */
 export async function syncNotifications(): Promise<NotificationDraft[]> {
   const existing = store.get(notificationsAtom);
-  const isBaseline =
-    store.get(syncStateAtom).notifications.lastSync === null;
+  const isBaseline = store.get(syncStateAtom).notifications.lastSync === null;
   const knownIds = new Set(Object.keys(existing).map(Number));
   const preferences = store.get(notificationPreferencesAtom);
   const fetched = new Map<number, (typeof existing)[number]>();
@@ -209,6 +208,7 @@ export async function syncRegistrations(): Promise<NotificationDraft[]> {
           data: {
             type: "registration",
             competitionId: registration.competitionId,
+            eventId: event.eventId,
           },
         });
       } else if (
@@ -221,6 +221,7 @@ export async function syncRegistrations(): Promise<NotificationDraft[]> {
           data: {
             type: "registration",
             competitionId: registration.competitionId,
+            eventId: event.eventId,
           },
         });
       }
@@ -267,7 +268,11 @@ export async function syncResults(): Promise<NotificationDraft[]> {
           key: `result:${result.competitionId}:${nextFingerprint}`,
           title: result.final ? "Konečný výsledek" : "Aktualizace výsledku",
           body,
-          data: { type: "result", competitionId: result.competitionId },
+          data: {
+            type: "result",
+            competitionId: result.competitionId,
+            eventId: event.eventId,
+          },
         });
       }
     }

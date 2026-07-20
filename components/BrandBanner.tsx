@@ -1,13 +1,13 @@
 import {
   ImageBackground,
   StyleSheet,
+  Text,
   View,
   type StyleProp,
   type ViewStyle,
 } from "react-native";
 
 import BrandMark from "@/components/BrandMark";
-import { Text } from "@/components/Themed";
 
 type BrandBannerProps = {
   style?: StyleProp<ViewStyle>;

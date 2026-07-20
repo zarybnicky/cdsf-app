@@ -1,6 +1,4 @@
-import { StyleSheet, View } from "react-native";
-
-import { Text } from "@/components/Themed";
+import { StyleSheet, Text, View } from "react-native";
 
 const leftDigits: Record<string, string> = {
   "0": "0001101",

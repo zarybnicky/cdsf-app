@@ -1,15 +1,7 @@
 import MarkdownText from "@/components/MarkdownText";
-import { Text } from "@/components/Themed";
 import { parseCdsfDate } from "@/lib/cdsf";
 import type { Notification } from "@/lib/types";
-import { StyleSheet, View } from "react-native";
-
-export type AnnouncementCardProps = {
-  id: string;
-  title: string;
-  publishedAt: string;
-  markdown: string;
-};
+import { StyleSheet, Text, View } from "react-native";
 
 const weekdayLabels = ["NE", "PO", "ÚT", "ST", "ČT", "PÁ", "SO"];
 
@@ -34,9 +26,12 @@ function formatPublishedAt(createdAt: string) {
 
   return `${weekdayLabels[date.getDay()]} ${date.getDate()}.\u2009${date.getMonth() + 1}.\u2009${date.getFullYear()} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
-export function announcementFromNotification(
-  notification: Notification,
-): AnnouncementCardProps {
+
+export default function AnnouncementCard({
+  notification,
+}: {
+  notification: Notification;
+}) {
   const sections: string[] = [];
 
   if (notification.message?.trim()) {
@@ -56,25 +51,14 @@ export function announcementFromNotification(
   if (notification.link?.trim()) {
     sections.push(`[Otevřít odkaz](${notification.link.trim()})`);
   }
+  const title = stripMarkdown(notification.caption);
+  const markdown = sections.join("\n\n") || title;
 
-  return {
-    id: notification.id.toString(),
-    title: stripMarkdown(notification.caption),
-    publishedAt: formatPublishedAt(notification.created),
-    markdown: sections.join("\n\n") || stripMarkdown(notification.caption),
-  };
-}
-
-export default function AnnouncementCard({
-  title,
-  publishedAt,
-  markdown,
-}: AnnouncementCardProps) {
   return (
     <View style={styles.card}>
       <View style={styles.accent} />
       <Text style={styles.title}>{title}</Text>
-      <Text style={styles.meta}>{publishedAt}</Text>
+      <Text style={styles.meta}>{formatPublishedAt(notification.created)}</Text>
       <View style={styles.divider} />
       <MarkdownText markdown={markdown} />
     </View>

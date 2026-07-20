@@ -1,62 +1,15 @@
 import { atomWithMMKV } from "@/lib/mmkv";
 import type { Notification } from "@/lib/types";
 
-export type NotificationType = Notification["type"];
-export type NotificationPreferences = Record<NotificationType, boolean>;
+type NotificationType = Notification["type"];
+type NotificationPreferences = Record<NotificationType, boolean>;
 
 type PrefMeta = {
   label: string;
   description: string;
 };
 
-export const preferenceOrder = [
-  "CompetitionMessage",
-  "CompetitionChange",
-  "CompetitionCancelled",
-  "CompetitionRegistered",
-  "CompetitionRegistrationEndChange",
-  "MedicalCheckupExpiration",
-  "Loan",
-  "ClubTransferCompletion",
-  "ClubRepresentativeMessage",
-  "DivisionRepresentativeMessage",
-  "AdjudicatorsMessage",
-  "OfficialsMessage",
-  "ExecutiveBoardMinutes",
-] as const satisfies readonly NotificationType[];
-
-export const defaultPreferences: NotificationPreferences = {
-  CompetitionMessage: true,
-  CompetitionChange: true,
-  CompetitionCancelled: true,
-  CompetitionRegistered: true,
-  CompetitionRegistrationEndChange: true,
-  MedicalCheckupExpiration: true,
-  Loan: true,
-  ClubTransferCompletion: true,
-  ClubRepresentativeMessage: true,
-  DivisionRepresentativeMessage: true,
-  AdjudicatorsMessage: true,
-  OfficialsMessage: true,
-  ExecutiveBoardMinutes: true,
-};
-
-export const notificationPreferencesAtom =
-  atomWithMMKV<NotificationPreferences>(
-    "notification-preferences",
-    defaultPreferences,
-  );
-
-export function isNotificationVisible(
-  notification: Notification,
-  preferences: NotificationPreferences,
-): boolean {
-  return Boolean(
-    notification.overrideMuting || preferences[notification.type],
-  );
-}
-
-export const preferenceMetadata: Record<NotificationType, PrefMeta> = {
+export const preferenceMetadata = {
   CompetitionMessage: {
     label: "Zprávy k soutěžím",
     description: "Organizační informace a sdělení ke konkrétním soutěžím.",
@@ -110,4 +63,25 @@ export const preferenceMetadata: Record<NotificationType, PrefMeta> = {
     label: "Zápisy výkonné rady",
     description: "Zveřejněné zápisy, usnesení a další výstupy výkonné rady.",
   },
-};
+} satisfies Record<NotificationType, PrefMeta>;
+
+export const preferenceOrder = Object.keys(
+  preferenceMetadata,
+) as NotificationType[];
+
+const defaultPreferences = Object.fromEntries(
+  preferenceOrder.map((type) => [type, true]),
+) as NotificationPreferences;
+
+export const notificationPreferencesAtom =
+  atomWithMMKV<NotificationPreferences>(
+    "notification-preferences",
+    defaultPreferences,
+  );
+
+export function isNotificationVisible(
+  notification: Notification,
+  preferences: NotificationPreferences,
+): boolean {
+  return Boolean(notification.overrideMuting || preferences[notification.type]);
+}

@@ -2,19 +2,17 @@ import {
   ActivityIndicator,
   Pressable,
   StyleSheet,
+  Text,
   View,
   type StyleProp,
   type ViewStyle,
 } from "react-native";
-
-import { Text } from "@/components/Themed";
 
 type ScreenStateCardProps = {
   title: string;
   body: string;
   isLoading?: boolean;
   onRetry?: () => void;
-  retryLabel?: string;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -23,7 +21,6 @@ export default function ScreenStateCard({
   body,
   isLoading = false,
   onRetry,
-  retryLabel = "Načíst znovu",
   style,
 }: ScreenStateCardProps) {
   return (
@@ -39,7 +36,7 @@ export default function ScreenStateCard({
             pressed ? styles.buttonPressed : null,
           ]}
         >
-          <Text style={styles.buttonText}>{retryLabel}</Text>
+          <Text style={styles.buttonText}>Načíst znovu</Text>
         </Pressable>
       ) : null}
     </View>

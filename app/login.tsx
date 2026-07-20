@@ -6,11 +6,12 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Text,
   TextInput,
+  View,
 } from "react-native";
 
 import BrandBanner from "@/components/BrandBanner";
-import { Text, View } from "@/components/Themed";
 import { signInAtom } from "@/lib/session";
 
 export default function LoginScreen() {

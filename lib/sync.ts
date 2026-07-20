@@ -1,6 +1,7 @@
 import { appStore } from "./app-store";
 import { registrationsAtom, syncStateAtom } from "./atoms";
 import { ApiError } from "./api";
+import { formatCdsfDate } from "./cdsf";
 import {
   syncAthlete,
   syncNotifications,
@@ -49,7 +50,7 @@ type DomainJob = () => Promise<NotificationDraft[] | void>;
 
 type DomainSyncResult = {
   drafts: NotificationDraft[];
-  succeeded: boolean;
+  errors: unknown[];
 };
 
 const DOMAIN_JOBS = {
@@ -82,9 +83,9 @@ async function runSync({ trigger, domains }: SyncOptions): Promise<void> {
     trigger,
   );
 
-  if (results.some((result) => !result.succeeded)) {
-    throw new Error("sync_failed");
-  }
+  const errors = results.flatMap((result) => result.errors);
+  if (errors.length === 1) throw errors[0];
+  if (errors.length > 1) throw new AggregateError(errors, "Sync failed");
 }
 
 async function runDomain(
@@ -100,13 +101,13 @@ async function runDomain(
     }));
     return {
       drafts: isBaseline ? [] : (drafts ?? []),
-      succeeded: true,
+      errors: [],
     };
   } catch (error) {
     if (!isAbortError(error)) {
       markFailed(domain, error);
     }
-    return { drafts: [], succeeded: false };
+    return { drafts: [], errors: [error] };
   }
 }
 
@@ -140,11 +141,6 @@ function isDue(
 }
 
 function isCompetitionDay(): boolean {
-  const now = new Date();
-  const today = [
-    now.getFullYear(),
-    String(now.getMonth() + 1).padStart(2, "0"),
-    String(now.getDate()).padStart(2, "0"),
-  ].join("-");
+  const today = formatCdsfDate();
   return store.get(registrationsAtom).some((event) => event.date === today);
 }

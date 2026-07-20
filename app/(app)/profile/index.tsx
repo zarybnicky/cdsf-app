@@ -2,12 +2,18 @@ import { useAtomValue, useSetAtom } from "jotai";
 import { SymbolView } from "expo-symbols";
 import { Stack } from "expo-router";
 import { useState } from "react";
-import { FlatList, Pressable, StyleSheet } from "react-native";
+import {
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
 import ListTopShadow from "@/components/ListTopShadow";
 import ProfileAthleteCard from "@/components/ProfileAthleteCard";
 import ScreenStateCard from "@/components/ScreenStateCard";
-import { Text, View } from "@/components/Themed";
 import { athleteAtom } from "@/lib/atoms";
 import { sync } from "@/lib/sync";
 import { sessionStateAtom, signOutAtom } from "@/lib/session";
@@ -20,27 +26,19 @@ export default function ProfileScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const athletes = athlete ? [athlete] : [];
-
   async function refreshProfile() {
     setIsMenuOpen(false);
     setIsRefreshing(true);
-    try {
-      await sync({ trigger: "manual", domains: ["athlete"] }).catch(() => {});
-    } finally {
-      setIsRefreshing(false);
-    }
+    await sync({ trigger: "manual", domains: ["athlete"] }).catch(() => {});
+    setIsRefreshing(false);
   }
 
   async function handleLogout() {
     setIsSubmitting(true);
-
-    try {
-      await signOut();
-    } finally {
+    await signOut().finally(() => {
       setIsSubmitting(false);
       setIsMenuOpen(false);
-    }
+    });
   }
 
   return (
@@ -73,23 +71,26 @@ export default function ProfileScreen() {
         }}
       />
       <ListTopShadow />
-      <FlatList
+      <ScrollView
         contentContainerStyle={styles.listContent}
-        data={athletes}
-        keyExtractor={(item) => item.idt.toString()}
-        ListEmptyComponent={
+        onScrollBeginDrag={() => setIsMenuOpen(false)}
+        refreshControl={
+          <RefreshControl
+            onRefresh={refreshProfile}
+            refreshing={isRefreshing}
+          />
+        }
+        showsVerticalScrollIndicator={false}
+      >
+        {athlete ? (
+          <ProfileAthleteCard athlete={athlete} />
+        ) : (
           <ScreenStateCard
             body="Obnovte obrazovku tažením dolů a zkuste údaje načíst znovu."
             title="K tomuto účtu nejsou dostupné členské údaje"
           />
-        }
-        onScrollBeginDrag={() => setIsMenuOpen(false)}
-        onRefresh={() => void refreshProfile()}
-        renderItem={({ item }) => <ProfileAthleteCard athlete={item} />}
-        refreshing={isRefreshing}
-        showsVerticalScrollIndicator={false}
-        style={styles.list}
-      />
+        )}
+      </ScrollView>
       {isMenuOpen ? (
         <>
           <Pressable
@@ -109,7 +110,6 @@ export default function ProfileScreen() {
               onPress={() => void handleLogout()}
               style={({ pressed }) => [
                 styles.headerMenuItem,
-                styles.headerMenuItemBorder,
                 pressed ? styles.headerMenuItemPressed : null,
                 isSubmitting ? styles.headerMenuItemDisabled : null,
               ]}
@@ -129,9 +129,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#f4f6f8",
-  },
-  list: {
-    flex: 1,
   },
   listContent: {
     paddingHorizontal: 12,
@@ -198,12 +195,10 @@ const styles = StyleSheet.create({
   },
   headerMenuItem: {
     borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 9,
-  },
-  headerMenuItemBorder: {
     borderTopWidth: 1,
     borderTopColor: "#edf1f6",
+    paddingHorizontal: 10,
+    paddingVertical: 9,
   },
   headerMenuItemPressed: {
     backgroundColor: "#f6f8fb",

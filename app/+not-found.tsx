@@ -1,8 +1,7 @@
 import { useAtomValue } from "jotai";
 import { Link, Stack } from "expo-router";
-import { StyleSheet } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 
-import { Text, View } from "@/components/Themed";
 import { sessionStateAtom } from "@/lib/session";
 
 export default function NotFoundScreen() {
@@ -27,6 +26,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     alignItems: "center",
+    backgroundColor: "#fff",
     justifyContent: "center",
     padding: 20,
   },
