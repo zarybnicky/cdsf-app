@@ -1,7 +1,7 @@
 import type { components } from "@/CDSF";
 import { Redirect, Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useAtomValue } from "jotai";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import ScreenStateCard from "@/components/ScreenStateCard";
@@ -344,17 +344,19 @@ export default function CompetitionEventScreen() {
   const results = useAtomValue(resultsSummaryAtom);
   const event = useAtomValue(eventsAtom)[eventId ?? 0];
   const [activeTab, setActiveTab] = useState<EventTab>("overview");
-  const [loadState, setLoadState] = useState<"loading" | "ready" | "error">(
-    event?.details ? "ready" : "loading",
-  );
+  const [isLoading, setIsLoading] = useState(true);
+
+  const loadEvent = useCallback(() => {
+    if (!eventId) return;
+    setIsLoading(true);
+    void refreshCompetitionEvent(eventId)
+      .catch(() => {})
+      .finally(() => setIsLoading(false));
+  }, [eventId]);
 
   useEffect(() => {
-    if (!eventId) return;
-    void refreshCompetitionEvent(eventId).then(
-      () => setLoadState("ready"),
-      () => setLoadState("error"),
-    );
-  }, [eventId]);
+    loadEvent();
+  }, [loadEvent]);
 
   if (!eventId) return <Redirect href="/+not-found" />;
 
@@ -369,7 +371,6 @@ export default function CompetitionEventScreen() {
     : undefined;
 
   if (!event?.details) {
-    const isLoading = loadState === "loading";
     return (
       <ScrollView
         contentContainerStyle={styles.content}
@@ -383,17 +384,7 @@ export default function CompetitionEventScreen() {
               : "Zkuste načtení zopakovat."
           }
           isLoading={isLoading}
-          onRetry={
-            isLoading
-              ? undefined
-              : () => {
-                  setLoadState("loading");
-                  void refreshCompetitionEvent(eventId).then(
-                    () => setLoadState("ready"),
-                    () => setLoadState("error"),
-                  );
-                }
-          }
+          onRetry={isLoading ? undefined : loadEvent}
           title={
             isLoading ? "Načítám detail akce" : "Detail se nepodařilo načíst"
           }

@@ -57,7 +57,12 @@ export type Event = Omit<schemas["Event"], "competitions" | "officials"> & {
 };
 
 export type SyncTrigger = "initial" | "foreground" | "background" | "manual";
-export type Domain = "athlete" | "registrations" | "results" | "notifications";
+export type Domain =
+  | "athlete"
+  | "registrations"
+  | "registeredEvents"
+  | "results"
+  | "notifications";
 
 export interface DomainSyncState {
   lastSync: number | null; // epoch ms of last successful sync
@@ -67,6 +72,7 @@ export interface DomainSyncState {
 export interface SyncState {
   athlete: DomainSyncState;
   registrations: DomainSyncState;
+  registeredEvents: DomainSyncState;
   results: DomainSyncState;
   notifications: DomainSyncState;
 }
@@ -77,6 +83,10 @@ export const emptySyncState: SyncState = {
     lastError: null,
   },
   registrations: {
+    lastSync: null,
+    lastError: null,
+  },
+  registeredEvents: {
     lastSync: null,
     lastError: null,
   },

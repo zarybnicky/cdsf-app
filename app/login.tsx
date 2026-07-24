@@ -2,6 +2,7 @@ import { useSetAtom } from "jotai";
 import { useState } from "react";
 import {
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -97,6 +98,7 @@ export default function LoginScreen() {
               {error ? <Text style={styles.error}>{error}</Text> : null}
 
               <Pressable
+                accessibilityRole="button"
                 disabled={isSubmitting}
                 onPress={() => void handleLogin()}
                 style={({ pressed }) => [
@@ -110,6 +112,30 @@ export default function LoginScreen() {
                 </Text>
               </Pressable>
             </View>
+          </View>
+
+          <View style={styles.footerLinks}>
+            <Text
+              accessibilityRole="link"
+              onPress={() =>
+                void Linking.openURL("https://www.csts.cz/cs/Content/View/1857")
+              }
+              style={styles.footerLink}
+            >
+              Ochrana osobních údajů
+            </Text>
+            <Text style={styles.footerSeparator}>·</Text>
+            <Text
+              accessibilityRole="link"
+              onPress={() =>
+                void Linking.openURL(
+                  "https://www.csts.cz/cs/kontakty/sekretariat",
+                )
+              }
+              style={styles.footerLink}
+            >
+              Kontakt
+            </Text>
           </View>
         </View>
       </ScrollView>
@@ -221,5 +247,22 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     letterSpacing: 1.4,
     textTransform: "uppercase",
+  },
+  footerLinks: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginTop: 18,
+  },
+  footerLink: {
+    color: "#455264",
+    fontSize: 12,
+    fontWeight: "600",
+    textDecorationLine: "underline",
+  },
+  footerSeparator: {
+    color: "#7b8798",
+    fontSize: 12,
   },
 });

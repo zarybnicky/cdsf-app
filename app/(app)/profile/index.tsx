@@ -3,6 +3,7 @@ import { SymbolView } from "expo-symbols";
 import { Stack } from "expo-router";
 import { useState } from "react";
 import {
+  Linking,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -104,6 +105,32 @@ export default function ProfileScreen() {
                 {session?.email ?? "neznámý účet"}
               </Text>
             </View>
+            <Pressable
+              accessibilityRole="link"
+              onPress={() =>
+                void Linking.openURL("https://www.csts.cz/cs/Content/View/1857")
+              }
+              style={({ pressed }) => [
+                styles.headerMenuItem,
+                pressed ? styles.headerMenuItemPressed : null,
+              ]}
+            >
+              <Text style={styles.headerMenuText}>Ochrana osobních údajů</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="link"
+              onPress={() =>
+                void Linking.openURL(
+                  "https://www.csts.cz/cs/kontakty/sekretariat",
+                )
+              }
+              style={({ pressed }) => [
+                styles.headerMenuItem,
+                pressed ? styles.headerMenuItemPressed : null,
+              ]}
+            >
+              <Text style={styles.headerMenuText}>Kontakt</Text>
+            </Pressable>
             <Pressable
               accessibilityRole="button"
               disabled={isSubmitting}

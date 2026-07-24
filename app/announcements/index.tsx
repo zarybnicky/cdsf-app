@@ -59,13 +59,10 @@ export default function AnnouncementsScreen() {
 
   async function refresh() {
     setIsRefreshing(true);
-    try {
-      await sync({ trigger: "manual", domains: ["notifications"] }).catch(
-        () => {},
-      );
-    } finally {
-      setIsRefreshing(false);
-    }
+    await sync({ trigger: "manual", domains: ["notifications"] }).catch(
+      () => {},
+    );
+    setIsRefreshing(false);
   }
 
   return (

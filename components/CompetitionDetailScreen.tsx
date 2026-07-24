@@ -90,11 +90,8 @@ export default function CompetitionDetailScreen({
   const load = isResult
     ? refreshCompetitionResult
     : refreshCompetitionStartlist;
-  const initiallyReady = isResult
-    ? Boolean(result)
-    : Boolean(competition && hasCachedStartlist);
   const [loadState, setLoadState] = useState<"loading" | "ready" | "error">(
-    initiallyReady ? "ready" : "loading",
+    "loading",
   );
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -114,9 +111,8 @@ export default function CompetitionDetailScreen({
       setLoadState("ready");
     } catch {
       setLoadState("error");
-    } finally {
-      setIsRefreshing(false);
     }
+    setIsRefreshing(false);
   }
 
   if (!competitionId) return <Redirect href="/+not-found" />;

@@ -7,6 +7,8 @@ import {
 } from "react-native";
 import { EnrichedMarkdownText } from "react-native-enriched-markdown";
 
+const allowedLinkPattern = /^(https?:|mailto:|tel:)/i;
+
 type MarkdownTextProps = {
   markdown: string;
   containerStyle?: StyleProp<ViewStyle>;
@@ -24,7 +26,9 @@ export default function MarkdownText({
         markdown={markdown}
         markdownStyle={markdownStyle}
         onLinkPress={({ url }) => {
-          void Linking.openURL(url);
+          if (allowedLinkPattern.test(url)) {
+            void Linking.openURL(url);
+          }
         }}
       />
     </View>

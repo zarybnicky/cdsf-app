@@ -103,11 +103,8 @@ export default function CompetitionListScreen({
 
   async function refresh() {
     setIsRefreshing(true);
-    try {
-      await sync({ trigger: "manual", domains: [domain] }).catch(() => {});
-    } finally {
-      setIsRefreshing(false);
-    }
+    await sync({ trigger: "manual", domains: [domain] }).catch(() => {});
+    setIsRefreshing(false);
   }
 
   return (

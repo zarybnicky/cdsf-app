@@ -8,16 +8,23 @@ import {
   seenNotificationsAtom,
   syncStateAtom,
 } from "./atoms";
-import type { CompetitionRegistration, EventRegistration } from "./types";
+import type {
+  CompetitionRegistration,
+  Domain,
+  EventRegistration,
+} from "./types";
 import type { NotificationDraft } from "./notify";
 import {
   isNotificationVisible,
   notificationPreferencesAtom,
 } from "./notification-preferences";
 import { formatSimpleDateTime } from "./cdsf";
+import { refreshCompetitionEvent } from "./competition-details";
 
 const store = appStore;
 const PAGE_SIZE = 100;
+
+type DomainRefresher = () => Promise<NotificationDraft[] | void>;
 
 type Page<T> = {
   collection: T[];
@@ -96,13 +103,13 @@ function competitionsById(events: EventRegistration[]) {
   return competitions;
 }
 
-export async function syncAthlete(): Promise<void> {
+async function refreshAthlete(): Promise<void> {
   const response = await fetchData(apiClient.GET("/athletes/current", {}));
   store.set(athleteAtom, response.collection?.[0] ?? null);
 }
 
 /** Returns local-notification drafts produced by this sync pass. */
-export async function syncNotifications(): Promise<NotificationDraft[]> {
+async function refreshNotifications(): Promise<NotificationDraft[]> {
   const existing = store.get(notificationsAtom);
   const isBaseline = store.get(syncStateAtom).notifications.lastSync === null;
   const knownIds = new Set(Object.keys(existing).map(Number));
@@ -178,7 +185,7 @@ export async function syncNotifications(): Promise<NotificationDraft[]> {
   return drafts;
 }
 
-export async function syncRegistrations(): Promise<NotificationDraft[]> {
+async function refreshRegistrations(): Promise<NotificationDraft[]> {
   const previous = store.get(registrationsAtom);
   const previousById = competitionsById(previous);
   const fresh = await fetchAllPages<EventRegistration>(
@@ -232,7 +239,16 @@ export async function syncRegistrations(): Promise<NotificationDraft[]> {
   return drafts;
 }
 
-export async function syncResults(): Promise<NotificationDraft[]> {
+async function refreshRegisteredEvents(): Promise<void> {
+  const eventIds = new Set(
+    store
+      .get(registrationsAtom)
+      .flatMap(({ eventId }) => (eventId ? [eventId] : [])),
+  );
+  await Promise.all([...eventIds].map(refreshCompetitionEvent));
+}
+
+async function refreshResults(): Promise<NotificationDraft[]> {
   const previous = store.get(resultsSummaryAtom);
   const previousById = competitionsById(previous);
   const fresh = await fetchAllPages<EventRegistration>(
@@ -280,4 +296,16 @@ export async function syncResults(): Promise<NotificationDraft[]> {
 
   store.set(resultsSummaryAtom, fresh);
   return drafts;
+}
+
+const DOMAIN_REFRESHERS = {
+  athlete: refreshAthlete,
+  notifications: refreshNotifications,
+  registrations: refreshRegistrations,
+  registeredEvents: refreshRegisteredEvents,
+  results: refreshResults,
+} satisfies Record<Domain, DomainRefresher>;
+
+export function refreshDomain(domain: Domain) {
+  return DOMAIN_REFRESHERS[domain]();
 }

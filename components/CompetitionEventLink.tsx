@@ -1,4 +1,5 @@
-import { useRouter } from "expo-router";
+import type { NavigationState } from "@react-navigation/native";
+import { useNavigation, useRouter } from "expo-router";
 import { useAtomValue } from "jotai";
 import type { StyleProp, ViewStyle } from "react-native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
@@ -12,7 +13,18 @@ type Props = {
   style?: StyleProp<ViewStyle>;
 };
 
+function isPreviousEvent(state: NavigationState | undefined, eventId: number) {
+  const route = state?.routes[state.index - 1];
+  return (
+    route?.name === "events/[eventId]" &&
+    route.params !== undefined &&
+    "eventId" in route.params &&
+    Number(route.params.eventId) === eventId
+  );
+}
+
 export default function CompetitionEventLink({ eventId, style }: Props) {
+  const navigation = useNavigation();
   const router = useRouter();
   const events = useAtomValue(eventsAtom);
   const registrations = useAtomValue(registrationsAtom);
@@ -27,6 +39,18 @@ export default function CompetitionEventLink({ eventId, style }: Props) {
     : formatSimpleDate(summary?.date);
   const location = event?.location ?? summary?.city;
   const meta = [date, location].filter(Boolean).join(" · ");
+
+  function openEvent() {
+    if (isPreviousEvent(navigation.getState(), eventId)) {
+      router.back();
+      return;
+    }
+
+    router.push({
+      pathname: "/competitions/events/[eventId]",
+      params: { eventId },
+    });
+  }
 
   const content = (
     <>
@@ -45,12 +69,7 @@ export default function CompetitionEventLink({ eventId, style }: Props) {
     <Pressable
       accessibilityLabel={`Zobrazit akci ${title ?? "soutěže"}`}
       accessibilityRole="link"
-      onPress={() =>
-        router.navigate({
-          pathname: "/competitions/events/[eventId]",
-          params: { eventId },
-        })
-      }
+      onPress={openEvent}
       style={({ pressed }) => [
         styles.card,
         style,

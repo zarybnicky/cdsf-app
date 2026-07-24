@@ -2,12 +2,7 @@ import { appStore } from "./app-store";
 import { registrationsAtom, syncStateAtom } from "./atoms";
 import { ApiError } from "./api";
 import { formatCdsfDate } from "./cdsf";
-import {
-  syncAthlete,
-  syncNotifications,
-  syncRegistrations,
-  syncResults,
-} from "./domains";
+import { refreshDomain } from "./domains";
 import { dispatchNotifications, type NotificationDraft } from "./notify";
 import type { Domain, SyncTrigger } from "./types";
 
@@ -22,6 +17,12 @@ const MIN_INTERVAL: Record<Domain, Record<SyncTrigger, number>> = {
     manual: 0,
   },
   registrations: {
+    initial: 0,
+    foreground: 10 * MINUTE,
+    background: 30 * MINUTE,
+    manual: 0,
+  },
+  registeredEvents: {
     initial: 0,
     foreground: 10 * MINUTE,
     background: 30 * MINUTE,
@@ -46,20 +47,12 @@ type SyncOptions = {
   domains?: Domain[];
 };
 
-type DomainJob = () => Promise<NotificationDraft[] | void>;
-
 type DomainSyncResult = {
   drafts: NotificationDraft[];
   errors: unknown[];
 };
 
-const DOMAIN_JOBS = {
-  athlete: syncAthlete,
-  notifications: syncNotifications,
-  registrations: syncRegistrations,
-  results: syncResults,
-} satisfies Record<Domain, DomainJob>;
-const ALL_DOMAINS = Object.keys(DOMAIN_JOBS) as Domain[];
+const ALL_DOMAINS = Object.keys(MIN_INTERVAL) as Domain[];
 
 let syncQueue: Promise<void> = Promise.resolve();
 
@@ -71,11 +64,30 @@ export function sync(options: SyncOptions): Promise<void> {
 
 async function runSync({ trigger, domains }: SyncOptions): Promise<void> {
   const state = store.get(syncStateAtom);
-  const dueDomains = (domains ?? ALL_DOMAINS).filter((domain) =>
-    isDue(domain, state[domain].lastSync, trigger),
+  const dueDomains = new Set(
+    (domains ?? ALL_DOMAINS).filter((domain) =>
+      isDue(domain, state[domain].lastSync, trigger),
+    ),
   );
+  if (dueDomains.has("registrations")) dueDomains.add("registeredEvents");
+
+  const registrationRun = dueDomains.has("registrations")
+    ? runDomain("registrations")
+    : undefined;
   const results = await Promise.all(
-    dueDomains.map((domain) => runDomain(domain, DOMAIN_JOBS[domain])),
+    [...dueDomains].map((domain) => {
+      if (domain === "registrations" && registrationRun) {
+        return registrationRun;
+      }
+      if (domain === "registeredEvents" && registrationRun) {
+        return registrationRun.then((registration) =>
+          registration.errors.length === 0
+            ? runDomain(domain)
+            : { drafts: [], errors: [] },
+        );
+      }
+      return runDomain(domain);
+    }),
   );
 
   await dispatchNotifications(
@@ -88,13 +100,10 @@ async function runSync({ trigger, domains }: SyncOptions): Promise<void> {
   if (errors.length > 1) throw new AggregateError(errors, "Sync failed");
 }
 
-async function runDomain(
-  domain: Domain,
-  job: DomainJob,
-): Promise<DomainSyncResult> {
+async function runDomain(domain: Domain): Promise<DomainSyncResult> {
   const isBaseline = store.get(syncStateAtom)[domain].lastSync === null;
   try {
-    const drafts = await job();
+    const drafts = await refreshDomain(domain);
     store.set(syncStateAtom, (state) => ({
       ...state,
       [domain]: { ...state[domain], lastSync: Date.now(), lastError: null },
