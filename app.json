@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "buildNumber": "1",
-      "bundleIdentifier": "com.zarybnicky.cdsfapp"
+      "bundleIdentifier": "org.cdsf.athlete.app"
     },
     "android": {
       "adaptiveIcon": {
@@ -31,7 +31,7 @@
         "android.permission.WRITE_EXTERNAL_STORAGE"
       ],
       "predictiveBackGestureEnabled": false,
-      "package": "com.zarybnicky.cdsfapp",
+      "package": "org.cdsf.athlete.app",
       "versionCode": 1
     },
     "web": {
