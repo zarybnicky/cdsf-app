@@ -14,9 +14,12 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "buildNumber": "1",
-      "bundleIdentifier": "org.cdsf.athlete.app"
+      "bundleIdentifier": "org.cdsf.athlete.app",
+      "associatedDomains": [
+        "webcredentials:www.csts.cz"
+      ]
     },
     "android": {
       "adaptiveIcon": {
@@ -31,8 +34,7 @@
         "android.permission.WRITE_EXTERNAL_STORAGE"
       ],
       "predictiveBackGestureEnabled": false,
-      "package": "org.cdsf.athlete.app",
-      "versionCode": 1
+      "package": "org.cdsf.athlete.app"
     },
     "web": {
       "bundler": "metro",
