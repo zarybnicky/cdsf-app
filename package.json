@@ -15,10 +15,13 @@
     "build:android:preview": "eas build --platform android --profile preview --local",
     "build:android:store": "eas build --platform android --profile production --local",
     "build:ios:store": "eas build --platform ios --profile production --local",
-    "submit:android": "eas submit --platform android --profile production --path ./app.aab",
-    "submit:ios": "eas submit --platform ios --profile production --path ./app.ipa"
+    "submit:android:preview": "eas submit --platform android --profile preview --path ./*.apk",
+    "submit:ios:preview": "eas submit --platform ios --profile preview --path ./*.ipa",
+    "submit:android:store": "eas submit --platform android --profile production --path ./app.aab",
+    "submit:ios:store": "eas submit --platform ios --profile production --path ./app.ipa"
   },
   "dependencies": {
+    "@expo/dom-webview": "^57.0.1",
     "@expo/metro-runtime": "^57.0.10",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@tanstack/query-async-storage-persister": "^5.97.0",
@@ -54,6 +57,7 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
+    "eas-cli": "^22.0.0",
     "eslint": "^9.0.0",
     "eslint-config-expo": "~57.0.1",
     "eslint-config-prettier": "^10.1.8",
