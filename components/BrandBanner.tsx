@@ -47,7 +47,7 @@ const styles = StyleSheet.create({
     opacity: 0.96,
   },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: "rgba(255, 255, 255, 0.58)",
   },
   content: {

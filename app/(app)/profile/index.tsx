@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
     opacity: 0.8,
   },
   menuBackdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 3,
   },
   headerMenu: {
