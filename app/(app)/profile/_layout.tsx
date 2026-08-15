@@ -1,9 +1,14 @@
 import { Stack } from "expo-router";
-import { stackHeaderScreenOptions } from "@/lib/navigation-header";
+import { sharedHeaderOptions } from "@/lib/navigation-header";
 
 export default function ProfileLayout() {
   return (
-    <Stack screenOptions={stackHeaderScreenOptions}>
+    <Stack
+      screenOptions={{
+        ...sharedHeaderOptions,
+        headerBackButtonDisplayMode: "minimal",
+      }}
+    >
       <Stack.Screen
         name="index"
         options={{

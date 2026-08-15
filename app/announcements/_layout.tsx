@@ -2,11 +2,16 @@ import { SymbolView } from "expo-symbols";
 import { Link, Stack } from "expo-router";
 import { Pressable, StyleSheet } from "react-native";
 
-import { stackHeaderScreenOptions } from "@/lib/navigation-header";
+import { sharedHeaderOptions } from "@/lib/navigation-header";
 
 export default function AnnouncementsLayout() {
   return (
-    <Stack screenOptions={stackHeaderScreenOptions}>
+    <Stack
+      screenOptions={{
+        ...sharedHeaderOptions,
+        headerBackButtonDisplayMode: "minimal",
+      }}
+    >
       <Stack.Screen
         name="index"
         options={{

@@ -24,7 +24,7 @@ import {
   formatPresence,
 } from "@/lib/competition-format";
 import { formatSimpleDate, formatSimpleDateTime } from "@/lib/cdsf";
-import { withHeaderSubtitle } from "@/lib/navigation-header";
+import { HeaderTitle } from "@/lib/navigation-header";
 
 type DetailKind = "startlist" | "result";
 type DetailRow = {
@@ -206,7 +206,16 @@ export default function CompetitionDetailScreen({
 
   return (
     <View style={[styles.container, isResult && styles.resultContainer]}>
-      <Stack.Screen options={withHeaderSubtitle(title, summary)} />
+      <Stack.Screen
+        options={{
+          title,
+          headerTitle: (props) => (
+            <HeaderTitle {...props} subtitle={summary}>
+              {title}
+            </HeaderTitle>
+          ),
+        }}
+      />
       <FlatList
         contentContainerStyle={[
           styles.listContent,

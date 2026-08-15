@@ -1,12 +1,11 @@
-import type { NavigationState } from "@react-navigation/native";
+import { eventsAtom, registrationsAtom, resultsSummaryAtom } from "@/lib/atoms";
+import { formatSimpleDate } from "@/lib/cdsf";
+import { formatDateRange } from "@/lib/competition-format";
 import { useNavigation, useRouter } from "expo-router";
+import type { NavigationState } from "expo-router/react-navigation";
 import { useAtomValue } from "jotai";
 import type { StyleProp, ViewStyle } from "react-native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-
-import { eventsAtom, registrationsAtom, resultsSummaryAtom } from "@/lib/atoms";
-import { formatDateRange } from "@/lib/competition-format";
-import { formatSimpleDate } from "@/lib/cdsf";
 
 type Props = {
   eventId: number;

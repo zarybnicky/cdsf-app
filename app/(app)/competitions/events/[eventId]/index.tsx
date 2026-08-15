@@ -12,7 +12,7 @@ import {
 } from "@/lib/competition-format";
 import { refreshCompetitionEvent } from "@/lib/competition-details";
 import { formatSimpleDateTime } from "@/lib/cdsf";
-import { withHeaderSubtitle } from "@/lib/navigation-header";
+import { HeaderTitle } from "@/lib/navigation-header";
 import type { Event, EventDetails, EventRegistration } from "@/lib/types";
 
 type EventTab = "overview" | "competitions" | "officials";
@@ -355,6 +355,7 @@ export default function CompetitionEventScreen() {
   }, [eventId]);
 
   useEffect(() => {
+    // eslint-disable react-hooks/set-state-in-effect
     loadEvent();
   }, [loadEvent]);
 
@@ -376,7 +377,14 @@ export default function CompetitionEventScreen() {
         contentContainerStyle={styles.content}
         style={styles.container}
       >
-        <Stack.Screen options={withHeaderSubtitle(title, summary)} />
+        <Stack.Screen options={{
+          title,
+          headerTitle: (props) => (
+            <HeaderTitle {...props} subtitle={summary}>
+              {title}
+            </HeaderTitle>
+          ),
+        }} />
         <ScreenStateCard
           body={
             isLoading
@@ -395,7 +403,14 @@ export default function CompetitionEventScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.content} style={styles.container}>
-      <Stack.Screen options={withHeaderSubtitle(title, summary)} />
+      <Stack.Screen options={{
+        title,
+        headerTitle: (props) => (
+          <HeaderTitle {...props} subtitle={summary}>
+            {title}
+          </HeaderTitle>
+        ),
+      }} />
 
       <EventTabs activeTab={activeTab} onChange={setActiveTab} />
 

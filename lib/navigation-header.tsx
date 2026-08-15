@@ -1,6 +1,5 @@
-import type { BottomTabNavigationOptions } from "@react-navigation/bottom-tabs";
-import type { HeaderTitleProps } from "@react-navigation/elements";
-import type { NativeStackNavigationOptions } from "@react-navigation/native-stack";
+import type { BottomTabNavigationOptions } from "expo-router/js-tabs";
+import type { HeaderTitleProps } from "expo-router/react-navigation";
 import { ImageBackground, StyleSheet, Text, View } from "react-native";
 
 import BrandMark from "@/components/BrandMark";
@@ -19,7 +18,7 @@ const styles = StyleSheet.create({
     opacity: 0.18,
   },
   headerBackgroundOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: "#f4f7fb",
   },
   headerBackgroundBorder: {
@@ -73,7 +72,7 @@ function HeaderBackground() {
   );
 }
 
-function HeaderTitle({ children, subtitle }: TitleProps) {
+export function HeaderTitle({ children, subtitle }: TitleProps) {
   const title = typeof children === "string" ? children : "";
 
   return (
@@ -93,7 +92,7 @@ function HeaderTitle({ children, subtitle }: TitleProps) {
   );
 }
 
-const sharedHeaderOptions = {
+export const sharedHeaderOptions = {
   headerBackground: () => <HeaderBackground />,
   headerShadowVisible: false,
   headerStyle: styles.header,
@@ -102,21 +101,3 @@ const sharedHeaderOptions = {
   headerTintColor: "#182334",
   headerTransparent: false,
 } satisfies BottomTabNavigationOptions;
-
-export const tabHeaderScreenOptions = sharedHeaderOptions;
-
-export const stackHeaderScreenOptions = {
-  ...sharedHeaderOptions,
-  headerBackButtonDisplayMode: "minimal",
-} satisfies NativeStackNavigationOptions;
-
-export function withHeaderSubtitle(title: string, subtitle?: string) {
-  return {
-    title,
-    headerTitle: (props) => (
-      <HeaderTitle {...props} subtitle={subtitle}>
-        {title}
-      </HeaderTitle>
-    ),
-  } satisfies NativeStackNavigationOptions;
-}

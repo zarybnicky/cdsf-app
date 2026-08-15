@@ -1,10 +1,15 @@
 import { Stack } from "expo-router";
 
-import { stackHeaderScreenOptions } from "@/lib/navigation-header";
+import { sharedHeaderOptions } from "@/lib/navigation-header";
 
 export default function CompetitionsLayout() {
   return (
-    <Stack screenOptions={stackHeaderScreenOptions}>
+    <Stack
+      screenOptions={{
+        ...sharedHeaderOptions,
+        headerBackButtonDisplayMode: "minimal",
+      }}
+    >
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="registered" options={{ title: "Soutěže" }} />
       <Stack.Screen name="results" options={{ title: "Soutěže" }} />

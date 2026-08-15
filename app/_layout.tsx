@@ -3,7 +3,7 @@ import { seenNotificationsAtom } from "@/lib/atoms";
 import type { NotificationNavigationData } from "@/lib/notify";
 import { sessionStateAtom } from "@/lib/session";
 import { setAuthenticatedSyncEnabled } from "@/lib/sync-runtime";
-import { DefaultTheme, ThemeProvider } from "@react-navigation/native";
+import { DefaultTheme, ThemeProvider } from "expo-router/react-navigation";
 import { useFonts } from "expo-font";
 import {
   addNotificationResponseReceivedListener,
@@ -102,7 +102,7 @@ function RootNavigator({ fontsLoaded }: RootNavigatorProps) {
 
   return (
     <ThemeProvider value={DefaultTheme}>
-      <StatusBar backgroundColor="#f4f7fb" style="dark" />
+      <StatusBar style="dark" />
       <Stack>
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Protected guard={isAuthenticated}>

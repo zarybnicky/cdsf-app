@@ -3,7 +3,7 @@ import { Tabs } from "expo-router";
 import { StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { tabHeaderScreenOptions } from "@/lib/navigation-header";
+import { sharedHeaderOptions } from "@/lib/navigation-header";
 
 export default function AppLayout() {
   const { bottom: bottomInset } = useSafeAreaInsets();
@@ -24,7 +24,7 @@ export default function AppLayout() {
         tabBarIconStyle: styles.tabBarIcon,
         tabBarLabelStyle: styles.tabBarLabel,
         headerShown: true,
-        ...tabHeaderScreenOptions,
+        ...sharedHeaderOptions,
       }}
     >
       <Tabs.Screen

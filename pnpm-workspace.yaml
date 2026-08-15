@@ -2,3 +2,5 @@ allowBuilds:
   unrs-resolver: true
 patchedDependencies:
   '@react-native/gradle-plugin': patches/@react-native__gradle-plugin.patch
+
+nodeLinker: hoisted
