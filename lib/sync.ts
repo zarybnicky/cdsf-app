@@ -1,5 +1,9 @@
 import { appStore } from "./app-store";
-import { registrationsAtom, syncStateAtom } from "./atoms";
+import {
+  registrationsAtom,
+  syncInProgressAtom,
+  syncStateAtom,
+} from "./atoms";
 import { ApiError } from "./api";
 import { formatCdsfDate } from "./cdsf";
 import { refreshDomain } from "./domains";
@@ -57,7 +61,14 @@ const ALL_DOMAINS = Object.keys(MIN_INTERVAL) as Domain[];
 let syncQueue: Promise<void> = Promise.resolve();
 
 export function sync(options: SyncOptions): Promise<void> {
-  const queued = syncQueue.then(() => runSync(options));
+  const queued = syncQueue.then(async () => {
+    store.set(syncInProgressAtom, true);
+    try {
+      await runSync(options);
+    } finally {
+      store.set(syncInProgressAtom, false);
+    }
+  });
   syncQueue = queued.catch(() => {});
   return queued;
 }

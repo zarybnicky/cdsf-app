@@ -16,8 +16,9 @@
       }
     },
     "preview": {
+      "autoIncrement": true,
       "credentialsSource": "remote",
-      "distribution": "internal",
+      "distribution": "store",
       "android": {
         "buildType": "app-bundle"
       }

@@ -60,6 +60,8 @@ export const syncStateAtom = atomWithMMKV<SyncState>(
   emptySyncState,
 );
 
+export const syncInProgressAtom = atom(false);
+
 export const seenNotificationsAtom = atomWithMMKV<Record<string, number>>(
   "seen:notifications",
   {},

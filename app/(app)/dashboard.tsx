@@ -3,6 +3,7 @@ import { Tabs, useRouter } from "expo-router";
 import { useAtomValue } from "jotai";
 import { useState, type ReactNode } from "react";
 import {
+  ActivityIndicator,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -16,6 +17,8 @@ import ScreenStateCard from "@/components/ScreenStateCard";
 import {
   athleteAtom,
   recentResultsAtom,
+  syncInProgressAtom,
+  syncStateAtom,
   unseenNotificationCountAtom,
   upcomingRegistrationsAtom,
 } from "@/lib/atoms";
@@ -90,7 +93,12 @@ export default function DashboardScreen() {
     <>
       <Tabs.Screen
         options={{
-          headerRight: () => <AnnouncementButton />,
+          headerRight: () => (
+            <View style={styles.headerActions}>
+              <SyncButton />
+              <AnnouncementButton />
+            </View>
+          ),
         }}
       />
       <ScrollView
@@ -153,6 +161,40 @@ export default function DashboardScreen() {
   );
 }
 
+function SyncButton() {
+  const isSyncing = useAtomValue(syncInProgressAtom);
+  const syncState = Object.values(useAtomValue(syncStateAtom));
+  const [iosIcon, otherIcon] = syncState.some(({ lastError }) => lastError)
+    ? (["exclamationmark.triangle", "error_outline"] as const)
+    : syncState.every(({ lastSync }) => lastSync !== null)
+      ? (["checkmark", "check"] as const)
+      : (["arrow.triangle.2.circlepath", "sync"] as const);
+
+  return (
+    <Pressable
+      accessibilityLabel="Synchronizovat data"
+      accessibilityRole="button"
+      accessibilityState={{ busy: isSyncing, disabled: isSyncing }}
+      disabled={isSyncing}
+      onPress={() => void sync({ trigger: "manual" }).catch(() => {})}
+      style={({ pressed }) => [
+        styles.headerButton,
+        pressed && styles.pressed,
+      ]}
+    >
+      {isSyncing ? (
+        <ActivityIndicator color="#2457b3" size="small" />
+      ) : (
+        <SymbolView
+          name={{ ios: iosIcon, android: otherIcon, web: otherIcon }}
+          size={19}
+          tintColor="#2457b3"
+        />
+      )}
+    </Pressable>
+  );
+}
+
 function AnnouncementButton() {
   const router = useRouter();
   const count = useAtomValue(unseenNotificationCountAtom);
@@ -164,7 +206,7 @@ function AnnouncementButton() {
       }
       accessibilityRole="button"
       onPress={() => router.push("/announcements")}
-      style={({ pressed }) => [styles.bell, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]}
     >
       <SymbolView
         name={{
@@ -293,10 +335,14 @@ const styles = StyleSheet.create({
   },
   grow: { flex: 1 },
   pressed: { opacity: 0.6 },
-  bell: {
+  headerActions: {
+    flexDirection: "row",
+    gap: 6,
+    marginRight: 8,
+  },
+  headerButton: {
     minWidth: 38,
     minHeight: 38,
-    marginRight: 8,
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 13,
