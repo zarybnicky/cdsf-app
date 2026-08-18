@@ -1,17 +1,17 @@
 import type { components } from "@/CDSF";
 import { Redirect, Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useAtomValue } from "jotai";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import ScreenStateCard from "@/components/ScreenStateCard";
 import { eventsAtom, registrationsAtom, resultsSummaryAtom } from "@/lib/atoms";
+import { formatSimpleDateTime } from "@/lib/cdsf";
+import { refreshCompetitionEvent } from "@/lib/competition-details";
 import {
   formatCompetitionLabel,
   formatDateRange,
 } from "@/lib/competition-format";
-import { refreshCompetitionEvent } from "@/lib/competition-details";
-import { formatSimpleDateTime } from "@/lib/cdsf";
 import { HeaderTitle } from "@/lib/navigation-header";
 import type { Event, EventDetails, EventRegistration } from "@/lib/types";
 
@@ -276,12 +276,12 @@ function CompetitionsTab({
         Soutěže · {event.competitions.length}
       </Text>
       <View style={styles.listCard}>
-        {event.competitions.map((competition) => (
+        {event.competitions.map((x) => (
           <CompetitionRow
-            competition={competition}
+            key={x.competitionId}
+            competition={x}
             eventId={eventId}
-            isMine={mine.has(competition.competitionId)}
-            key={competition.competitionId}
+            isMine={mine.has(x.competitionId)}
           />
         ))}
       </View>
@@ -293,11 +293,7 @@ function OfficialsTab({ officials }: { officials: EventOfficial[] }) {
   const groups = [
     ...officialGroups.map((group) => ({
       ...group,
-      officials: officials.filter((official) =>
-        official.licences?.some((licence) =>
-          group.types.includes(licence.type),
-        ),
-      ),
+      officials: officials.filter((o) => o.licences?.some((l) => group.types.includes(l.type))),
     })),
     {
       key: "other",
@@ -344,62 +340,38 @@ export default function CompetitionEventScreen() {
   const results = useAtomValue(resultsSummaryAtom);
   const event = useAtomValue(eventsAtom)[eventId ?? 0];
   const [activeTab, setActiveTab] = useState<EventTab>("overview");
-  const [isLoading, setIsLoading] = useState(true);
-
-  const loadEvent = useCallback(() => {
-    if (!eventId) return;
-    setIsLoading(true);
-    void refreshCompetitionEvent(eventId)
-      .catch(() => {})
-      .finally(() => setIsLoading(false));
-  }, [eventId]);
+  const [failedEventId, setFailedEventId] = useState<number | null>(null);
 
   useEffect(() => {
-    const timeout = setTimeout(loadEvent, 0);
-    return () => clearTimeout(timeout);
-  }, [loadEvent]);
+    if (!eventId) return;
+    void refreshCompetitionEvent(eventId).then(
+      () =>
+        setFailedEventId((failedId) =>
+          failedId === eventId ? null : failedId,
+        ),
+      () => setFailedEventId(eventId),
+    );
+  }, [eventId]);
 
   if (!eventId) return <Redirect href="/+not-found" />;
 
+  function loadEvent() {
+    if (!eventId) return;
+    setFailedEventId(null);
+    void refreshCompetitionEvent(eventId).catch(() => setFailedEventId(eventId));
+  }
+
   const registration =
-    registrations.find((item) => item.eventId === eventId) ??
-    results.find((item) => item.eventId === eventId);
-  const title = event?.eventTitle ?? registration?.eventName ?? "Událost";
+    registrations.find((x) => x.eventId === eventId) ??
+    results.find((x) => x.eventId === eventId);
+  const title = event?.eventTitle ?? registration?.eventName;
   const summary = event
     ? [formatDateRange(event.dateFrom, event.dateTo), event.location]
         .filter(Boolean)
         .join(" · ")
     : undefined;
 
-  if (!event?.details) {
-    return (
-      <ScrollView
-        contentContainerStyle={styles.content}
-        style={styles.container}
-      >
-        <Stack.Screen options={{
-          title,
-          headerTitle: (props) => (
-            <HeaderTitle {...props} subtitle={summary}>
-              {title}
-            </HeaderTitle>
-          ),
-        }} />
-        <ScreenStateCard
-          body={
-            isLoading
-              ? "Detail soutěžní akce se načítá."
-              : "Zkuste načtení zopakovat."
-          }
-          isLoading={isLoading}
-          onRetry={isLoading ? undefined : loadEvent}
-          title={
-            isLoading ? "Načítám detail akce" : "Detail se nepodařilo načíst"
-          }
-        />
-      </ScrollView>
-    );
-  }
+  const isLoading = !event?.details && failedEventId !== eventId;
 
   return (
     <ScrollView contentContainerStyle={styles.content} style={styles.container}>
@@ -412,18 +384,35 @@ export default function CompetitionEventScreen() {
         ),
       }} />
 
-      <EventTabs activeTab={activeTab} onChange={setActiveTab} />
-
-      {activeTab === "overview" ? (
-        <OverviewTab event={event} />
-      ) : activeTab === "competitions" ? (
-        <CompetitionsTab
-          event={event}
-          eventId={eventId}
-          registration={registration}
+      {!event?.details ? (
+        <ScreenStateCard
+          body={
+            isLoading
+              ? "Detail soutěže se načítá."
+              : "Zkuste načtení zopakovat."
+          }
+          isLoading={isLoading}
+          onRetry={isLoading ? undefined : loadEvent}
+          title={
+            isLoading ? "Načítám soutěž" : "Soutěž se nepodařilo načíst"
+          }
         />
       ) : (
-        <OfficialsTab officials={event.officials} />
+        <>
+          <EventTabs activeTab={activeTab} onChange={setActiveTab} />
+
+          {activeTab === "overview" ? (
+            <OverviewTab event={event} />
+          ) : activeTab === "competitions" ? (
+            <CompetitionsTab
+              event={event}
+              eventId={eventId}
+              registration={registration}
+            />
+          ) : (
+            <OfficialsTab officials={event.officials} />
+          )}
+        </>
       )}
     </ScrollView>
   );

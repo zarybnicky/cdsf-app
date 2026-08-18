@@ -77,40 +77,35 @@ export default function CompetitionDetailScreen({
   const resultEvents = useAtomValue(resultsSummaryAtom);
   const result = results[competitionId ?? 0];
   const startlist = startlists[competitionId ?? 0] ?? [];
-  const event =
-    isResult && eventId
-      ? resultEvents.find((candidate) => candidate.eventId === eventId)
-      : undefined;
+  const event = isResult && eventId ? resultEvents.find((x) => x.eventId === eventId) : undefined;
   const competition =
     competitions[competitionId ?? 0] ??
     event?.competitions.find((item) => item.competitionId === competitionId);
-  const hasCachedStartlist =
-    competitionId !== null && competitionId in startlists;
+  const hasCachedStartlist = competitionId !== null && competitionId in startlists;
   const hasCachedData = isResult ? Boolean(result) : hasCachedStartlist;
-  const load = isResult
-    ? refreshCompetitionResult
-    : refreshCompetitionStartlist;
-  const [loadState, setLoadState] = useState<"loading" | "ready" | "error">(
-    "loading",
-  );
+  const load = isResult ? refreshCompetitionResult : refreshCompetitionStartlist;
+  const [failedCompetitionId, setFailedCompetitionId] = useState<number | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     if (!competitionId) return;
     void load(competitionId).then(
-      () => setLoadState("ready"),
-      () => setLoadState("error"),
+      () =>
+        setFailedCompetitionId((failedId) =>
+          failedId === competitionId ? null : failedId,
+        ),
+      () => setFailedCompetitionId(competitionId),
     );
   }, [competitionId, load]);
 
   async function refresh() {
     if (!competitionId) return;
     setIsRefreshing(true);
+    setFailedCompetitionId(null);
     try {
       await load(competitionId);
-      setLoadState("ready");
     } catch {
-      setLoadState("error");
+      setFailedCompetitionId(competitionId);
     }
     setIsRefreshing(false);
   }
@@ -185,8 +180,8 @@ export default function CompetitionDetailScreen({
           .filter(Boolean)
           .join(" · ")
     : undefined;
-  const loading = loadState === "loading" && !hasCachedData;
-  const hasError = loadState === "error" && !hasCachedData;
+  const hasError = failedCompetitionId === competitionId && !hasCachedData;
+  const loading = !hasCachedData && !hasError;
   const stateCard = loading
     ? {
         body: copy.loadingBody,

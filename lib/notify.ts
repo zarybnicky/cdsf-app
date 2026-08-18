@@ -31,13 +31,14 @@ Notifications.setNotificationHandler({
 });
 
 async function ensureNotificationChannel(): Promise<void> {
-  if (Platform.OS !== "android") return;
-  await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
-    name: "Aktuality a soutěže",
-    description: "Aktuality, přihlášky a výsledky soutěží.",
-    importance: Notifications.AndroidImportance.HIGH,
-    showBadge: true,
-  });
+  if (Platform.OS === "android") {
+    await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
+      name: "Aktuality a soutěže",
+      description: "Aktuality, přihlášky a výsledky soutěží.",
+      importance: Notifications.AndroidImportance.HIGH,
+      showBadge: true,
+    });
+  }
 }
 
 export async function prepareNotifications(): Promise<void> {
@@ -51,57 +52,39 @@ export async function prepareNotifications(): Promise<void> {
   }
 }
 
-export async function dismissResultNotification(
-  competitionId: number,
-): Promise<void> {
+export async function dismissResultNotification(competitionId: number) {
   if (Platform.OS === "web") return;
   const presented = await Notifications.getPresentedNotificationsAsync();
-  for (const notification of presented) {
-    const data = notification.request.content
-      .data as NotificationNavigationData;
+  for (const { request } of presented) {
+    const data = request.content.data as NotificationNavigationData;
     if (data.type === "result" && data.competitionId === competitionId) {
-      await Notifications.dismissNotificationAsync(
-        notification.request.identifier,
-      );
+      await Notifications.dismissNotificationAsync(request.identifier);
     }
   }
 }
 
-/**
- * Fire drafts as local notifications, deduplicating against `notified`.
- * Non-background syncs still record the dedup key so a later background
- * sync doesn't notify about a change the user already loaded in the app.
- */
-export async function dispatchNotifications(
-  drafts: NotificationDraft[],
-  trigger: SyncTrigger,
-): Promise<void> {
+export async function dispatchNotifications(drafts: NotificationDraft[], trigger: SyncTrigger) {
   if (drafts.length === 0) return;
-  const notified = appStore.get(notifiedAtom);
-  const next = { ...notified };
-  const now = Date.now();
-  const shouldDeliver = trigger === "background";
-  if (shouldDeliver) {
-    try {
-      await ensureNotificationChannel();
-    } catch {
-      // Data sync succeeds even when the notification channel is unavailable.
-    }
+  const next = { ...appStore.get(notifiedAtom) };
+
+  if (trigger !== "background") {
+    for (const { key } of drafts) next[key] ??= Date.now();
+    appStore.set(notifiedAtom, next);
+    return;
   }
+
+  await ensureNotificationChannel().catch(() => {});
 
   for (const d of drafts) {
     if (d.key in next) continue;
-    next[d.key] = now;
-
-    if (!shouldDeliver) continue;
 
     try {
       await Notifications.scheduleNotificationAsync({
         content: { title: d.title, body: d.body, data: d.data },
         trigger: Platform.OS === "android" ? { channelId: CHANNEL_ID } : null,
       });
+      next[d.key] = Date.now();
     } catch {
-      // Best-effort; don't fail the sync if notification scheduling fails.
     }
   }
 

@@ -31,10 +31,6 @@ const monthLabels = [
   "PRO",
 ];
 
-function pad(value: number) {
-  return value.toString().padStart(2, "0");
-}
-
 function getDateBadge(dateString: string) {
   const date = parseCdsfDate(dateString);
 
@@ -47,21 +43,19 @@ function getDateBadge(dateString: string) {
   }
 
   return {
-    dateDay: pad(date.getDate()),
+    dateDay: date.getDate().toString().padStart(2, "0"),
     dateMonth: monthLabels[date.getMonth()],
     dateYear: date.getFullYear().toString(),
   };
 }
 
 export default function CompetitionListItem({
-  event,
+  event: { eventId, date, eventName, city, competitions },
   variant = "registered",
 }: CompetitionListItemProps) {
   const router = useRouter();
   const isResults = variant === "results";
-  const eventId = event.eventId;
-  const eventKey = eventId ?? event.date ?? event.eventName;
-  const { dateDay, dateMonth, dateYear } = getDateBadge(event.date);
+  const { dateDay, dateMonth, dateYear } = getDateBadge(date);
   const title = eventId ? (
     <Pressable
       accessibilityRole="link"
@@ -76,10 +70,10 @@ export default function CompetitionListItem({
         pressed ? styles.linkPressed : null,
       ]}
     >
-      <Text style={[styles.title, styles.titleLink]}>{event.eventName}</Text>
+      <Text style={[styles.title, styles.titleLink]}>{eventName}</Text>
     </Pressable>
   ) : (
-    <Text style={styles.title}>{event.eventName}</Text>
+    <Text style={styles.title}>{eventName}</Text>
   );
 
   function openCompetition(competitionId: number) {
@@ -105,9 +99,9 @@ export default function CompetitionListItem({
       </View>
 
       <View style={styles.content}>
-        <Text style={styles.city}>{event.city}</Text>
+        <Text style={styles.city}>{city}</Text>
         {title}
-        {event.competitions.map((competition, index) => {
+        {competitions.map((competition) => {
           const label = formatCompetitionLabel(competition);
           const placement = isResults
             ? formatCompetitionPlacement(
@@ -119,7 +113,7 @@ export default function CompetitionListItem({
 
           return (
             <Pressable
-              key={[eventKey, competition.competitionId, index].join(":")}
+              key={competition.competitionId}
               accessibilityRole="link"
               onPress={() => openCompetition(competition.competitionId)}
               style={({ pressed }) => [

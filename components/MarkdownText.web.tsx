@@ -1,25 +1,11 @@
-import {
-  StyleSheet,
-  Text,
-  View,
-  type StyleProp,
-  type ViewStyle,
-} from "react-native";
+import { StyleSheet, Text } from "react-native";
 
 type MarkdownTextProps = {
   markdown: string;
-  containerStyle?: StyleProp<ViewStyle>;
 };
 
-export default function MarkdownText({
-  markdown,
-  containerStyle,
-}: MarkdownTextProps) {
-  return (
-    <View style={containerStyle}>
-      <Text style={styles.fallbackText}>{markdown}</Text>
-    </View>
-  );
+export default function MarkdownText({ markdown }: MarkdownTextProps) {
+  return <Text style={styles.fallbackText}>{markdown}</Text>;
 }
 
 const styles = StyleSheet.create({

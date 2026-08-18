@@ -29,22 +29,22 @@ export default function CompetitionEventLink({ eventId, style }: Props) {
   const registrations = useAtomValue(registrationsAtom);
   const results = useAtomValue(resultsSummaryAtom);
   const summary =
-    registrations.find((candidate) => candidate.eventId === eventId) ??
-    results.find((candidate) => candidate.eventId === eventId);
+    registrations.find((x) => x.eventId === eventId) ??
+    results.find((x) => x.eventId === eventId);
   const event = events[eventId];
   const title = event?.eventTitle ?? summary?.eventName;
   const date = event?.dateFrom
     ? formatDateRange(event.dateFrom, event.dateTo)
     : formatSimpleDate(summary?.date);
-  const location = event?.location ?? summary?.city;
-  const meta = [date, location].filter(Boolean).join(" · ");
+  const meta = [date, event?.location ?? summary?.city]
+    .filter(Boolean)
+    .join(" · ");
 
   function openEvent() {
     if (isPreviousEvent(navigation.getState(), eventId)) {
       router.back();
       return;
     }
-
     router.push({
       pathname: "/competitions/events/[eventId]",
       params: { eventId },
@@ -54,8 +54,8 @@ export default function CompetitionEventLink({ eventId, style }: Props) {
   const content = (
     <>
       <View style={styles.copy}>
-        <Text style={styles.eyebrow}>Soutěžní akce</Text>
-        <Text style={styles.title}>{title ?? "Detail soutěžní akce"}</Text>
+        <Text style={styles.eyebrow}>Soutěž</Text>
+        <Text style={styles.title}>{title}</Text>
         {meta ? <Text style={styles.meta}>{meta}</Text> : null}
       </View>
       <Text accessibilityElementsHidden style={styles.chevron}>
@@ -66,7 +66,7 @@ export default function CompetitionEventLink({ eventId, style }: Props) {
 
   return (
     <Pressable
-      accessibilityLabel={`Zobrazit akci ${title ?? "soutěže"}`}
+      accessibilityLabel={`Zobrazit ${title}`}
       accessibilityRole="link"
       onPress={openEvent}
       style={({ pressed }) => [

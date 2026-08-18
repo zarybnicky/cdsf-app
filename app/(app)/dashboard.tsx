@@ -27,7 +27,7 @@ import {
   formatCompetitionDiscipline,
   formatDateRange,
 } from "@/lib/competition-format";
-import { getAgeLabel, getDateMs, parseCdsfDate } from "@/lib/cdsf";
+import { getAgeLabel, parseCdsfDate } from "@/lib/cdsf";
 import { sync } from "@/lib/sync";
 import type { Athlete, EventRegistration } from "@/lib/types";
 
@@ -42,22 +42,10 @@ function getWeekStart(dateString: string) {
   return date.getTime();
 }
 
-function selectClosestWeek(events: EventRegistration[], future: boolean) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const candidates = events
-    .filter((event) => !future || getDateMs(event.date) >= today.getTime())
-    .sort((left, right) => {
-      const dates = getDateMs(left.date) - getDateMs(right.date);
-      return (
-        (future ? dates : -dates) ||
-        left.eventName.localeCompare(right.eventName, "cs")
-      );
-    });
-  const week = candidates[0] ? getWeekStart(candidates[0].date) : null;
-  return week === null
-    ? []
-    : candidates.filter((event) => getWeekStart(event.date) === week);
+function selectClosestWeek(events: EventRegistration[]) {
+  if (events.length === 0) return [];
+  const week = getWeekStart(events[0].date);
+  return events.filter((event) => getWeekStart(event.date) === week);
 }
 
 function formatEventRange(events: EventRegistration[]) {
@@ -76,11 +64,8 @@ function getRankingPoints(athlete: Athlete | null): RankingPoint[] {
 
 export default function DashboardScreen() {
   const router = useRouter();
-  const upcomingWeek = selectClosestWeek(
-    useAtomValue(upcomingRegistrationsAtom),
-    true,
-  );
-  const resultWeek = selectClosestWeek(useAtomValue(recentResultsAtom), false);
+  const upcomingWeek = selectClosestWeek(useAtomValue(upcomingRegistrationsAtom));
+  const resultWeek = selectClosestWeek(useAtomValue(recentResultsAtom));
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   async function refresh() {

@@ -9,8 +9,7 @@ export type Competition = schemas["Competition"] & {
   completedAt?: string;
 };
 export type CompetitionResult = schemas["CompetitionResult"];
-export type CompetitionStartListCompetitor =
-  schemas["CompetitionStartListCompetitor"];
+export type CompetitionStartListCompetitor = schemas["CompetitionStartListCompetitor"];
 export type Notification = schemas["Notification"];
 
 export interface EventDetails {
@@ -49,11 +48,9 @@ export interface EventDetails {
 export type Event = Omit<schemas["Event"], "competitions" | "officials"> & {
   competitions: Competition[];
   details: EventDetails;
-  officials: Array<
-    Omit<schemas["Official"], "licences"> & {
-      licences?: Array<schemas["OfficialLicence"] & { role?: number }>;
-    }
-  >;
+  officials: (Omit<schemas["Official"], "licences"> & {
+    licences?: (schemas["OfficialLicence"] & { role?: number })[];
+  })[];
 };
 
 export type SyncTrigger = "initial" | "foreground" | "background" | "manual";

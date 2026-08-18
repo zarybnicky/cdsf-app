@@ -73,40 +73,32 @@ export function sync(options: SyncOptions): Promise<void> {
   return queued;
 }
 
-async function runSync({ trigger, domains }: SyncOptions): Promise<void> {
+async function runSync({ trigger, domains = ALL_DOMAINS }: SyncOptions): Promise<void> {
   const state = store.get(syncStateAtom);
-  const dueDomains = new Set(
-    (domains ?? ALL_DOMAINS).filter((domain) =>
-      isDue(domain, state[domain].lastSync, trigger),
-    ),
-  );
+  const dueDomains = new Set(domains.filter((x) => isDue(x, state[x].lastSync, trigger)));
   if (dueDomains.has("registrations")) dueDomains.add("registeredEvents");
 
   const registrationRun = dueDomains.has("registrations")
     ? runDomain("registrations")
     : undefined;
   const results = await Promise.all(
-    [...dueDomains].map((domain) => {
+    [...dueDomains].map(async (domain) => {
       if (domain === "registrations" && registrationRun) {
         return registrationRun;
       }
       if (domain === "registeredEvents" && registrationRun) {
-        return registrationRun.then((registration) =>
-          registration.errors.length === 0
-            ? runDomain(domain)
-            : { drafts: [], errors: [] },
-        );
+        const registration = await registrationRun;
+        return registration.errors.length === 0
+          ? runDomain(domain)
+          : { drafts: [], errors: [] };
       }
       return runDomain(domain);
     }),
   );
 
-  await dispatchNotifications(
-    results.flatMap((result) => result.drafts),
-    trigger,
-  );
+  await dispatchNotifications(results.flatMap((x) => x.drafts), trigger);
 
-  const errors = results.flatMap((result) => result.errors);
+  const errors = results.flatMap((x) => x.errors);
   if (errors.length === 1) throw errors[0];
   if (errors.length > 1) throw new AggregateError(errors, "Sync failed");
 }

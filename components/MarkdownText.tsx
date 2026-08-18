@@ -1,9 +1,6 @@
 import {
   Linking,
   StyleSheet,
-  View,
-  type StyleProp,
-  type ViewStyle,
 } from "react-native";
 import { EnrichedMarkdownText } from "react-native-enriched-markdown";
 
@@ -11,27 +8,21 @@ const allowedLinkPattern = /^(https?:|mailto:|tel:)/i;
 
 type MarkdownTextProps = {
   markdown: string;
-  containerStyle?: StyleProp<ViewStyle>;
 };
 
-export default function MarkdownText({
-  markdown,
-  containerStyle,
-}: MarkdownTextProps) {
+export default function MarkdownText({ markdown }: MarkdownTextProps) {
   return (
-    <View style={containerStyle}>
-      <EnrichedMarkdownText
-        allowTrailingMargin={false}
-        containerStyle={styles.container}
-        markdown={markdown}
-        markdownStyle={markdownStyle}
-        onLinkPress={({ url }) => {
-          if (allowedLinkPattern.test(url)) {
-            void Linking.openURL(url);
-          }
-        }}
-      />
-    </View>
+    <EnrichedMarkdownText
+      allowTrailingMargin={false}
+      containerStyle={styles.container}
+      markdown={markdown}
+      markdownStyle={markdownStyle}
+      onLinkPress={({ url }) => {
+        if (allowedLinkPattern.test(url)) {
+          void Linking.openURL(url);
+        }
+      }}
+    />
   );
 }
 
