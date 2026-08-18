@@ -1,3 +1,4 @@
+import { useFonts } from "expo-font";
 import { StyleSheet, Text, View } from "react-native";
 
 const leftDigits: Record<string, string> = {
@@ -69,16 +70,31 @@ type Ean8BarcodeProps = {
   value: string | number;
 };
 
+function BarcodeFallback({ value }: Ean8BarcodeProps) {
+  const [spaceMonoLoaded] = useFonts({
+    SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
+  });
+
+  return (
+    <View style={styles.fallback}>
+      <Text style={styles.fallbackLabel}>IDT</Text>
+      <Text
+        style={[
+          styles.fallbackValue,
+          spaceMonoLoaded && styles.fallbackValueSpaceMono,
+        ]}
+      >
+        {String(value)}
+      </Text>
+    </View>
+  );
+}
+
 export default function Ean8Barcode({ value }: Ean8BarcodeProps) {
   const digits = normalizeEan8Value(value);
 
   if (!digits) {
-    return (
-      <View style={styles.fallback}>
-        <Text style={styles.fallbackLabel}>IDT</Text>
-        <Text style={styles.fallbackValue}>{String(value)}</Text>
-      </View>
-    );
+    return <BarcodeFallback value={value} />;
   }
 
   const pattern = encodeEan8(digits);
@@ -146,8 +162,10 @@ const styles = StyleSheet.create({
   },
   fallbackValue: {
     color: "#1f2937",
-    fontFamily: "SpaceMono",
     fontSize: 18,
     marginTop: 4,
+  },
+  fallbackValueSpaceMono: {
+    fontFamily: "SpaceMono",
   },
 });

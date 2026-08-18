@@ -15,7 +15,7 @@
     "build:android:preview": "eas build --platform android --profile preview --local",
     "build:android:store": "eas build --platform android --profile production --local",
     "build:ios:store": "eas build --platform ios --profile production --local",
-    "submit:android:preview": "eas submit --platform android --profile preview --path ./*.apk",
+    "submit:android:preview": "eas submit --platform android --profile preview --path ./*.aab",
     "submit:ios:preview": "eas submit --platform ios --profile preview --path ./*.ipa",
     "submit:android:store": "eas submit --platform android --profile production --path ./app.aab",
     "submit:ios:store": "eas submit --platform ios --profile production --path ./app.ipa"

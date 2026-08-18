@@ -355,8 +355,8 @@ export default function CompetitionEventScreen() {
   }, [eventId]);
 
   useEffect(() => {
-    // eslint-disable react-hooks/set-state-in-effect
-    loadEvent();
+    const timeout = setTimeout(loadEvent, 0);
+    return () => clearTimeout(timeout);
   }, [loadEvent]);
 
   if (!eventId) return <Redirect href="/+not-found" />;

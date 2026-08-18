@@ -7,7 +7,6 @@ import BrandMark from "@/components/BrandMark";
 const styles = StyleSheet.create({
   header: {
     backgroundColor: "#f4f7fb",
-    overflow: "hidden",
   },
   headerBackground: {
     flex: 1,

@@ -4,7 +4,6 @@ import type { NotificationNavigationData } from "@/lib/notify";
 import { sessionStateAtom } from "@/lib/session";
 import { setAuthenticatedSyncEnabled } from "@/lib/sync-runtime";
 import { DefaultTheme, ThemeProvider } from "expo-router/react-navigation";
-import { useFonts } from "expo-font";
 import {
   addNotificationResponseReceivedListener,
   clearLastNotificationResponse,
@@ -17,7 +16,6 @@ import { StatusBar } from "expo-status-bar";
 import { Provider as JotaiProvider, useAtomValue } from "jotai";
 import { useEffect, useRef } from "react";
 import { Platform } from "react-native";
-import "react-native-reanimated";
 
 export { ErrorBoundary } from "expo-router";
 
@@ -27,16 +25,12 @@ export const unstable_settings = {
 
 void SplashScreen.preventAutoHideAsync();
 
-type RootNavigatorProps = {
-  fontsLoaded: boolean;
-};
-
-function RootNavigator({ fontsLoaded }: RootNavigatorProps) {
+function RootNavigator() {
   const router = useRouter();
   const session = useAtomValue(sessionStateAtom);
   const isSessionLoading = session === undefined;
   const isAuthenticated = session !== null && session !== undefined;
-  const isAppReady = fontsLoaded && !isSessionLoading;
+  const isAppReady = !isSessionLoading;
   const handledNotification = useRef<string | null>(null);
 
   useEffect(() => {
@@ -83,17 +77,15 @@ function RootNavigator({ fontsLoaded }: RootNavigatorProps) {
       }
       clearLastNotificationResponse();
     };
+
     if (Platform.OS !== "web") {
       const lastResponse = getLastNotificationResponse();
       if (lastResponse) handleNotificationResponse(lastResponse);
     }
-    const tapSub = addNotificationResponseReceivedListener(
-      handleNotificationResponse,
-    );
+    const subscription =
+      addNotificationResponseReceivedListener(handleNotificationResponse);
 
-    return () => {
-      tapSub.remove();
-    };
+    return () => subscription.remove();
   }, [isAuthenticated, router]);
 
   if (!isAppReady) {
@@ -118,16 +110,9 @@ function RootNavigator({ fontsLoaded }: RootNavigatorProps) {
 }
 
 export default function RootLayout() {
-  const [fontsLoaded, error] = useFonts({
-    SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
-  });
-  if (error) {
-    throw error;
-  }
-
   return (
     <JotaiProvider store={appStore}>
-      <RootNavigator fontsLoaded={fontsLoaded} />
+      <RootNavigator />
     </JotaiProvider>
   );
 }
