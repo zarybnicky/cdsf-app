@@ -1,6 +1,7 @@
 import type { components } from "@/CDSF";
 
-import { formatSimpleDate, getAgeLabel } from "@/lib/cdsf";
+import { formatSimpleDate } from "@/lib/cdsf";
+import type { Athlete } from "./types";
 
 type CompetitionLike = {
   age: components["schemas"]["Age"];
@@ -31,13 +32,34 @@ function joinName(...parts: (string | undefined)[]) {
   return parts.join(" ").replace(/\s+/g, " ").trim();
 }
 
-export function formatCompetitionClass(value?: string | null) {
+const translatedAgeLabels: { [key in Athlete["age"]]: string } = {
+  "Under 8": "Do 8 let",
+  "Juvenile I": "Děti I",
+  "Juvenile II": "Děti II",
+  Juvenile: "Děti",
+  "Junior I": "Junior I",
+  "Junior II": "Junior II",
+  Junior: "Junior",
+  Youth: "Mládež",
+  Adult: "Dospělí",
+  "Under 21": "Do 21 let",
+  Senior: "Senior",
+  "Senior I": "Senior I",
+  "Senior II": "Senior II",
+  "Senior III": "Senior III",
+  "Senior IV": "Senior IV",
+  "Senior V": "Senior V",
+};
+
+export function formatAge(age: Athlete["age"]) {
+  return translatedAgeLabels[age] ?? age;
+}
+
+export function formatClass(value?: string | null) {
   return !value || value === "Open" || value === "Unknown" ? undefined : value;
 }
 
-export function formatCompetitionGrade(
-  grade?: components["schemas"]["CompetitionGrade"],
-) {
+function formatGrade(grade?: components["schemas"]["CompetitionGrade"]) {
   switch (grade) {
     case "Championship":
       return "MČR";
@@ -50,7 +72,7 @@ export function formatCompetitionGrade(
   }
 }
 
-export function formatCompetitionDiscipline(
+export function formatDiscipline(
   discipline: components["schemas"]["Discipline"],
 ) {
   switch (discipline) {
@@ -73,10 +95,10 @@ export function formatCompetitionDiscipline(
 
 export function formatCompetitionLabel(competition: CompetitionLike) {
   const label = [
-    formatCompetitionGrade(competition.grade),
-    getAgeLabel(competition.age),
-    formatCompetitionClass(competition.class),
-    formatCompetitionDiscipline(competition.discipline),
+    formatGrade(competition.grade),
+    formatAge(competition.age),
+    formatClass(competition.class),
+    formatDiscipline(competition.discipline),
   ]
     .filter(Boolean)
     .join(" ");
@@ -84,11 +106,7 @@ export function formatCompetitionLabel(competition: CompetitionLike) {
   return label || "Soutěž";
 }
 
-export function formatCompetitionPlacement(
-  ranking?: number,
-  rankingTo?: number,
-  competitorsCount?: number,
-) {
+export function formatRanking(ranking?: number, rankingTo?: number, competitors?: number) {
   if (typeof ranking !== "number") {
     return undefined;
   }
@@ -98,8 +116,8 @@ export function formatCompetitionPlacement(
       ? `${ranking}-${rankingTo}`
       : `${ranking}`;
 
-  if (typeof competitorsCount === "number" && competitorsCount > 0) {
-    return `${rankingLabel}\u2009/\u2009${competitorsCount}`;
+  if (typeof competitors === "number" && competitors > 0) {
+    return `${rankingLabel}\u2009/\u2009${competitors}`;
   }
 
   if (typeof rankingTo === "number" && rankingTo > ranking) {
@@ -120,30 +138,17 @@ export function formatDateRange(dateFrom?: string, dateTo?: string) {
   return from || to || "Datum není k dispozici";
 }
 
-export function formatCompetitorName(
-  competitor?: NamedCompetitor,
-  fallback?: string,
-) {
-  if (!competitor) {
-    return fallback ?? "Soutěžící";
-  }
+export function formatCompetitorName(competitor?: NamedCompetitor) {
+  if (!competitor) return '';
 
   const first = joinName(competitor.name1, competitor.surname1);
   const second = joinName(competitor.name2, competitor.surname2);
 
-  if (first && second) {
-    return `${first} - ${second}`;
-  }
-
-  if (first) {
-    return first;
-  }
+  if (first && second) return `${first} - ${second}`;
+  if (first) return first;
 
   const name = competitor.name?.trim();
-
-  if (name) {
-    return name;
-  }
+  if (name) return name;
 
   if (competitor.couplesOrDuos?.length) {
     return competitor.couplesOrDuos
@@ -164,11 +169,7 @@ export function formatCompetitorName(
     return competitor.captain.trim();
   }
 
-  if (fallback) {
-    return fallback;
-  }
-
-  return "Soutěžící";
+  return '';
 }
 
 export function formatCompetitorSource(competitor: SourcedCompetitor) {

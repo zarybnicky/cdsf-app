@@ -51,19 +51,6 @@ export default function CompetitionEventLink({ eventId, style }: Props) {
     });
   }
 
-  const content = (
-    <>
-      <View style={styles.copy}>
-        <Text style={styles.eyebrow}>Soutěž</Text>
-        <Text style={styles.title}>{title}</Text>
-        {meta ? <Text style={styles.meta}>{meta}</Text> : null}
-      </View>
-      <Text accessibilityElementsHidden style={styles.chevron}>
-        ›
-      </Text>
-    </>
-  );
-
   return (
     <Pressable
       accessibilityLabel={`Zobrazit ${title}`}
@@ -75,7 +62,14 @@ export default function CompetitionEventLink({ eventId, style }: Props) {
         pressed ? styles.pressed : null,
       ]}
     >
-      {content}
+      <View style={styles.copy}>
+        <Text style={styles.eyebrow}>Soutěž</Text>
+        <Text style={styles.title}>{title}</Text>
+        {meta ? <Text style={styles.meta}>{meta}</Text> : null}
+      </View>
+      <Text accessibilityElementsHidden style={styles.chevron}>
+        ›
+      </Text>
     </Pressable>
   );
 }

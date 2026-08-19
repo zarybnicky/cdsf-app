@@ -52,15 +52,19 @@ export default function AnnouncementCard({
     sections.push(`[Otevřít odkaz](${notification.link.trim()})`);
   }
   const title = stripMarkdown(notification.caption);
-  const markdown = sections.join("\n\n") || title;
+  const markdown = sections.join("\n\n");
 
   return (
     <View style={styles.card}>
       <View style={styles.accent} />
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.meta}>{formatPublishedAt(notification.created)}</Text>
-      <View style={styles.divider} />
-      <MarkdownText markdown={markdown} />
+      {markdown ? (
+        <>
+          <View style={styles.divider} />
+          <MarkdownText markdown={markdown} />
+        </>
+      ) : null}
     </View>
   );
 }

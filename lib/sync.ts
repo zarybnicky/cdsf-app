@@ -1,4 +1,4 @@
-import { appStore } from "./app-store";
+import { store } from "./app-store";
 import {
   registrationsAtom,
   syncInProgressAtom,
@@ -10,41 +10,31 @@ import { refreshDomain } from "./domains";
 import { dispatchNotifications, type NotificationDraft } from "./notify";
 import type { Domain, SyncTrigger } from "./types";
 
-const store = appStore;
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
-const MIN_INTERVAL: Record<Domain, Record<SyncTrigger, number>> = {
+
+const SYNC_INTERVAL = {
   athlete: {
-    initial: 0,
     foreground: 6 * HOUR,
     background: 24 * HOUR,
-    manual: 0,
   },
   registrations: {
-    initial: 0,
     foreground: 10 * MINUTE,
     background: 30 * MINUTE,
-    manual: 0,
   },
   registeredEvents: {
-    initial: 0,
     foreground: 10 * MINUTE,
     background: 30 * MINUTE,
-    manual: 0,
   },
   results: {
-    initial: 0,
     foreground: 2 * MINUTE,
     background: 5 * MINUTE,
-    manual: 0,
   },
   notifications: {
-    initial: 0,
     foreground: 5 * MINUTE,
     background: 15 * MINUTE,
-    manual: 0,
   },
-};
+} as const;
 
 type SyncOptions = {
   trigger: SyncTrigger;
@@ -56,7 +46,7 @@ type DomainSyncResult = {
   errors: unknown[];
 };
 
-const ALL_DOMAINS = Object.keys(MIN_INTERVAL) as Domain[];
+const ALL_DOMAINS = Object.keys(SYNC_INTERVAL) as Domain[];
 
 let syncQueue: Promise<void> = Promise.resolve();
 
@@ -136,16 +126,12 @@ function isAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === "AbortError";
 }
 
-function isDue(
-  domain: Domain,
-  lastSync: number | null,
-  trigger: SyncTrigger,
-): boolean {
+function isDue(domain: Domain, lastSync: number | null, trigger: SyncTrigger) {
   if (trigger === "initial" || trigger === "manual" || lastSync === null) {
     return true;
   }
 
-  let interval = MIN_INTERVAL[domain][trigger];
+  let interval = SYNC_INTERVAL[domain][trigger];
   if (domain === "results" && !isCompetitionDay()) {
     interval = trigger === "background" ? 2 * HOUR : 30 * MINUTE;
   }

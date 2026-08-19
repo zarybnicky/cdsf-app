@@ -57,7 +57,7 @@ export default function LoginScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.container}>
-          <BrandBanner style={styles.banner} subtitle="#tanciscsts" />
+          <BrandBanner />
 
           <View style={styles.card}>
             <Text style={styles.eyebrow}>Členský účet</Text>
@@ -159,9 +159,6 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     paddingHorizontal: 16,
     paddingVertical: 24,
-  },
-  banner: {
-    borderRadius: 22,
   },
   eyebrow: {
     color: "#2457b3",

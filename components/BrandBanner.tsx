@@ -1,33 +1,21 @@
-import {
-  ImageBackground,
-  StyleSheet,
-  Text,
-  View,
-  type StyleProp,
-  type ViewStyle,
-} from "react-native";
+import { ImageBackground, StyleSheet, Text, View } from "react-native";
 
 import BrandMark from "@/components/BrandMark";
 
-type BrandBannerProps = {
-  style?: StyleProp<ViewStyle>;
-  subtitle?: string;
-};
-
-export default function BrandBanner({ style, subtitle }: BrandBannerProps) {
+export default function BrandBanner() {
   return (
     <ImageBackground
       imageStyle={styles.backgroundImage}
       resizeMode="cover"
       source={require("../assets/images/bg_header.png")}
-      style={[styles.banner, style]}
+      style={styles.banner}
     >
       <View style={styles.overlay} />
       <View style={styles.content}>
         <BrandMark size={60} />
         <View style={styles.copy}>
           <Text style={styles.title}>Český svaz{"\n"}tanečního sportu</Text>
-          {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+          <Text style={styles.subtitle}>#tanciscsts</Text>
         </View>
       </View>
     </ImageBackground>

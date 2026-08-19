@@ -37,6 +37,7 @@ export function setAuthenticatedSyncEnabled(nextEnabled: boolean): void {
   sync({ trigger: "initial" }).catch(() => {});
   foregroundSubscription = AppState.addEventListener("change", (state) => {
     if (state === "active") {
+      prepareNotifications().catch(() => {});
       sync({ trigger: "foreground" }).catch(() => {});
     }
   });

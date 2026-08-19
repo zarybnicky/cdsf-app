@@ -1,6 +1,6 @@
 import { Platform } from "react-native";
 
-import { appStore } from "./app-store";
+import { store } from "./app-store";
 import {
   competitionsAtom,
   eventsAtom,
@@ -11,29 +11,24 @@ import { API_BASE_URL, ApiError, apiClient, fetchData } from "./api";
 import type { EventDetails } from "./types";
 
 type PublishedEventsResponse = {
-  collection: Array<{
+  collection: {
     id: number;
     eventCompetitions: EventDetails[];
-  }>;
+  }[];
 };
 
-const store = appStore;
-
-export async function refreshCompetitionEvent(eventId: number): Promise<void> {
-  const response = await fetchData(
+export async function refreshCompetitionEvent(eventId: number) {
+  const competition = await fetchData(
     apiClient.GET("/competition_events/{eventId}", {
       params: { path: { eventId } },
     }),
   );
-  const event = response.entity;
-  if (!event) return;
+  const event = competition.entity;
+  if (!event) return false;
 
   const filter = `date>=${event.dateFrom} AND date<=${event.dateTo ?? event.dateFrom}`;
-  const eventsUrl =
-    Platform.OS === "web" ? "/api/1/events" : `${API_BASE_URL}/events`;
-  const publishedResponse = await fetch(
-    `${eventsUrl}?${new URLSearchParams({ filter })}`,
-  );
+  const url = Platform.OS === "web" ? "/api/1/events" : `${API_BASE_URL}/events`;
+  const publishedResponse = await fetch(`${url}?${new URLSearchParams({ filter })}`);
   const publishedEvents =
     (await publishedResponse.json()) as PublishedEventsResponse;
 
@@ -41,24 +36,21 @@ export async function refreshCompetitionEvent(eventId: number): Promise<void> {
     throw new ApiError(publishedResponse, publishedEvents);
   }
 
-  const details = publishedEvents.collection.find((item) => item.id === eventId)
+  const details = publishedEvents.collection.find((x) => x.id === eventId)
     ?.eventCompetitions[0];
 
   if (!details) {
-    throw new Error(
-      `Event ${eventId} has no details in the published event list`,
-    );
+    throw new Error(`Event ${eventId} has no details in the published event list`);
   }
 
   store.set(eventsAtom, (current) => ({
     ...current,
     [eventId]: { ...event, details },
   }));
+  return true;
 }
 
-export async function refreshCompetitionStartlist(
-  competitionId: number,
-): Promise<void> {
+export async function refreshCompetitionStartlist(competitionId: number) {
   const [{ entity: competition }, startlistResponse] = await Promise.all([
     fetchData(
       apiClient.GET("/competitions/{competitionId}", {
@@ -72,10 +64,7 @@ export async function refreshCompetitionStartlist(
     ),
   ]);
   if (competition) {
-    store.set(competitionsAtom, (current) => ({
-      ...current,
-      [competitionId]: competition,
-    }));
+    store.set(competitionsAtom, (x) => ({ ...x, [competitionId]: competition }));
   }
   store.set(startlistsAtom, (current) => ({
     ...current,
@@ -85,7 +74,7 @@ export async function refreshCompetitionStartlist(
 
 export async function refreshCompetitionResult(
   competitionId: number,
-): Promise<void> {
+): Promise<boolean> {
   const [{ entity: competition }, { entity: result }] = await Promise.all([
     fetchData(
       apiClient.GET("/competitions/{competitionId}", {
@@ -110,4 +99,5 @@ export async function refreshCompetitionResult(
       [competitionId]: result,
     }));
   }
+  return Boolean(result);
 }

@@ -5,13 +5,13 @@ import { atomWithStorage, createJSONStorage, unwrap } from "jotai/utils";
 import type { AsyncStringStorage } from "jotai/vanilla/utils/atomWithStorage";
 import { Platform } from "react-native";
 
-import { appStore } from "@/lib/app-store";
+import { store } from "@/lib/app-store";
 import { apiClient } from "@/lib/api";
 import { clearPersistedState } from "@/lib/mmkv";
 
 const APP_PURPOSE = "Mobilní aplikace ČSTS 2.0";
 
-export type Session = {
+type Session = {
   email: string;
   token: string;
 };
@@ -63,7 +63,7 @@ function getSignInError(status: number) {
   return "Přihlášení se nepodařilo dokončit.";
 }
 
-export const sessionAtom = atomWithStorage<Session | null>(
+const sessionAtom = atomWithStorage<Session | null>(
   "session",
   null,
   sessionStorage,
@@ -141,7 +141,7 @@ function abortSessionRequests() {
 const sessionMiddleware: Middleware = {
   async onRequest({ request }) {
     if (!request.headers.has("Authorization")) {
-      const currentSession = await appStore.get(sessionAtom);
+      const currentSession = await store.get(sessionAtom);
       if (currentSession) {
         request.headers.set("Authorization", currentSession.token);
       }
@@ -155,7 +155,7 @@ const sessionMiddleware: Middleware = {
     }
 
     const authorization = request.headers.get("Authorization");
-    const currentSession = await appStore.get(sessionAtom);
+    const currentSession = await store.get(sessionAtom);
 
     if (
       isClearingInvalidSession ||
@@ -173,7 +173,7 @@ const sessionMiddleware: Middleware = {
       clearPersistedState();
     } finally {
       try {
-        await appStore.set(sessionAtom, null);
+        await store.set(sessionAtom, null);
       } finally {
         isClearingInvalidSession = false;
       }

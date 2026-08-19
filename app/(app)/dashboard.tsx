@@ -23,11 +23,12 @@ import {
   upcomingRegistrationsAtom,
 } from "@/lib/atoms";
 import {
-  formatCompetitionClass,
-  formatCompetitionDiscipline,
+  formatAge,
+  formatClass,
+  formatDiscipline,
   formatDateRange,
 } from "@/lib/competition-format";
-import { getAgeLabel, parseCdsfDate } from "@/lib/cdsf";
+import { parseCdsfDate } from "@/lib/cdsf";
 import { sync } from "@/lib/sync";
 import type { Athlete, EventRegistration } from "@/lib/types";
 
@@ -229,7 +230,7 @@ function ProfileSummary() {
             {athlete?.name ?? "Můj profil"}
           </Text>
           {athlete ? (
-            <Text style={styles.muted}>{getAgeLabel(athlete.age)}</Text>
+            <Text style={styles.muted}>{formatAge(athlete.age)}</Text>
           ) : null}
         </View>
         <SymbolView
@@ -245,7 +246,7 @@ function ProfileSummary() {
       {points.length ? (
         <View style={styles.points}>
           {points.map((point) => {
-            const competitionClass = formatCompetitionClass(
+            const competitionClass = formatClass(
               point.personalClass ?? point.class,
             );
             const pointValue = point.personalPoints ?? point.points;
@@ -255,7 +256,7 @@ function ProfileSummary() {
                 style={styles.pointRow}
               >
                 <Text style={styles.discipline}>
-                  {formatCompetitionDiscipline(point.discipline)}
+                  {formatDiscipline(point.discipline)}
                 </Text>
                 <Text style={styles.pointValue}>
                   {[

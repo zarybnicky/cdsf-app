@@ -1,15 +1,12 @@
-import type { components } from "@/CDSF";
 import { useRouter } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-
 import {
   formatCompetitionLabel,
-  formatCompetitionPlacement,
+  formatRanking,
 } from "@/lib/competition-format";
 import { parseCdsfDate } from "@/lib/cdsf";
 import { dismissResultNotification } from "@/lib/notify";
-
-type EventRegistration = components["schemas"]["EventRegistration"];
+import type { EventRegistration } from "@/lib/types";
 
 type CompetitionListItemProps = {
   event: EventRegistration;
@@ -103,8 +100,8 @@ export default function CompetitionListItem({
         {title}
         {competitions.map((competition) => {
           const label = formatCompetitionLabel(competition);
-          const placement = isResults
-            ? formatCompetitionPlacement(
+          const ranking = isResults
+            ? formatRanking(
                 competition.ranking,
                 competition.rankingTo,
                 competition.competitorsCount,
@@ -127,8 +124,8 @@ export default function CompetitionListItem({
                   <View style={styles.resultsMetaLabelWrap}>
                     <Text style={styles.resultsMetaLabel}>{label}</Text>
                   </View>
-                  {placement ? (
-                    <Text style={styles.resultsMetaValue}>{placement}</Text>
+                  {ranking ? (
+                    <Text style={styles.resultsMetaValue}>{ranking}</Text>
                   ) : null}
                 </View>
               ) : (

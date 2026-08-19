@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import ScreenStateCard from "@/components/ScreenStateCard";
+import { ApiError } from "@/lib/api";
 import { eventsAtom, registrationsAtom, resultsSummaryAtom } from "@/lib/atoms";
 import { formatSimpleDateTime } from "@/lib/cdsf";
 import { refreshCompetitionEvent } from "@/lib/competition-details";
@@ -15,16 +16,20 @@ import {
 import { HeaderTitle } from "@/lib/navigation-header";
 import type { Event, EventDetails, EventRegistration } from "@/lib/types";
 
-type EventTab = "overview" | "competitions" | "officials";
-type EventCompetition = Event["competitions"][number];
-type EventOfficial = Event["officials"][number];
-type OfficialType = components["schemas"]["OfficialType"];
-
-const tabs: { key: EventTab; label: string }[] = [
+const tabs = [
   { key: "overview", label: "Přehled" },
   { key: "competitions", label: "Soutěže" },
   { key: "officials", label: "Porota a funkcionáři" },
-];
+] as const;
+
+type EventTab = (typeof tabs)[number]["key"];
+type EventLoadState = {
+  eventId: number;
+  status: "failed" | "not-found";
+};
+type EventCompetition = Event["competitions"][number];
+type EventOfficial = Event["officials"][number];
+type OfficialType = components["schemas"]["OfficialType"];
 
 const officialGroups: { key: string; title: string; types: OfficialType[] }[] =
   [
@@ -37,6 +42,21 @@ const officialGroups: { key: string; title: string; types: OfficialType[] }[] =
     },
     { key: "masters-of-ceremony", title: "Moderátoři", types: ["MoC"] },
   ];
+
+async function loadEventState(eventId: number): Promise<EventLoadState | null> {
+  try {
+    const found = await refreshCompetitionEvent(eventId);
+    return found ? null : { eventId, status: "not-found" };
+  } catch (error) {
+    return {
+      eventId,
+      status:
+        error instanceof ApiError && error.status === 404
+          ? "not-found"
+          : "failed",
+    };
+  }
+}
 
 function formatRegistrationState(
   state?: components["schemas"]["RegistrationState"],
@@ -213,7 +233,7 @@ function CompetitionRow({
   const isComplete = Boolean(competition.completedAt);
   const attendance =
     typeof competition.registered === "number"
-      ? `Přihlášeno ${competition.registered - (competition.excused ?? 0)}`
+      ? `Přihlášeno ${competition.registered}`
       : undefined;
   const timing = competition.checkInEnd
     ? `Prezence do ${competition.checkInEnd}`
@@ -340,25 +360,19 @@ export default function CompetitionEventScreen() {
   const results = useAtomValue(resultsSummaryAtom);
   const event = useAtomValue(eventsAtom)[eventId ?? 0];
   const [activeTab, setActiveTab] = useState<EventTab>("overview");
-  const [failedEventId, setFailedEventId] = useState<number | null>(null);
+  const [loadState, setLoadState] = useState<EventLoadState | null>(null);
 
   useEffect(() => {
     if (!eventId) return;
-    void refreshCompetitionEvent(eventId).then(
-      () =>
-        setFailedEventId((failedId) =>
-          failedId === eventId ? null : failedId,
-        ),
-      () => setFailedEventId(eventId),
-    );
+    void loadEventState(eventId).then(setLoadState);
   }, [eventId]);
 
   if (!eventId) return <Redirect href="/+not-found" />;
 
   function loadEvent() {
     if (!eventId) return;
-    setFailedEventId(null);
-    void refreshCompetitionEvent(eventId).catch(() => setFailedEventId(eventId));
+    setLoadState(null);
+    void loadEventState(eventId).then(setLoadState);
   }
 
   const registration =
@@ -371,7 +385,9 @@ export default function CompetitionEventScreen() {
         .join(" · ")
     : undefined;
 
-  const isLoading = !event?.details && failedEventId !== eventId;
+  const loadStatus = loadState?.eventId === eventId ? loadState.status : null;
+  const isLoading = !event && loadStatus === null;
+  const isNotFound = !event && loadStatus === "not-found";
 
   return (
     <ScrollView contentContainerStyle={styles.content} style={styles.container}>
@@ -384,17 +400,23 @@ export default function CompetitionEventScreen() {
         ),
       }} />
 
-      {!event?.details ? (
+      {!event ? (
         <ScreenStateCard
           body={
             isLoading
               ? "Detail soutěže se načítá."
-              : "Zkuste načtení zopakovat."
+              : isNotFound
+                ? "Požadovaná soutěž neexistuje nebo už není dostupná."
+                : "Zkuste načtení zopakovat."
           }
           isLoading={isLoading}
-          onRetry={isLoading ? undefined : loadEvent}
+          onRetry={isLoading || isNotFound ? undefined : loadEvent}
           title={
-            isLoading ? "Načítám soutěž" : "Soutěž se nepodařilo načíst"
+            isLoading
+              ? "Načítám soutěž"
+              : isNotFound
+                ? "Soutěž nebyla nalezena"
+                : "Soutěž se nepodařilo načíst"
           }
         />
       ) : (

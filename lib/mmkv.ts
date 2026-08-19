@@ -1,7 +1,7 @@
 import { atom } from "jotai";
 import { Platform } from "react-native";
 import { createMMKV } from "react-native-mmkv";
-import { appStore } from "./app-store";
+import { store } from "./app-store";
 
 const storage = createMMKV({ id: "fed-state" });
 const canUseStorage = Platform.OS !== "web" || typeof window !== "undefined";
@@ -37,7 +37,7 @@ export function atomWithMMKV<T>(key: string, initial: T) {
     },
   );
 
-  resetters.push(() => appStore.set(baseAtom, initial));
+  resetters.push(() => store.set(baseAtom, initial));
   return persistedAtom;
 }
 

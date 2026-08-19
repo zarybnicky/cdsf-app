@@ -5,12 +5,11 @@ import type {
   Competition,
   CompetitionResult,
   CompetitionStartListCompetitor,
+  Domain,
   Event,
   EventRegistration,
   Notification,
-  SyncState,
 } from "./types";
-import { emptySyncState } from "./types";
 import { atomWithMMKV } from "./mmkv";
 import {
   isNotificationVisible,
@@ -29,7 +28,6 @@ export const resultsSummaryAtom = atomWithMMKV<EventRegistration[]>(
   [],
 );
 
-// Full CompetitionResult fetched on demand from /competitions/{id}/result.
 export const resultsFullAtom = atomWithMMKV<Record<number, CompetitionResult>>(
   "results:full",
   {},
@@ -44,7 +42,6 @@ export const startlistsAtom = atomWithMMKV<
   Record<number, CompetitionStartListCompetitor[]>
 >("startlists", {});
 
-// Full event details loaded on demand; this is not the competition-discovery cache.
 export const eventsAtom = atomWithMMKV<Record<number, Event>>(
   "events:details",
   {},
@@ -55,10 +52,33 @@ export const notificationsAtom = atomWithMMKV<Record<number, Notification>>(
   {},
 );
 
-export const syncStateAtom = atomWithMMKV<SyncState>(
-  "syncState",
-  emptySyncState,
-);
+type SyncState = Record<Domain, {
+  lastSync: number | null;
+  lastError: string | null;
+}>;
+
+export const syncStateAtom = atomWithMMKV<SyncState>("syncState", {
+  athlete: {
+    lastSync: null,
+    lastError: null,
+  },
+  registrations: {
+    lastSync: null,
+    lastError: null,
+  },
+  registeredEvents: {
+    lastSync: null,
+    lastError: null,
+  },
+  results: {
+    lastSync: null,
+    lastError: null,
+  },
+  notifications: {
+    lastSync: null,
+    lastError: null,
+  },
+});
 
 export const syncInProgressAtom = atom(false);
 
@@ -97,17 +117,13 @@ export const visibleNotificationsAtom = atom((get) => {
   const preferences = get(notificationPreferencesAtom);
 
   return Object.values(get(notificationsAtom))
-    .filter((notification) => isNotificationVisible(notification, preferences))
-    .sort(
-      (left, right) =>
-        right.created.localeCompare(left.created) || right.id - left.id,
-    );
+    .filter((x) => isNotificationVisible(x, preferences))
+    .sort((a, b) => b.created.localeCompare(a.created) || b.id - a.id);
 });
 
 export const unseenNotificationCountAtom = atom((get) => {
   const seen = get(seenNotificationsAtom);
 
-  return get(visibleNotificationsAtom).filter(
-    (notification) => !(String(notification.id) in seen),
-  ).length;
+  return get(visibleNotificationsAtom).filter((x) => !(String(x.id) in seen))
+    .length;
 });

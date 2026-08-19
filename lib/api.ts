@@ -9,10 +9,7 @@ export const apiClient = createClient<paths>({
 });
 
 export class ApiError extends Error {
-  readonly details: unknown;
-  readonly response: Response;
   readonly status: number;
-  readonly url: string;
 
   constructor(response: Response, details: unknown) {
     const description = formatErrorDetails(details);
@@ -25,10 +22,7 @@ export class ApiError extends Error {
       { cause: details },
     );
     this.name = "ApiError";
-    this.details = details;
-    this.response = response;
     this.status = response.status;
-    this.url = response.url;
   }
 }
 

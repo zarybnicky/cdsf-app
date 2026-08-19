@@ -11,6 +11,7 @@ import {
   resultsSummaryAtom,
   startlistsAtom,
 } from "@/lib/atoms";
+import { ApiError } from "@/lib/api";
 import {
   refreshCompetitionResult,
   refreshCompetitionStartlist,
@@ -18,7 +19,7 @@ import {
 import {
   formatCompletion,
   formatCompetitionLabel,
-  formatCompetitionPlacement,
+  formatRanking,
   formatCompetitorName,
   formatCompetitorSource,
   formatPresence,
@@ -27,11 +28,16 @@ import { formatSimpleDate, formatSimpleDateTime } from "@/lib/cdsf";
 import { HeaderTitle } from "@/lib/navigation-header";
 
 type DetailKind = "startlist" | "result";
+type DetailLoadState = {
+  competitionId: number;
+  status: "empty" | "failed" | "not-found";
+};
+type DetailLoader = (competitionId: number) => Promise<boolean | void>;
 type DetailRow = {
   key: string;
   meta?: string;
   ranking?: string;
-  title: string;
+  title?: string;
 };
 
 const detailCopy = {
@@ -42,6 +48,8 @@ const detailCopy = {
     errorTitle: "Nepodařilo se načíst výsledek soutěže",
     emptyBody: "Pro tuto soutěž zatím není k dispozici žádný výsledek.",
     emptyTitle: "Žádný výsledek soutěže",
+    notFoundBody: "Požadovaná soutěž neexistuje nebo už není dostupná.",
+    notFoundTitle: "Soutěž nebyla nalezena",
   },
   startlist: {
     fallbackTitle: "Startovní listina",
@@ -50,12 +58,32 @@ const detailCopy = {
     errorTitle: "Nepodařilo se načíst startovní listinu",
     emptyBody: "Pro tuto soutěž zatím nejsou k dispozici žádné položky.",
     emptyTitle: "Žádné položky ve startovní listině",
+    notFoundBody: "Požadovaná soutěž neexistuje nebo už není dostupná.",
+    notFoundTitle: "Soutěž nebyla nalezena",
   },
 } as const;
 
 function parseId(value?: string) {
   const parsed = Number(value);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
+async function loadDetailState(
+  load: DetailLoader,
+  competitionId: number,
+): Promise<DetailLoadState | null> {
+  try {
+    const found = await load(competitionId);
+    return found === false ? { competitionId, status: "empty" } : null;
+  } catch (error) {
+    return {
+      competitionId,
+      status:
+        error instanceof ApiError && error.status === 404
+          ? "not-found"
+          : "failed",
+    };
+  }
 }
 
 export default function CompetitionDetailScreen({
@@ -84,29 +112,19 @@ export default function CompetitionDetailScreen({
   const hasCachedStartlist = competitionId !== null && competitionId in startlists;
   const hasCachedData = isResult ? Boolean(result) : hasCachedStartlist;
   const load = isResult ? refreshCompetitionResult : refreshCompetitionStartlist;
-  const [failedCompetitionId, setFailedCompetitionId] = useState<number | null>(null);
+  const [loadState, setLoadState] = useState<DetailLoadState | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     if (!competitionId) return;
-    void load(competitionId).then(
-      () =>
-        setFailedCompetitionId((failedId) =>
-          failedId === competitionId ? null : failedId,
-        ),
-      () => setFailedCompetitionId(competitionId),
-    );
+    void loadDetailState(load, competitionId).then(setLoadState);
   }, [competitionId, load]);
 
   async function refresh() {
     if (!competitionId) return;
     setIsRefreshing(true);
-    setFailedCompetitionId(null);
-    try {
-      await load(competitionId);
-    } catch {
-      setFailedCompetitionId(competitionId);
-    }
+    setLoadState(null);
+    setLoadState(await loadDetailState(load, competitionId));
     setIsRefreshing(false);
   }
 
@@ -120,8 +138,6 @@ export default function CompetitionDetailScreen({
           return leftRank - rightRank || left.startNumber - right.startNumber;
         })
         .map((item) => {
-          const fallbackTitle = `Startovní číslo ${item.startNumber}`;
-          const title = formatCompetitorName(item.competitor, fallbackTitle);
           const source =
             item.club ??
             item.competitor?.club ??
@@ -129,13 +145,11 @@ export default function CompetitionDetailScreen({
             item.competitor?.country;
           return {
             key: item.competitorId.toString(),
-            title,
-            ranking: formatCompetitionPlacement(item.ranking, item.rankingTo),
+            title: formatCompetitorName(item.competitor),
+            ranking: formatRanking(item.ranking, item.rankingTo),
             meta: [
               source,
-              title === fallbackTitle
-                ? undefined
-                : `Start. č. ${item.startNumber}`,
+              `č. ${item.startNumber}`,
               formatCompletion(item.completion?.completion),
             ]
               .filter(Boolean)
@@ -180,24 +194,30 @@ export default function CompetitionDetailScreen({
           .filter(Boolean)
           .join(" · ")
     : undefined;
-  const hasError = failedCompetitionId === competitionId && !hasCachedData;
-  const loading = !hasCachedData && !hasError;
+  const loadStatus =
+    loadState?.competitionId === competitionId ? loadState.status : null;
+  const loading = !hasCachedData && loadStatus === null;
   const stateCard = loading
     ? {
         body: copy.loadingBody,
         isLoading: true,
         title: copy.loadingTitle,
       }
-    : hasError
+    : loadStatus === "not-found"
       ? {
-          body: "Zkuste načtení zopakovat.",
-          onRetry: refresh,
-          title: copy.errorTitle,
+          body: copy.notFoundBody,
+          title: copy.notFoundTitle,
         }
-      : {
-          body: copy.emptyBody,
-          title: copy.emptyTitle,
-        };
+      : loadStatus === "failed"
+        ? {
+            body: "Zkuste načtení zopakovat.",
+            onRetry: refresh,
+            title: copy.errorTitle,
+          }
+        : {
+            body: copy.emptyBody,
+            title: copy.emptyTitle,
+          };
 
   return (
     <View style={[styles.container, isResult && styles.resultContainer]}>

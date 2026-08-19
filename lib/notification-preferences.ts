@@ -63,14 +63,14 @@ export const preferenceMetadata = {
     label: "Zápisy výkonné rady",
     description: "Zveřejněné zápisy, usnesení a další výstupy výkonné rady.",
   },
-} satisfies Record<NotificationType, PrefMeta>;
+} satisfies { [key in NotificationType]: PrefMeta };
 
 export const preferenceOrder = Object.keys(
   preferenceMetadata,
 ) as NotificationType[];
 
 const defaultPreferences = Object.fromEntries(
-  preferenceOrder.map((type) => [type, true]),
+  Object.keys(preferenceMetadata).map((type) => [type, true]),
 ) as NotificationPreferences;
 
 export const notificationPreferencesAtom =

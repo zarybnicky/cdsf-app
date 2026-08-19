@@ -1,7 +1,7 @@
 import * as Notifications from "expo-notifications";
-import { Platform } from "react-native";
+import { AppState, Platform } from "react-native";
 import { notifiedAtom } from "./atoms";
-import { appStore } from "./app-store";
+import { store } from "./app-store";
 import type { SyncTrigger } from "./types";
 
 export type NotificationNavigationData =
@@ -30,7 +30,9 @@ Notifications.setNotificationHandler({
   }),
 });
 
-async function ensureNotificationChannel(): Promise<void> {
+export async function prepareNotifications(): Promise<void> {
+  if (Platform.OS === "web") return;
+
   if (Platform.OS === "android") {
     await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
       name: "Aktuality a soutěže",
@@ -39,16 +41,14 @@ async function ensureNotificationChannel(): Promise<void> {
       showBadge: true,
     });
   }
-}
 
-export async function prepareNotifications(): Promise<void> {
-  if (Platform.OS === "web") return;
-  await ensureNotificationChannel();
-  const permissions = await Notifications.getPermissionsAsync();
-  if (!permissions.granted && permissions.canAskAgain) {
-    await Notifications.requestPermissionsAsync({
-      ios: { allowAlert: true, allowBadge: true, allowSound: true },
-    });
+  if (AppState.currentState === "active") {
+    const { granted, canAskAgain } = await Notifications.getPermissionsAsync();
+    if (!granted && canAskAgain) {
+      await Notifications.requestPermissionsAsync({
+        ios: { allowAlert: true, allowBadge: true, allowSound: true },
+      });
+    }
   }
 }
 
@@ -63,30 +63,24 @@ export async function dismissResultNotification(competitionId: number) {
   }
 }
 
-export async function dispatchNotifications(drafts: NotificationDraft[], trigger: SyncTrigger) {
+export async function dispatchNotifications(
+  drafts: NotificationDraft[],
+  trigger: SyncTrigger,
+) {
   if (drafts.length === 0) return;
-  const next = { ...appStore.get(notifiedAtom) };
+  const next = { ...store.get(notifiedAtom) };
 
-  if (trigger !== "background") {
-    for (const { key } of drafts) next[key] ??= Date.now();
-    appStore.set(notifiedAtom, next);
-    return;
-  }
+  if (trigger === "background") {
+    await prepareNotifications().catch(() => {});
 
-  await ensureNotificationChannel().catch(() => {});
-
-  for (const d of drafts) {
-    if (d.key in next) continue;
-
-    try {
+    for (const d of drafts.filter((d) => !(d.key in next))) {
       await Notifications.scheduleNotificationAsync({
         content: { title: d.title, body: d.body, data: d.data },
         trigger: Platform.OS === "android" ? { channelId: CHANNEL_ID } : null,
-      });
-      next[d.key] = Date.now();
-    } catch {
+      }).catch(() => {});
     }
   }
 
-  appStore.set(notifiedAtom, next);
+  for (const { key } of drafts) next[key] ??= Date.now();
+  store.set(notifiedAtom, next);
 }

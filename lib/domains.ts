@@ -1,5 +1,5 @@
 import { apiClient, fetchData } from "./api";
-import { appStore } from "./app-store";
+import { store } from "./app-store";
 import {
   athleteAtom,
   registrationsAtom,
@@ -21,10 +21,7 @@ import {
 import { formatSimpleDateTime } from "./cdsf";
 import { refreshCompetitionEvent } from "./competition-details";
 
-const store = appStore;
 const PAGE_SIZE = 100;
-
-type DomainRefresher = () => Promise<NotificationDraft[] | void>;
 
 type Page<T> = {
   collection: T[];
@@ -55,33 +52,20 @@ async function fetchAllPages<T>(
   }
 }
 
-function fingerprint(fields: unknown[]): string {
-  const value = JSON.stringify(fields);
-  let hash = 5381;
-
-  for (let index = 0; index < value.length; index += 1) {
-    hash = ((hash << 5) + hash + value.charCodeAt(index)) | 0;
-  }
-
-  return (hash >>> 0).toString(36);
-}
-
-function registrationFingerprint(
-  registration: CompetitionRegistration,
-): string {
-  return fingerprint([
-    registration.competitionId,
-    registration.checkInEnd ?? null,
-    registration.class ?? null,
-    registration.toClass ?? null,
-    registration.discipline ?? null,
-    registration.age ?? null,
-    registration.registrationEnd ?? null,
+function registrationFingerprint(reg: CompetitionRegistration): string {
+  return JSON.stringify([
+    reg.competitionId,
+    reg.checkInEnd ?? null,
+    reg.class ?? null,
+    reg.toClass ?? null,
+    reg.discipline ?? null,
+    reg.age ?? null,
+    reg.registrationEnd ?? null,
   ]);
 }
 
 function resultFingerprint(result: CompetitionRegistration): string {
-  return fingerprint([
+  return JSON.stringify([
     result.competitionId,
     result.completedAt ?? null,
     result.ranking ?? null,
@@ -130,9 +114,7 @@ async function refreshNotifications(): Promise<NotificationDraft[]> {
     }
 
     const totalCount = response.paging?.totalCount;
-    const reachedKnownNotification = items.some((notification) =>
-      knownIds.has(notification.id),
-    );
+    const reachedKnownNotification = items.some((x) => knownIds.has(x.id));
     const reachedEnd =
       totalCount !== undefined
         ? fetched.size >= totalCount
@@ -153,17 +135,14 @@ async function refreshNotifications(): Promise<NotificationDraft[]> {
   const next = { ...existing };
   const drafts: NotificationDraft[] = [];
 
-  for (const notification of fetched.values()) {
-    next[notification.id] = notification;
-    if (
-      !knownIds.has(notification.id) &&
-      isNotificationVisible(notification, preferences)
-    ) {
+  for (const item of fetched.values()) {
+    next[item.id] = item;
+    if (!knownIds.has(item.id) && isNotificationVisible(item, preferences)) {
       drafts.push({
-        key: `notif:${notification.id}`,
-        title: notification.caption,
-        body: notification.message?.slice(0, 200),
-        data: { type: "notification", id: notification.id },
+        key: `notif:${item.id}`,
+        title: item.caption,
+        body: item.message?.slice(0, 200),
+        data: { type: "notification", id: item.id },
       });
     }
   }
@@ -190,22 +169,22 @@ async function refreshRegistrations(): Promise<NotificationDraft[]> {
   const previousById = competitionsById(previous);
   const fresh = await fetchAllPages<EventRegistration>(
     async (page, pageSize) => {
-      const response = await fetchData(
+      const { collection = [], paging } = await fetchData(
         apiClient.GET("/athletes/current/competitions/registrations", {
           params: { query: { page, pageSize } },
         }),
       );
-      return { collection: response.collection ?? [], paging: response.paging };
+      return { collection, paging };
     },
   );
   const drafts: NotificationDraft[] = [];
 
   for (const event of fresh) {
     for (const registration of event.competitions) {
-      const previousRegistration = previousById.get(registration.competitionId);
+      const prev = previousById.get(registration.competitionId);
       const nextFingerprint = registrationFingerprint(registration);
 
-      if (!previousRegistration) {
+      if (!prev) {
         drafts.push({
           key: `reg-new:${registration.competitionId}`,
           title: "Nová přihláška",
@@ -218,9 +197,7 @@ async function refreshRegistrations(): Promise<NotificationDraft[]> {
             eventId: event.eventId,
           },
         });
-      } else if (
-        registrationFingerprint(previousRegistration) !== nextFingerprint
-      ) {
+      } else if (registrationFingerprint(prev) !== nextFingerprint) {
         drafts.push({
           key: `reg-change:${registration.competitionId}:${nextFingerprint}`,
           title: "Změna přihlášky",
@@ -253,25 +230,22 @@ async function refreshResults(): Promise<NotificationDraft[]> {
   const previousById = competitionsById(previous);
   const fresh = await fetchAllPages<EventRegistration>(
     async (page, pageSize) => {
-      const response = await fetchData(
+      const { collection = [], paging } = await fetchData(
         apiClient.GET("/athletes/current/competitions/results", {
           params: { query: { page, pageSize } },
         }),
       );
-      return { collection: response.collection ?? [], paging: response.paging };
+      return { collection, paging };
     },
   );
   const drafts: NotificationDraft[] = [];
 
   for (const event of fresh) {
     for (const result of event.competitions) {
-      const previousResult = previousById.get(result.competitionId);
+      const prev = previousById.get(result.competitionId);
       const nextFingerprint = resultFingerprint(result);
 
-      if (
-        !previousResult ||
-        resultFingerprint(previousResult) !== nextFingerprint
-      ) {
+      if (!prev || resultFingerprint(prev) !== nextFingerprint) {
         const body =
           result.ranking !== undefined
             ? `Pořadí: ${result.ranking}${
@@ -298,14 +272,16 @@ async function refreshResults(): Promise<NotificationDraft[]> {
   return drafts;
 }
 
-const DOMAIN_REFRESHERS = {
+type DomainFetcher = () => Promise<NotificationDraft[] | void>;
+
+const FETCHERS: { [key in Domain]: DomainFetcher } = {
   athlete: refreshAthlete,
   notifications: refreshNotifications,
   registrations: refreshRegistrations,
   registeredEvents: refreshRegisteredEvents,
   results: refreshResults,
-} satisfies Record<Domain, DomainRefresher>;
+};
 
 export function refreshDomain(domain: Domain) {
-  return DOMAIN_REFRESHERS[domain]();
+  return FETCHERS[domain]();
 }

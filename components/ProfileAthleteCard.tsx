@@ -1,8 +1,9 @@
 import { StyleSheet, Text, View } from "react-native";
 
 import Ean8Barcode from "@/components/Ean8Barcode";
-import { formatSimpleDate, getAgeLabel } from "@/lib/cdsf";
+import { formatSimpleDate } from "@/lib/cdsf";
 import type { Athlete } from "@/lib/types";
+import { formatAge } from "@/lib/competition-format";
 
 type ProfileAthleteCardProps = {
   athlete: Athlete;
@@ -21,7 +22,7 @@ export default function ProfileAthleteCard({
       <View style={styles.details}>
         <View style={[styles.detailRow, styles.detailRowBorder]}>
           <Text style={styles.detailLabel}>Kategorie</Text>
-          <Text style={styles.detailValue}>{getAgeLabel(athlete.age)}</Text>
+          <Text style={styles.detailValue}>{formatAge(athlete.age)}</Text>
         </View>
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Platnost lékařské prohlídky</Text>

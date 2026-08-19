@@ -60,39 +60,3 @@ export type Domain =
   | "registeredEvents"
   | "results"
   | "notifications";
-
-export interface DomainSyncState {
-  lastSync: number | null; // epoch ms of last successful sync
-  lastError: string | null;
-}
-
-export interface SyncState {
-  athlete: DomainSyncState;
-  registrations: DomainSyncState;
-  registeredEvents: DomainSyncState;
-  results: DomainSyncState;
-  notifications: DomainSyncState;
-}
-
-export const emptySyncState: SyncState = {
-  athlete: {
-    lastSync: null,
-    lastError: null,
-  },
-  registrations: {
-    lastSync: null,
-    lastError: null,
-  },
-  registeredEvents: {
-    lastSync: null,
-    lastError: null,
-  },
-  results: {
-    lastSync: null,
-    lastError: null,
-  },
-  notifications: {
-    lastSync: null,
-    lastError: null,
-  },
-};

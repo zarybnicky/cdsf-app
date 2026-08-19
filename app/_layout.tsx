@@ -1,4 +1,4 @@
-import { appStore } from "@/lib/app-store";
+import { store } from "@/lib/app-store";
 import { seenNotificationsAtom } from "@/lib/atoms";
 import type { NotificationNavigationData } from "@/lib/notify";
 import { sessionStateAtom } from "@/lib/session";
@@ -69,7 +69,7 @@ function RootNavigator() {
             : { competitionId: data.competitionId },
         });
       } else if (data.type === "notification") {
-        appStore.set(seenNotificationsAtom, (seen) => ({
+        store.set(seenNotificationsAtom, (seen) => ({
           ...seen,
           [String(data.id)]: Date.now(),
         }));
@@ -111,7 +111,7 @@ function RootNavigator() {
 
 export default function RootLayout() {
   return (
-    <JotaiProvider store={appStore}>
+    <JotaiProvider store={store}>
       <RootNavigator />
     </JotaiProvider>
   );
